@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="om004">
+	
+	<!-- 문자상담 저장 -->
+	<!-- 코드 저장-->
+	<update id="insertSmsCode" parameterType="map">
+		UPDATE sm002
+			SET	 ext1_cd = #{ext1_cd}
+				,	ext2_cd = #{ext2_cd}
+				,	ext3_cd = #{ext3_cd}
+				,	mod_dt = to_char(sysdate, 'yyyymmdd')
+				,	mod_tm = to_char(sysdate, 'hh24miss')
+				,	mod_usr_id = #{login_usr_id}
+				,	use_yn = 'Y'
+		 WHERE  tp_cd = #{tp_cd} and cd = #{cd}
+	</update>
+	
+	<!-- 휴일관리 리스트 -->
+	<select id="selectList" parameterType="map" resultType="map"> 
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+	      select t1.hdy_id as hdy_id
+                ,   t1.hdy_nm as hdy_nm
+                ,   substr(GETFORMATDATE(t1.strt_dt),6,5) as strt_dt 
+                ,   GETFORMATDATE(t1.strt_dt) as hd_strt_dt
+                ,   t1.end_dt as hd_end_dt
+                ,   t1.use_yn as hd_use_yn
+            from om004 t1
+                 left join od005 t2 on t1.hdy_id = t2.hdy_id
+            where t1.use_yn ='Y'
+            <if test="hdy_type != null and !hdy_type.equals('')">
+                 <if test="hdy_type != null and hdy_type.equals('010000')">
+                  and t1.STRT_DT like substr(#{strt_dt},0,4)|| '%'
+                  and t1.END_DT like substr(#{strt_dt},0,4)|| '%'
+                 </if>
+                 <if test="hdy_type != null and hdy_type.equals('020000')">
+                  and t1.STRT_DT like #{strt_dt} || '%'
+                  and t1.END_DT like #{end_dt} || '%' 
+                 </if>
+	       </if>
+                 <!-- and t1.STRT_DT <![CDATA[>=]]> #{strt_dt} || '%'
+                 and t1.END_DT <![CDATA[<=]]> #{end_dt} || '%' -->
+        <if test="sidx != null and sord != null">
+            ORDER BY ${sidx} ${sord}
+        </if>
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+    </select>
+	<!-- 휴일관리 삽입 -->
+	<update id="inserthdCode" parameterType="map">
+	   INSERT ALL
+      INTO om004 VALUES (
+                 som004.NEXTVAL
+                 ,   #{hdy_nm}
+                 ,   #{strt_dt}
+                 ,   #{end_dt}
+                 ,   #{hdy_type}
+                 ,   #{hdy_dsc}
+                 ,   #{use_yn}
+                 ,   to_char(sysdate, 'yyyymmdd')
+                 ,   to_char(sysdate, 'hh24miss')
+                 ,   #{login_usr_id},to_char(sysdate, 'yyyymmdd')
+                 ,   to_char(sysdate, 'hh24miss')
+                 ,   #{login_usr_id}
+                 )
+      
+      INTO od005 VALUES (
+      som004.NEXTVAL
+      ,   #{cntr_cd}
+      ,   #{use_yn}
+      ,   to_char(sysdate, 'yyyymmdd')
+      ,   to_char(sysdate, 'hh24miss')
+      ,   #{login_usr_id}
+      ,   to_char(sysdate, 'yyyymmdd')
+      ,   to_char(sysdate, 'hh24miss')
+      ,   #{login_usr_id}
+      )
+    SELECT *
+      FROM DUAL
+   </update>   
+	<!-- 휴일관리 수정 -->
+	<update id="updatehdCode" parameterType="map">
+	      UPDATE om004
+			SET	 HDY_NM = #{hdy_nm}
+				,	STRT_DT = #{strt_dt}
+				,	END_DT = #{end_dt}
+				,	mod_dt = to_char(sysdate, 'yyyymmdd')
+				,	mod_tm = to_char(sysdate, 'hh24miss')
+				,	mod_usr_id = #{login_usr_id}
+				,	use_yn = #{use_yn}
+		 WHERE  HDY_ID = #{hdy_id} 
+	</update>
+	<!-- 휴일관리 삭제 -->
+	<update id="deletehdCode" parameterType="map">
+	      UPDATE om004
+			SET	 mod_dt = to_char(sysdate, 'yyyymmdd')
+				,	mod_tm = to_char(sysdate, 'hh24miss')
+				,	mod_usr_id = #{login_usr_id}
+				,	use_yn = #{use_yn}
+		 WHERE  HDY_ID = #{hdy_id}
+	</update>
+	
+	<!-- 휴무일관리 달력 -->
+	
+	<select id="restdEhldyList" parameterType="map"  resultType="map">
+		 select t1.hdy_id as schd_id
+                ,   t1.hdy_nm as title
+                ,   GETFORMATDATE(t1.strt_dt) as strt_dttm
+                ,   GETFORMATDATE(t1.end_dt) as end_dttm
+				,	NVL2(t1.crt_tm, 'false', 'true') AS all_day
+            from om004 t1
+                 left join od005 t2 on t1.hdy_id = t2.hdy_id
+            where t1.use_yn ='Y'
+                 and t1.STRT_DT like #{startDate} || '%'
+                 and t1.END_DT like #{endDate} || '%'
+	</select>
+	
+	<!-- 일정 카운트 -->
+		<select id="restdEhldyListCount_old" parameterType="map"  resultType="map">
+		 select 
+		 	(count(1)+53) s_count
+            from om004 t1
+                 left join od005 t2 on t1.hdy_id = t2.hdy_id
+            where t1.use_yn ='Y'
+                 and t1.STRT_DT like #{startDate} || '%'
+                 and t1.END_DT like #{endDate} || '%'
+	</select>
+
+
+	<select id="restdEhldyListCount" parameterType="map"  resultType="map"> 
+		SELECT COUNT(1) as s_count
+		FROM (    
+		  SELECT DT, D, D_NM, H_NM, CASE WHEN D = 1 OR H_NM IS NOT NULL THEN '1' ELSE D END H
+		  FROM (
+		    SELECT DT, D, D_NM,
+		           (SELECT MAX(HDY_NM) FROM OM004 WHERE DT BETWEEN STRT_DT AND END_DT AND USE_YN='Y') AS H_NM
+		    FROM (    
+		      SELECT TO_CHAR(SDT + LEVEL - 1, 'YYYYMMDD') DT , TO_CHAR(SDT + LEVEL - 1, 'D') AS D, DECODE(TO_CHAR(SDT + LEVEL - 1, 'D'), 1, '일',2,'월',3,'화',4,'수',5,'목',6,'금',7,'토') AS D_NM
+		      FROM (SELECT TO_DATE(#{startDate}||'0101', 'YYYYMMDD') SDT, TO_DATE(#{endDate}||'1231', 'YYYYMMDD') EDT FROM DUAL)
+		      <![CDATA[
+		      CONNECT BY LEVEL <= EDT - SDT + 1 
+		      ]]>
+		    ) 
+		  )
+		) WHERE H=1
+	</select>
+
+	<select id="nextWorkingDay" parameterType="map"  resultType="map"> 
+   SELECT 'AA' as dist 
+       <![CDATA[
+        , TO_CHAR(SYSDATE,'HH24MISS') as day, case when TO_CHAR(SYSDATE,'HH24MISS') > #{deadline} then 'gt' else 'le' end as state 
+         ]]>
+    from dual  
+    UNION ALL
+		SELECT 'BB' as dist
+		      , TO_CHAR(TO_DATE(BB.DAY, 'YYYYMMDD') + NUM-1, 'YYYYMMDD') as day
+				, DECODE(TO_CHAR(TO_DATE(TO_CHAR(TO_DATE(BB.DAY, 'YYYYMMDD') + NUM-1, 'YYYYMMDD'),'YYYYMMDD'),'D'),1,'일',7,'토',(SELECT MAX(HDY_NM) FROM OM004 WHERE USE_YN='Y' AND  (TO_CHAR(TO_DATE(BB.DAY, 'YYYYMMDD') + NUM-1, 'YYYYMMDD')) BETWEEN STRT_DT AND END_DT) )  as state 
+				FROM ( 
+				SELECT ROWNUM AS NUM  
+				FROM DICTIONARY A,( 
+				  SELECT B.DAY AS BDAY, C.DAY AS CDAY  
+				  FROM 
+				   ( SELECT TO_CHAR(SYSDATE - TO_NUMBER(TO_CHAR(SYSDATE,'D')) + 1,'YYYYMMDD') AS DAY FROM DUAL ) B, 
+				   ( SELECT TO_CHAR(SYSDATE - TO_NUMBER(TO_CHAR(SYSDATE,'D')) + 20,'YYYYMMDD') AS DAY FROM DUAL ) C 
+				  ) B 
+				   <![CDATA[
+				WHERE ROWNUM <= TO_DATE(B.CDAY, 'YYYYMMDD') - TO_DATE(B.BDAY, 'YYYYMMDD')  + 1) AA, 
+				 ]]>
+				( SELECT TO_CHAR(SYSDATE + #{range},'YYYYMMDD') AS DAY FROM DUAL ) BB 
+				ORDER BY DIST, day
+	</select>
+	
+	
+</mapper>

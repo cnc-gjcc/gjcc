@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="om051">
+
+	 
+	<resultMap id="TreeMap" type="map">
+		<result property="lv" column="LV"/>
+		<result property="text" column="TEXT"/>
+		<result property="id" column="ID"/>
+		<result property="parent" column="PARENT"/>
+		<result property="cntr_cd" column="CNTR_CD"/>
+		<result property="team_cd" column="TEAM_CD"/>
+		<result property="dept_cd" column="DEPT_CD"/>
+	</resultMap>
+	
+	<resultMap id="TreeMap2" type="map">
+		<result property="name" column="NAME"/>
+		<result property="id" column="ID"/>
+		<result property="pId" column="PID"/>
+		<result property="parent" column="PARENT"/>
+	</resultMap>
+    
+	<!-- 
+	<resultMap id="TreeMap" type="map">
+		<result property="lv" column="LV"/>
+		<result property="name" column="TEXT"/>
+		<result property="id" column="ID"/>
+		<result property="pId" column="PARENT"/>
+		<result property="cntr_cd" column="CNTR_CD"/>
+		<result property="team_cd" column="TEAM_CD"/>
+		<result property="dept_cd" column="DEPT_CD"/>
+	</resultMap>
+	-->
+	<insert id = "insertCorp" parameterType="map">
+		INSERT INTO
+		om051
+		(
+			  EXT_AGN_ID
+			, CORP_NM
+			, DEPT_NM
+			, JOB_NM
+			, NM
+			, TEL_NO1
+			, TEL_NO2
+			, TEL_NO3
+			, TEL_NO4
+			, TEL_NO5
+			, DSC
+			, ETC
+			, USE_YN
+			, CRT_DT
+			, CRT_TM
+			, CRT_USR_ID
+			, MOD_DT
+			, MOD_TM
+			, MOD_USR_ID
+		)
+		values
+		(
+			som051.nextval
+			, #{ corp_nm }
+			, #{ dept_nm }
+			, #{ job_nm }
+			, #{ nm }
+			, #{ tel_no1 }
+			, #{ tel_no2 }
+			, #{ tel_no3 }
+			, #{ tel_no4 }
+			, #{ tel_no5 }
+			, #{ dsc }
+			, #{ etc }
+			, 'Y'
+			, to_char(sysdate, 'yyyymmdd')
+			, to_char(sysdate, 'hh24miss')
+			, #{login_usr_id}
+			, to_char(sysdate, 'yyyymmdd')
+			, to_char(sysdate, 'hh24miss')
+			, #{login_usr_id}
+		)
+	</insert>
+	
+	<update id = "updateCorp" parameterType="map">
+		UPDATE om051
+		SET
+			CORP_NM = #{ corp_nm }
+			, DEPT_NM = #{ dept_nm }
+			, JOB_NM = #{ job_nm }
+			, NM = #{ nm }
+			, TEL_NO1 = #{ tel_no1 }
+			, TEL_NO2 = #{ tel_no2 }
+			, TEL_NO3 = #{ tel_no3 }
+			, TEL_NO4 = #{ tel_no4 }
+			, TEL_NO5 = #{ tel_no5 }
+			, DSC = #{ dsc }
+			, ETC = #{ etc }
+			, MOD_DT = to_char(sysdate, 'yyyymmdd')
+			, MOD_TM = to_char(sysdate, 'hh24miss')
+			, MOD_USR_ID = #{login_usr_id}
+		WHERE
+			ext_agn_id = #{ ext_agn_id }
+	</update>
+	
+	<update id = "deleteCorp" parameterType="map">
+		UPDATE om051
+		SET
+			use_yn = 'N'
+		WHERE
+			ext_agn_id = #{ ext_agn_id }
+	</update>
+	
+	<select id="adminAgencyTreeList" resultMap="TreeMap" parameterType="map">
+		SELECT ORG_LVL as lv
+		     , DEPT_ID as id
+		     , CASE WHEN PARNT_DEPT_ID = '0' THEN '#' ELSE PARNT_DEPT_ID END parent
+		     , DEPT_NM as text
+ 		     , CASE WHEN ORG_LVL = 1 AND PARNT_DEPT_ID = '0' THEN DEPT_ID ELSE PARNT_DEPT_ID END cntr_cd
+		     , CASE WHEN ORG_LVL = 2 THEN DEPT_ID 
+		            WHEN ORG_LVL = 3 THEN PARNT_DEPT_ID ELSE '' END team_cd
+		     , CASE WHEN ORG_LVL = 3 THEN DEPT_ID ELSE '' END dept_cd
+		  FROM OM051
+		 WHERE USE_YN = 'Y' 
+	<if test="parentCd == null">		 
+		   AND PARNT_DEPT_ID = (SELECT DEPT_ID FROM om051 WHERE PARNT_DEPT_ID = '0')
+    </if>
+    <if test="parentCd != null and !parentCd.equals('')">
+		   AND PARNT_DEPT_ID = #{parentCd}
+	</if>
+		ORDER BY ORG_LVL ASC, DEPT_ORD ASC 
+	</select>
+		
+	<select id="adminAgencyList" resultMap="TreeMap" parameterType="map">
+		SELECT ORG_LVL as lv
+		     , DEPT_ID as id
+		     --, PARNT_DEPT_ID as parent
+		     , CASE WHEN PARNT_DEPT_ID = '0' THEN '#' ELSE PARNT_DEPT_ID END parent
+		     , DEPT_NM as text
+ 		     , CASE WHEN ORG_LVL = 1 AND PARNT_DEPT_ID = '0' THEN DEPT_ID ELSE PARNT_DEPT_ID END cntr_cd
+		     , CASE WHEN ORG_LVL = 2 THEN DEPT_ID 
+		            WHEN ORG_LVL = 3 THEN PARNT_DEPT_ID ELSE '' END team_cd
+		     , CASE WHEN ORG_LVL = 3 THEN DEPT_ID ELSE '' END dept_cd
+		  FROM OM051
+		 WHERE USE_YN = 'Y'  	
+		ORDER BY ORG_LVL ASC, DEPT_ORD ASC
+	</select>
+	<select id="adminAgencyList2" resultMap="TreeMap2" parameterType="map">
+	SELECT DEPT_ID as id
+		     , CASE WHEN PARNT_DEPT_ID = '0' THEN '#' ELSE PARNT_DEPT_ID END pid
+		      , CASE WHEN PARNT_DEPT_ID = '0' THEN '#' ELSE PARNT_DEPT_ID END parent
+		     , DEPT_NM as name
+		  FROM OM051
+		 WHERE USE_YN = 'Y'  	
+		ORDER BY ORG_LVL ASC, DEPT_ORD ASC
+	</select>
+</mapper>

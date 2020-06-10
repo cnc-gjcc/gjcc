@@ -1,0 +1,411 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="om044">
+     
+  <resultMap id="MenuMap" type="map">
+    <result property="lv" column="LV"/>
+    <result property="text" column="TEXT"/>
+    <result property="id" column="ID"/>
+    <result property="parent" column="PARNT"/>
+    <result property="seq" column="SEQ"/>
+  </resultMap>
+  
+  <!-- 설문/평가지 트리 조회 -->
+  <select id="selectEduSuvyTree" parameterType="map" resultMap="MenuMap">   
+      SELECT LEVEL AS LV
+           , SUVY_NM  AS TEXT
+           , SUVY_ID  AS ID
+           , NVL(PARNT_SUVY_ID ,'#') AS PARNT
+           , SUVY_ORD  AS SEQ 
+        FROM OM044 
+       WHERE USE_YN = 'Y' 
+             START WITH PARNT_SUVY_ID IS NULL 
+             CONNECT BY PRIOR SUVY_ID = PARNT_SUVY_ID  
+       ORDER SIBLINGS BY SUVY_ORD 
+  </select>     
+  
+  <!-- 설문트리 선택 그리드 조회 -->
+  <select id="selectEduSuvyTrgtList" parameterType="map" resultType="map">
+    <if test="rows != null and page != null">
+    SELECT *
+    FROM
+    (
+      SELECT A1.*
+        , CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+        , CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+        , CEIL(COUNT(1) OVER()) TOTROWCOUNT
+      FROM
+      (
+    </if>
+       SELECT SUVY_ID
+            , SUVY_NM
+            , SUVY_ORD
+            , USE_YN
+            , DECODE(USE_YN, 'Y', '사용', '미사용') AS USE_NM
+            , PARNT_SUVY_ID
+            , QST_TYPE_CD
+            , ANS_TYPE_CD
+            , SUVY_LVL
+         FROM OM044
+        WHERE PARNT_SUVY_ID = #{parnt_suvy_id}                 
+                                
+      <if test="sidx != null and sord != null">
+        ORDER BY ${sidx} ${sord}
+      </if>
+    <if test="rows != null and page != null">
+      ) A1
+    )
+    WHERE PAGENUM = #{page}
+    </if> 
+  </select>     
+  
+  <!-- 설문지 등록 시퀀스 조회 -->
+  <select id="nextval" parameterType="map" resultType="map">
+      SELECT  SOM044.NEXTVAL KEY_ID
+        FROM  DUAL
+  </select>      
+     
+  <!-- 설문지 등록 -->
+  <update id = "insertEduSuvyForm" parameterType="map">
+  {CALL
+      DECLARE
+      BEGIN
+        
+         MERGE INTO OM044
+         USING DUAL
+            ON (SUVY_ID = #{suvy_id})
+         WHEN MATCHED THEN
+              UPDATE SET
+                     SUVY_LVL  = #{suvy_lvl}
+                   , SUVY_NM  = #{suvy_nm}
+                   , PARNT_SUVY_ID  = #{parnt_suvy_id}
+                   , SUVY_ORD  = #{suvy_ord}
+                   , QST_TYPE_CD = #{qst_type_cd}
+                   , ANS_TYPE_CD = #{ans_type_cd}
+                   , USE_YN = #{use_yn}
+                   , MOD_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   , MOD_TM = TO_CHAR(SYSDATE, 'HH24MISS')
+                   , MOD_USR_ID = #{login_usr_id}           
+         WHEN NOT MATCHED THEN
+              INSERT ( 
+                   SUVY_ID 
+                 , SUVY_LVL 
+                 , SUVY_NM 
+                 , PARNT_SUVY_ID 
+                 , SUVY_ORD 
+                 , QST_TYPE_CD 
+                 , ANS_TYPE_CD 
+                 , USE_YN 
+                 , CRT_DT
+                 , CRT_TM
+                 , CRT_USR_ID
+                 , MOD_DT
+                 , MOD_TM
+                 , MOD_USR_ID
+                 )
+             VALUES
+                 (
+                   SOM044.NEXTVAL      
+                 , #{suvy_lvl}        
+                 , #{suvy_nm}
+                 , #{parnt_suvy_id}
+                 , #{suvy_ord} 
+                 , #{qst_type_cd}   
+                 , #{ans_type_cd}
+                 , #{use_yn}
+                 , TO_CHAR (SYSDATE,'YYYYMMDD')
+                 , TO_CHAR (SYSDATE,'HH24MISS')
+                 , #{login_usr_id}
+                 , TO_CHAR (SYSDATE,'YYYYMMDD')
+                 , TO_CHAR (SYSDATE,'HH24MISS')
+                 , #{login_usr_id}
+                 );  
+          
+      END
+    }
+  </update>  
+
+  <!-- 설문지 답변항목 조회 -->
+  <select id="selectAnsCd" parameterType="map" resultType="map">
+      SELECT CD
+           , CD_NM
+           , EXT1_CD
+           , EXT2_CD
+           , EXT3_CD
+           , EXT4_CD
+           , EXT5_CD
+           , EXT6_CD
+           , EXT7_CD
+           , EXT8_CD
+           , EXT9_CD     
+        FROM SM002
+       WHERE TP_CD = #{tp_cd}
+         AND CD = #{cd}      
+  
+  </select>      
+
+  <!-- 설문/평가지 div 조회 -->
+  <select id="selectSuvyAnswer" parameterType="map" resultType="map">
+      SELECT LEVEL AS LV
+           , SUVY_NM  AS TEXT
+           , SUVY_ID  AS ID
+           , NVL(PARNT_SUVY_ID ,'#') AS PARNT
+           , SUVY_ORD  AS SEQ 
+           , QST_TYPE_CD
+           , ANS_TYPE_CD
+           , T2.CD_NM
+           , T2.CD
+        FROM OM044 
+             LEFT OUTER JOIN (SELECT TP_CD
+                                   , CD AS CODE
+                                   , SUBSTR(EXT1_CD, 1, INSTR(EXT1_CD, ':', 1, 1) - 1) AS CD_NM
+                                   , SUBSTR(EXT1_CD, INSTR(EXT1_CD, ':', 1, 1) + 1) AS CD
+                                FROM SM002
+                               WHERE TP_CD = '90118') T2 ON T2.CODE = ANS_TYPE_CD        
+      WHERE USE_YN ='Y' START WITH PARNT_SUVY_ID = #{parnt_Suvy_Id} CONNECT BY PRIOR SUVY_ID  = PARNT_SUVY_ID  
+      ORDER SIBLINGS BY SUVY_ORD     
+  </select>  
+
+  <!-- 설문/평가지 SELECTBOX LIST 조회 -->
+  <select id="selectboxSuvyList" parameterType="map" resultType="map">   
+      SELECT ID, TEXT
+        FROM (
+              SELECT LEVEL AS LV
+                   , SUVY_NM  AS TEXT
+                   , SUVY_ID  AS ID
+                   , NVL(PARNT_SUVY_ID ,'#') AS PARNT
+                   , SUVY_ORD  AS SEQ 
+                FROM OM044 
+               WHERE USE_YN = 'Y' 
+                     START WITH PARNT_SUVY_ID IS NULL 
+                     CONNECT BY PRIOR SUVY_ID = PARNT_SUVY_ID  
+             )
+       WHERE LV = 2
+       ORDER BY SEQ 
+  </select>    
+  
+  
+  <!--평가지 Excel저장 -->
+  <select id="selectMonitorScoreExcel_old" parameterType="map" resultType="map">
+    SELECT ROOT_ID
+    <![CDATA[
+		     , RPAD(ROOT_ID,4,'0')||(case when GGSEQ<5 then '0001' else case when LV=2 AND SEQ>1 then LPAD(to_char(RNUM+1),4,'0') else LPAD(to_char(RNUM),4,'0') end end end) as LSEQ 
+		]]>
+		     , LISTAGG((case when LV=1 then  text  else '' end), ',') within group (order by TEXT) as section 
+		     , LISTAGG((case when LV=2 then  text  else '' end), ',') within group (order by TEXT) as item  
+		     , LISTAGG((case when LV=3 then  text  else '' end), ',') within group (order by TEXT) as contents 
+		     , LISTAGG((case when LV=4 then  text  else '' end), ',') within group (order by TEXT) as type_text  
+		     , LISTAGG((case when LV=4  AND SEQ=1 then to_char(CD) else '' end), ',') within group (order by TEXT) as point
+		     , LISTAGG((case when LV=4 then CD_NM else '' end), ',') within group (order by TEXT) as score_dist
+		     , LISTAGG((case when LV=4 then to_char(scr) else '' end), ',') within group (order by TEXT) as score
+		     
+		  FROM (
+            SELECT 
+                   RNUM
+                 , ROOT_ID
+                 , LSEQ 
+                 , ID, PARNT, SEQ, SEQ2,LV
+                 , RANK() OVER(PARTITION BY ROOT_ID ORDER BY rnum ) as ggSeq
+                 , RANK() OVER(PARTITION BY ROOT_ID ORDER BY SEQ ) as gs_SEQ
+                 , TEXT  
+                 , QST_TYPE_CD 
+                 , ANS_TYPE_CD  
+                 , CD_NM
+                 , CD
+                 , SCR  
+              FROM (
+                    SELECT  
+                           ROWNUM as rnum , 
+                         , CONNECT_BY_ROOT T1.SUVY_ID AS ROOT_ID  
+                         , T1.SUVY_ID AS ID 
+                         , RPAD(CONNECT_BY_ROOT T1.SUVY_ID,4,'0' ) 
+                           || (case when LEVEL=1 then '0001' 
+                                    else (case when T1.SUVY_ORD = 1 then '0001' else LPAD(to_char(ROWNUM),4,'0') end)  end) as LSEQ 
+                         , NVL(PARNT_SUVY_ID ,'#') AS PARNT
+                         , (case when LEVEL=1 then '1' else to_char(T1.SUVY_ORD) end) as SEQ 
+                         , T1.SUVY_ORD AS SEQ2         
+                         , LEVEL AS LV  
+                         , T1.SUVY_NM AS TEXT 
+                         , T1.QST_TYPE_CD 
+                         , T1.ANS_TYPE_CD 
+                         , T2.CD_NM
+                         , T2.CD
+                         , T3.SCR  
+                      FROM OM044 T1
+                           LEFT OUTER JOIN (SELECT TP_CD
+                                                 , CD AS CODE
+                                                 , SUBSTR(EXT1_CD, 1, INSTR(EXT1_CD, ':', 1, 1) - 1) AS CD_NM
+                                                 , SUBSTR(EXT1_CD, INSTR(EXT1_CD, ':', 1, 1) + 1) AS CD
+                                              FROM SM002
+                                             WHERE TP_CD = '90118') T2 ON T2.CODE = ANS_TYPE_CD 
+                           LEFT OUTER JOIN OD029 T3
+                                              ON T3.SUVY_ID = T1.SUVY_ID
+                                             AND T3.VLTN_ID = #{vltn_id} 
+                                             AND T3.VLTN_USR_ID = #{vltn_usr_id} 
+                                             AND T3.TCKT_ID = #{tckt_id} 
+                                             AND T3.VLTR_ID =  #{vltr_id} 
+                                             AND T3.ORD =  #{ord} 
+             WHERE T1.USE_YN ='Y' 
+             START WITH T1.PARNT_SUVY_ID = '4' 
+             CONNECT BY PRIOR T1.SUVY_ID = T1.PARNT_SUVY_ID ORDER SIBLINGS BY T1.SUVY_ORD 
+		     
+		    )  ORDER BY RNUM
+		)   
+		group by ROOT_ID 
+		 <![CDATA[
+		   ,RPAD(ROOT_ID,4,'0')||(case when GGSEQ < 5 then '0001' 
+                                   else (case when LV = 4 AND GS_SEQ = 1 then LPAD(to_char(RNUM - 1),4,'0') 
+                                              else(case when LV = 2 AND SEQ > 1 then LPAD(to_char(RNUM+1),4,'0') 
+                                                        else LPAD(to_char(RNUM),4,'0') end) end) end)
+   		]]>		                                                                             
+		ORDER BY to_number(ROOT_ID) 
+		 <![CDATA[
+		 ,RPAD(ROOT_ID,4,'0')||(case when GGSEQ < 5 then '0001' 
+                                 else (case when LV = 4 AND GS_SEQ = 1 then LPAD(to_char(RNUM - 1),4,'0') 
+                                            else (case when LV = 2 AND SEQ > 1 then LPAD(to_char(RNUM + 1),4,'0') 
+                                                       else LPAD(to_char(RNUM),4,'0') end) end) end)
+     	]]>		
+		           
+  </select>  
+  
+  <!--평가지 Excel저장 -->
+  <select id="selectMonitorScoreExcel" parameterType="map" resultType="map">  
+    WITH TEMP AS 
+        (
+          SELECT  
+                 ROWNUM AS RNUM 
+               , CONNECT_BY_ROOT T1.SUVY_ID AS ROOT_ID  
+               , T1.SUVY_ID AS ID 
+               , RPAD(CONNECT_BY_ROOT T1.SUVY_ID, 4, '0' ) 
+                 || (CASE WHEN LEVEL = 1 THEN '0001' 
+                          ELSE (CASE WHEN T1.SUVY_ORD = 1 THEN '0001' 
+                                     ELSE LPAD(TO_CHAR(ROWNUM), 4, '0') END) END) AS LSEQ 
+               , NVL(PARNT_SUVY_ID, '#') AS PARNT
+               , (CASE WHEN LEVEL = 1 THEN '1' ELSE TO_CHAR(T1.SUVY_ORD) END) AS SEQ 
+               , T1.SUVY_ORD AS SEQ2         
+               , LEVEL AS LV  
+               , T1.SUVY_NM AS TEXT 
+               , T1.QST_TYPE_CD 
+               , T1.ANS_TYPE_CD 
+               , T2.CD_NM
+               , T2.CD
+               , T3.SCR AS ORD1_SCR
+               , T4.SCR AS ORD2_SCR 
+            FROM OM044 T1                              
+                 LEFT OUTER JOIN (SELECT TP_CD
+                                       , CD AS CODE
+                                       , SUBSTR(EXT1_CD, 1, INSTR(EXT1_CD, ':', 1, 1) - 1) AS CD_NM
+                                       , SUBSTR(EXT1_CD, INSTR(EXT1_CD, ':', 1, 1) + 1) AS CD
+                                    FROM SM002
+                                   WHERE TP_CD = '90118') T2 ON T2.CODE = ANS_TYPE_CD 
+                 LEFT OUTER JOIN OD029 T3
+                                    ON T3.SUVY_ID = T1.SUVY_ID
+                                   AND T3.VLTN_ID = #{vltn_id}
+                                   AND T3.VLTN_USR_ID =  #{vltn_usr_id} 
+                                   AND T3.ORD = 1 
+                 LEFT OUTER JOIN OD029 T4
+                                    ON T4.SUVY_ID = T1.SUVY_ID
+                                   AND T4.VLTN_ID = #{vltn_id}
+                                   AND T4.VLTN_USR_ID =  #{vltn_usr_id} 
+                                   AND T4.ORD = 2                                
+           WHERE T1.USE_YN = 'Y' 
+           START WITH T1.PARNT_SUVY_ID = '4' 
+           CONNECT BY PRIOR T1.SUVY_ID = T1.PARNT_SUVY_ID ORDER SIBLINGS BY T1.SUVY_ORD 
+        )
+    , TEMP2 AS 
+        (
+          SELECT 
+                 RNUM , ROOT_ID, LSEQ 
+               , ID, PARNT, SEQ, SEQ2,LV
+               , RANK() OVER(PARTITION BY ROOT_ID ORDER BY RNUM ) AS GGSEQ
+               , RANK() OVER(PARTITION BY ROOT_ID ORDER BY SEQ ) AS GS_SEQ
+               , TEXT  
+               , QST_TYPE_CD 
+               , ANS_TYPE_CD  
+               , CD_NM
+               , CD
+               , ORD1_SCR 
+               , ORD2_SCR 
+            FROM TEMP  
+           ORDER BY RNUM
+        )
+        SELECT ROOT_ID
+		  <![CDATA[
+             , RPAD(ROOT_ID, 4, '0') || (CASE WHEN GGSEQ < 5 THEN '0001' 
+                                              ELSE (CASE WHEN LV = 4 AND GS_SEQ = 1 THEN LPAD(TO_CHAR(RNUM - 1), 4, '0') 
+                                                         ELSE (CASE WHEN LV = 2 AND SEQ > 1 THEN LPAD(TO_CHAR(RNUM + 1), 4, '0') 
+                                                                    ELSE LPAD(TO_CHAR(RNUM), 4, '0') 
+                                                               END) 
+                                                    END) 
+                                         END) AS LSEQ   
+		  ]]>				                                                                             
+             , LISTAGG((CASE WHEN LV = 1 THEN TEXT  ELSE '' END), ',') WITHIN GROUP (ORDER BY TEXT) AS SECTION
+             , LISTAGG((CASE WHEN LV = 2 THEN TEXT  ELSE '' END), ',') WITHIN GROUP (ORDER BY TEXT) AS ITEM  
+             , LISTAGG((CASE WHEN LV = 3 THEN TEXT  ELSE '' END), ',') WITHIN GROUP (ORDER BY TEXT) AS CONTENTS 
+             , LISTAGG((CASE WHEN LV = 4 THEN TEXT  ELSE '' END), ',') WITHIN GROUP (ORDER BY TEXT) AS TYPE  
+             , LISTAGG((CASE WHEN LV = 4 AND SEQ = 1 THEN TO_CHAR(CD) ELSE '' END), ',') WITHIN GROUP (ORDER BY TEXT) AS POINT
+             , LISTAGG((CASE WHEN LV = 4 THEN CD_NM ELSE '' END), ',') WITHIN GROUP (ORDER BY TEXT) AS SCORE_DIST
+             , LISTAGG((CASE WHEN LV = 4 THEN TO_CHAR(ORD1_SCR) ELSE '' END), ',') WITHIN GROUP (ORDER BY TEXT) AS SCORE1
+             , LISTAGG((CASE WHEN LV = 4 THEN TO_CHAR(ORD2_SCR) ELSE '' END), ',') WITHIN GROUP (ORDER BY TEXT) AS SCORE2
+          FROM TEMP2 
+         GROUP BY ROOT_ID 
+      <![CDATA[
+                , RPAD(ROOT_ID, 4, '0') || (CASE WHEN GGSEQ < 5 THEN '0001' 
+                                                 ELSE (CASE WHEN LV = 4 AND GS_SEQ = 1 THEN LPAD(TO_CHAR(RNUM - 1), 4, '0') 
+                                                            ELSE (CASE WHEN LV = 2 AND SEQ > 1 THEN LPAD(TO_CHAR(RNUM + 1), 4, '0') 
+                                                                       ELSE LPAD(TO_CHAR(RNUM), 4, '0') 
+                                                                  END) 
+                                                       END) 
+                                            END) 
+      ]]>				    
+         ORDER BY TO_NUMBER(ROOT_ID)  
+      <![CDATA[
+                , RPAD(ROOT_ID, 4, '0') || (CASE WHEN GGSEQ < 5 THEN '0001' 
+                                                 ELSE (CASE WHEN LV = 4 AND GS_SEQ = 1 THEN LPAD(TO_CHAR(RNUM - 1),4,'0') 
+                                                            ELSE (CASE WHEN LV = 2 AND SEQ > 1 THEN LPAD(TO_CHAR(RNUM + 1), 4, '0') 
+                                                                       ELSE LPAD(TO_CHAR(RNUM), 4, '0') 
+                                                                  END) 
+                                                       END) 
+                                            END) 
+      ]]>				    
+  </select>                                                                        
+            
+  <!--평가지 평가일자, 민원인 연락처 Excel저장 -->
+  <select id="selectMonitorHaderExcel" parameterType="map" resultType="map">  
+/*
+    SELECT VLTN_USR_ID
+         , VLTN_USR_NM
+         , ORD1_CUST_PH_NUM
+         , ORD1_VLTR_DT
+         , ORD2_CUST_PH_NUM
+         , ORD2_VLTR_DT 
+      FROM (
+*/     
+            SELECT T2.VLTN_USR_ID
+                 , GETUSERNM('CC', T2.VLTN_USR_ID) AS VLTN_USR_NM
+                 , NVL2(T1.SNDR_CNTCT_INFM, GETFORMATPHONENUM(T1.SNDR_CNTCT_INFM), '') AS CNTCT_INFM_FORMAT
+                 , T3.ORD || '차' AS ORD_NM
+                 , T3.ORD
+                 , T3.VLTR_DT
+              FROM CH001 T1 
+                   LEFT JOIN OD027 T2 ON T1.TCKT_ID = T2.TCKT_ID 
+                   LEFT JOIN (SELECT VLTN_ID 
+                                   , VLTN_USR_ID 
+                                   , TCKT_ID, VLTR_ID 
+                                   , ORD
+                                   , GETFORMATDATE(MOD_DT) AS VLTR_DT 
+                                FROM OD029 
+                               GROUP BY VLTN_ID, VLTN_USR_ID, TCKT_ID, VLTR_ID, ORD, MOD_DT) T3 ON T1.TCKT_ID = T3.TCKT_ID 
+             WHERE T2.VLTN_ID = #{vltn_id} AND T2.VLTN_USR_ID = #{vltn_usr_id}
+             ORDER BY ORD_NM
+/*
+          )
+     PIVOT (MAX(CNTCT_INFM_FORMAT) AS CUST_PH_NUM, MAX(VLTR_DT) AS VLTR_DT FOR ORD IN ('1' AS ORD1, '2' AS ORD2))        
+*/
+  </select>      
+		    
+</mapper>

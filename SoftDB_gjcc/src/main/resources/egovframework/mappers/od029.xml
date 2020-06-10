@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+    <mapper namespace="od029">
+    
+    <!-- 모니터링평가 점수 삭제 -->
+    <delete id="deleteRecScore" parameterType="map">
+    {call
+        declare
+        begin
+          
+          <!-- 평가대상자 평가점수 상세 -->
+          DELETE OD029
+           WHERE VLTN_ID = #{vltn_Id}
+             AND VLTN_USR_ID = #{vltn_Usr_Id}
+             AND TCKT_ID = #{tckt_Id}
+             AND ORD = #{ord};
+        
+          <!-- 이의제기 테이블 생성 -->
+          DELETE OD028
+           WHERE VLTN_ID = #{vltn_Id}
+             AND VLTN_USR_ID = #{vltn_Usr_Id}
+             AND TCKT_ID = #{tckt_Id}
+             AND ORD = #{ord};        
+      end
+    }  
+    </delete>           
+        
+    <!-- 모니터링평가 점수 저장 -->
+    <update id="updateRecScore" parameterType="map">
+    {call
+        declare
+        begin
+                
+          <!-- 이의제기 테이블 생성 -->
+          MERGE INTO od028
+          USING dual
+          ON (VLTN_ID = #{vltn_Id} 
+              AND VLTN_USR_ID = #{usr_Id}
+              AND TCKT_ID = #{tckt_Id}
+              AND ORD = #{ord})
+          WHEN MATCHED THEN
+          UPDATE SET
+              MOD_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+            , MOD_TM = TO_CHAR(SYSDATE, 'HH24MISS')
+            , MOD_USR_ID = #{login_usr_id}
+          WHEN NOT MATCHED THEN
+          INSERT (
+                VLTN_ID 
+              , VLTN_USR_ID 
+              , TCKT_ID 
+              , VLTR_ID
+              , ORD
+              , USE_YN 
+              , CRT_DT 
+              , CRT_TM 
+              , CRT_USR_ID 
+              , MOD_DT 
+              , MOD_TM 
+              , MOD_USR_ID 
+          ) VALUES (
+               #{vltn_Id} 
+             , #{usr_Id}
+             , #{tckt_Id}
+             , #{login_usr_id}
+             , #{ord}
+             , 'Y'
+             , TO_CHAR(SYSDATE, 'YYYYMMDD')
+             , TO_CHAR(SYSDATE, 'HH24MISS')
+             , #{login_usr_id}
+             , TO_CHAR(SYSDATE, 'YYYYMMDD')
+             , TO_CHAR(SYSDATE, 'HH24MISS')
+             , #{login_usr_id}   
+          );                
+                
+          <!-- 평가대상자 평가점수 상세 -->
+          INSERT INTO OD029 (
+                 VLTN_ID 
+               , VLTN_USR_ID 
+               , TCKT_ID 
+               , VLTR_ID
+               , ORD
+               , SUVY_ID
+               , SCR               
+               , USE_YN 
+               , CRT_DT 
+               , CRT_TM 
+               , CRT_USR_ID 
+               , MOD_DT 
+               , MOD_TM 
+               , MOD_USR_ID 
+           ) VALUES (
+                #{vltn_Id} 
+              , #{usr_Id}
+              , #{tckt_Id}
+              , #{login_usr_id}
+              , #{ord}
+              , #{suvy_Id}
+              , #{scr}              
+              , 'Y'
+              , TO_CHAR(SYSDATE, 'YYYYMMDD')
+              , TO_CHAR(SYSDATE, 'HH24MISS')
+              , #{login_usr_id}
+              , TO_CHAR(SYSDATE, 'YYYYMMDD')
+              , TO_CHAR(SYSDATE, 'HH24MISS')
+              , #{login_usr_id}   
+           ); 
+
+      end
+    }             
+                      
+    </update>    
+               
+    <!-- 모니터링 평가차수 조회 -->
+    <select id="rectSrchOrd" parameterType="map" resultType="map">
+        SELECT ORD1, ORD2
+             , NVL2(ORD1, NVL2(ORD2, 3, 2), NVL2(ORD2, 1, 1)) AS NEXT_ORD
+          FROM (
+                SELECT DISTINCT ORD
+                  FROM OD029
+                 WHERE VLTN_ID = #{vltn_Id}
+                   AND VLTN_USR_ID = #{vltn_Usr_Id}
+                   AND USE_YN = 'Y'
+               ) PIVOT (MAX(ORD) FOR ORD IN (1 AS ORD1, 2 ORD2))          
+    </select> 
+        
+    <!-- 모니터링 대상 평가점수 조회 -->
+    <select id="rectTargetSpec" parameterType="map" resultType="map">
+        SELECT SUVY_ID
+             , SCR
+         FROM OD029 
+        WHERE VLTN_ID = #{vltn_Id}
+          AND VLTN_USR_ID = #{vltn_Usr_Id}
+          AND TCKT_ID = #{tckt_Id}
+          AND VLTR_ID = #{vltr_Id}
+          AND ORD = #{ord}
+    </select>    
+    
+  <!-- 모니터링 현황 그래프 조회 -->
+  <select id="grpMonitorUsrAct" parameterType="map" resultType="map">
+  
+    WITH DATA AS (
+
+      SELECT *
+        FROM (
+              SELECT WORK_DT
+                   , USR_ID
+                   , USR_NM
+                   , SUM(ORD1_SCR) AS ORD1_SCR
+                   , SUM(ORD2_SCR) AS ORD2_SCR
+                   , SUM(AVG_SCR) AS AVG_SCR
+                FROM (
+                      SELECT SUBSTR(T1.END_DT, 1, 6) AS WORK_DT
+                           , T3.USR_ID
+                           , T3.USR_NM
+                           , T3.ORD1_SCR
+                           , T3.ORD2_SCR
+                           , T3.AVG_SCR
+                        FROM OM025 T1
+                        JOIN OM026 T2 ON T1.VLTN_ID = T2.VLTN_ID 
+                        JOIN (          
+                              SELECT VLTN_ID
+                                   , USR_ID
+                                   , USR_NM
+                                   , ORD1_SCR
+                                   , ORD2_SCR
+                                   , ROUND((NVL(ORD1_SCR, 0) + NVL(ORD2_SCR, 0)) / (NVL(ORD1_CNT, 0) + NVL(ORD2_CNT, 0)), 2) AS AVG_SCR
+                                FROM (
+                                      SELECT VLTN_ID, USR_ID, GETUSERNM('CC', USR_ID) AS USR_NM, ORD, SUM(SCR) AS SCR, COUNT(USR_ID) AS CNT 
+                                        FROM (
+                                              SELECT VLTN_ID, VLTN_USR_ID AS USR_ID, ORD, SUM(SCR) AS SCR 
+                                                FROM OD029 
+                                               GROUP BY VLTN_ID, VLTN_USR_ID, ORD
+                                              )
+                                       GROUP BY VLTN_ID, USR_ID, ORD
+                                       ORDER BY VLTN_ID, USR_ID, ORD
+                                       )
+                                       PIVOT (SUM(SCR) AS SCR, SUM(CNT) AS CNT
+                                                FOR ORD IN ('1' AS ORD1, '2' AS ORD2
+                                                )
+                                              )                                
+                             ) T3 ON T1.VLTN_ID = T3.VLTN_ID AND T2.VLTN_USR_ID = T3.USR_ID  
+                       WHERE T1.USE_YN = 'Y'
+                      <![CDATA[                       
+                         AND T1.STRT_DT <= #{schEndDt}
+                         AND T1.END_DT >= #{schStartDt}
+                      ]]>        
+                   <if test="gUserArr != null"> 
+                         AND T3.USR_ID IN       
+                     <foreach collection="gUserArr" item="gUserArr1" index="index" open="(" separator="," close=")">
+                           #{gUserArr1}
+                     </foreach>
+                   </if>
+                       ORDER BY WORK_DT, USR_NM 
+                      )
+                GROUP BY WORK_DT, USR_ID, USR_NM
+                ORDER BY WORK_DT, USR_ID, USR_NM         
+              )
+              PIVOT (SUM(ORD1_SCR) AS ORD1_SCR, SUM(ORD2_SCR) AS ORD2_SCR, SUM(AVG_SCR) AS AVG_SCR
+                  FOR WORK_DT IN (
+                  <foreach collection="gActCdArr" item="j" separator="," index="index">  
+                      '${j}' AS "${j}"
+                  </foreach>                         
+                  )
+              )
+              ORDER BY USR_NM 
+      
+    )
+    
+    SELECT  'D' AS TITLE, USR_ID, USR_NM,
+        <foreach collection="gActCdArr" item="k" separator="," index="index">
+            NVL("${k}_ORD1_SCR", 0) AS "${k}_ORD1_SCR", 
+            NVL("${k}_ORD2_SCR", 0) AS "${k}_ORD2_SCR", 
+            NVL("${k}_AVG_SCR", 0) AS "${k}_AVG_SCR"
+        </foreach>            
+    FROM DATA
+    
+    UNION ALL
+    
+    SELECT  'F' AS TITLE, '' AS USR_ID, '평균' AS USR_NM,
+        <foreach collection="gActCdArr" item="l" separator="," index="index">
+            ROUND(AVG(NVL("${l}_ORD1_SCR", 0)), 2) AS "${l}_ORD1_SCR",
+            ROUND(AVG(NVL("${l}_ORD2_SCR", 0)), 2) AS "${l}_ORD2_SCR",
+            ROUND(AVG(NVL("${l}_AVG_SCR", 0)), 2) AS "${l}_AVG_SCR"
+        </foreach>
+          
+    FROM DATA
+
+    <if test="sidx != null and sord != null">
+    ORDER BY TITLE, ${sidx} ${sord}
+    </if>   
+    
+  </select>    
+    
+</mapper>

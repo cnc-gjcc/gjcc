@@ -1,0 +1,447 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+    <mapper namespace="om024">
+    
+    <!-- 성과관리 목록 -->
+    <select id="kpiList" parameterType="map" resultType="map">
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+                SELECT '(' || year || '년 ' || month || ' 월) ' || kpi_ttl as title
+                    ,   year
+                    ,   month
+                    ,   kpi_ttl
+                    ,   kpi_id                  
+                FROM om024
+                WHERE 1 = 1
+                <if test="searchYear != null and !searchYear.equals('')">
+                    AND year = #{searchYear}
+                </if>
+                <if test="searchMonth != null and !searchMonth.equals('')">
+                    AND month = #{searchMonth}
+                </if>
+                <if test="!notuse">
+                    AND use_yn = 'Y'
+                </if>
+                <if test="sidx != null and sord != null">
+                    ORDER  BY ${sidx} ${sord}
+                </if>
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+    </select>
+
+    <!-- 시퀀스 불러오기 -->
+    <select id="getKpiId" parameterType="map" resultType="map">
+        SELECT om024.NEXTVAL as KPI_ID
+        FROM dual
+    </select>
+    
+    <!-- 성과관리 목록 저장 -->
+    <insert id="insertKpiList" parameterType="map">
+        INSERT  INTO  om024 
+        (
+            kpi_id
+            ,  kpi_ttl
+            ,  year
+            ,  month
+            ,  ans_rate
+            ,  svc_lvl
+            ,  fcr
+            ,  tntr_rate
+            ,  call_wt_tm
+            ,  vltn_scnt
+            ,  vltn_scr
+            ,  impv_act
+            ,  wng_cnsl_scnt
+            ,  rtrm_rate
+            ,  cntb
+            ,  prs_cs_scr
+            ,  task_sppt
+            ,  cvl_occr_scnt
+            ,  etc_wng_cnsl
+            ,  tota_scr
+            ,  use_yn
+            ,  memo
+            ,  crt_dt
+            ,  crt_tm
+            ,  crt_usr_id
+            ,  mod_dt
+            ,  mod_tm
+            ,  mod_usr_id
+            
+        ) VALUES (
+              #{kpiId}
+            , #{title}
+            , #{year}
+            , #{month}
+            , #{res_rate}
+            , #{serv_lv}
+            , #{fcr}
+            , #{trans_rate}
+            , #{delay_tm}
+            , #{mnt_cnt}
+            , #{mnt_scr}
+            , #{imp_act}
+            , #{miss_cnt}
+            , #{trans_job_rate}
+            , #{imp_job_rate}
+            , #{praise_scr}
+            , #{job_sppt}
+            , #{complain_rate}
+            , #{etc_miss_cnt}
+            , #{tot_score}
+            , 'Y'
+            , #{note}
+            , TO_CHAR(SYSDATE, 'YYYYMMDD')
+            , TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+            , #{creat_usr_id}
+            , TO_CHAR(SYSDATE, 'YYYYMMDD')
+            , TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+            , #{creat_usr_id}
+        )
+    </insert>
+    
+    <!-- 성과관리 목록 수정 -->
+    <update id="updateKpiList" parameterType="map">
+        UPDATE  om024
+           SET  year = #{year}
+             ,  month = #{month}
+             ,  kpi_ttl = #{title}
+             ,  ans_rate = #{res_rate}
+             ,  svc_lvl = #{serv_lv}
+             ,  fcr = #{fcr}
+             ,  tntr_rate = #{trans_rate}
+             ,  call_wt_tm = #{delay_tm}
+             ,  vltn_scnt = #{mnt_cnt}
+             ,  vltn_scr = #{mnt_scr}
+             ,  impv_act = #{imp_act}
+             ,  wng_cnsl_scnt = #{miss_cnt}
+             ,  rtrm_rate = #{trans_job_rate}
+             ,  cntb = #{imp_job_rate}
+             ,  prs_cs_scr = #{praise_scr}
+             ,  task_sppt = #{job_sppt}
+             ,  cvl_occr_scnt = #{complain_rate}
+             ,  etc_wng_cnsl = #{etc_miss_cnt}
+             ,  tota_scr = #{tot_score}
+             ,  mod_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+             ,  mod_tm = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+             ,  mod_usr_id = #{mod_usr_id}
+             ,  memo = #{note}
+         WHERE  kpi_id = #{kpiId}
+    </update>
+    
+    <!-- 성과관리 목록 삭제 -->
+    <update id="deleteKpiList" parameterType="map">
+        UPDATE  om024
+           SET  use_yn = #{use_yn}
+             ,  mod_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+             ,  mod_tm = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+             ,  mod_usr_id = #{mod_usr_id}
+         WHERE  kpi_id = #{kpiId}
+    </update>
+    
+
+    
+    <!-- 성과관리 목록 클릭 -->
+    <select id="selectKpiSpec" parameterType="map" resultType="map">
+        SELECT
+                kpi_id
+            ,   kpi_ttl
+            ,   year
+            ,   month
+            ,   ans_rate
+            ,   svc_lvl
+            ,   fcr
+            ,   tntr_rate
+            ,   call_wt_tm
+            ,   vltn_scnt
+            ,   vltn_scr
+            ,   impv_act
+            ,   wng_cnsl_scnt
+            ,   rtrm_rate
+            ,   cntb
+            ,   prs_cs_scr
+            ,   task_sppt
+            ,   cvl_occr_scnt
+            ,   etc_wng_cnsl
+            ,   tota_scr
+            ,   use_yn
+            ,   crt_dt
+            ,   crt_tm
+            ,   crt_usr_id
+            ,   mod_dt
+            ,   mod_tm
+            ,   mod_usr_id
+            ,   memo
+        FROM om024
+        WHERE kpi_id = #{kpi_id}
+    </select>
+    
+     <!-- OM021 테이블이 존재 하지 않음 -->
+    <!-- 성과관리 대상 목록-->
+<!--     <select id="kpiTarget" parameterType="map" resultType="map">
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+                SELECT  t1.kpi_id
+                    ,   t1.kpi_usr_id
+                    ,   t2.usr_nm
+                    ,   t1.fin_flag
+                    ,   t1.tot_score
+                FROM om021 t1 left join om001 t2 on t1.KPI_USR_ID = t2.USR_ID
+                WHERE t1.kpi_id = #{kpiId}
+                <if test="!notuse">
+                    AND t1.use_yn = 'Y'
+                </if>
+                <if test="sidx != null and sord != null">
+                    ORDER  BY ${sidx} ${sord}
+                </if>
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+    </select> -->
+    
+     <!-- OM021 테이블이 존재 하지 않음 -->
+    <!-- 성과관리 대상 클릭 -->
+<!--     <select id="kpiTargetSpec" parameterType="map" resultType="map">
+        SELECT
+                fin_flag
+            ,   res_rate
+            ,   serv_lv
+            ,   fcr
+            ,   trans_rate
+            ,   delay_tm
+            ,   mnt_cnt
+            ,   mnt_scr
+            ,   imp_act
+            ,   miss_cnt
+            ,   trans_job_rate
+            ,   imp_job_rate
+            ,   praise_scr
+            ,   job_sppt
+            ,   complain_rate
+            ,   etc_miss_cnt
+            ,   tot_score
+        FROM om021
+        WHERE kpi_usr_id = #{kpiUsrId}
+          AND kpi_id = #{kpiId}
+    </select> -->
+      
+
+    <select id="select" parameterType="map" resultType="map">
+        SELECT  ROWNUM AS row_no, t1.fl_id, t1.tbl_nm, t1.tbl_pk, t1.LOC_FL_NM, t1.SVR_FL_NM, t1.SVR_SV_PTH, t1.fl_sz, t1.use_yn, t1.crt_dt, t1.crt_tm, t1.crt_usr_id, t1.mod_dt, t1.mod_tm, t1.mod_usr_id
+          FROM  om019  t1
+         WHERE  t1.fl_id = #{fl_id}
+    </select>
+
+    <insert id="insert" parameterType="map">
+        INSERT  INTO om019 (fl_id
+             ,  tbl_nm
+             ,  tbl_pk
+             ,  LOC_FL_NM
+             ,  SVR_FL_NM
+             ,  SVR_SV_PTH
+             ,  fl_sz
+             ,  use_yn
+             ,  crt_dt
+             ,  crt_tm
+             ,  crt_usr_id
+             ,  mod_dt
+             ,  mod_tm
+             ,  mod_usr_id
+            <if test = "tbl_pk2 != null and !tbl_pk2.equals('')">
+             ,  tbl_pk2
+            </if>
+            <if test = "tbl_pk3 != null and !tbl_pk3.equals('')">
+             ,  tbl_pk3
+            </if>
+            <if test = "tbl_pk4 != null and !tbl_pk4.equals('')">
+             ,  tbl_pk4
+            </if>
+            ) VALUES (som019.NEXTVAL
+             ,  #{tbl_nm}
+             ,  #{tbl_pk}
+             ,  #{locfl_nm}
+             ,  #{svrfl_nm}
+             ,  #{svrfl_pth}
+             ,  #{fl_sz}
+             ,  'Y'
+             ,   TO_CHAR(SYSDATE, 'YYYYMMDD')
+             ,   TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+             ,  #{login_usr_id}
+             ,   TO_CHAR(SYSDATE, 'YYYYMMDD')
+             ,   TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+             ,  #{login_usr_id}
+            <if test = "tbl_pk2 != null and !tbl_pk2.equals('')">
+             ,  #{ tbl_pk2 }
+            </if>
+            <if test = "tbl_pk3 != null and !tbl_pk3.equals('')">
+             ,  #{ tbl_pk3 }
+            </if>
+            <if test = "tbl_pk4 != null and !tbl_pk4.equals('')">
+             ,  #{ tbl_pk3 }
+            </if>
+        )
+    </insert>
+
+    <update id="update" parameterType="map">
+        UPDATE  om019
+           SET  tbl_nm = #{tbl_nm}
+             ,  tbl_pk = #{tbl_pk}
+             ,  LOC_FL_NM = #{locfl_nm}
+             ,  SVR_FL_NM = #{svrfl_nm}
+             ,  SVR_SV_PTH = #{svrfl_pth}
+             ,  fl_sz = #{fl_sz}
+             ,  use_yn = #{use_yn}
+             ,  mod_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+             ,  mod_tm = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+             ,  mod_usr_id = #{login_usr_id}
+         WHERE  fl_id = #{fl_id}
+    </update>
+
+    <delete id="delete" parameterType="map">
+        DELETE FROM om019
+         WHERE fl_id = #{fl_id}
+    </delete>
+
+    <delete id="deleteList" parameterType="map">
+        DELETE  FROM om019
+         WHERE  tbl_nm = #{tbl_nm}
+           AND  tbl_pk = #{tbl_pk}
+    </delete>
+
+    <select id="fileList" parameterType="map" resultType="map">
+        SELECT  ROWNUM row_no
+            , t1.fl_id
+            , t1.tbl_nm
+            , t1.tbl_pk
+            , t1.tbl_pk2
+            , t1.tbl_pk3
+            , t1.tbl_pk4
+            , t1.LOC_FL_NM
+            , t1.SVR_FL_NM
+            , t1.SVR_SV_PTH
+            , t1.fl_sz
+            , t1.use_yn
+            , t1.crt_dt
+            , t1.crt_tm
+            , t1.crt_usr_id
+            , t1.mod_dt
+            , t1.mod_tm
+            , t1.mod_usr_id
+            , 'X' AS file_delete
+            , changeNumberFormat(CEIL(FL_SZ/1024)) || 'KB' AS FL_KB_SZ
+        FROM  om019  t1
+        WHERE 1 = 1
+            AND use_yn = 'Y'  
+            AND t1.tbl_nm = #{tbl_nm}
+            AND  t1.tbl_pk = to_char(#{tbl_pk})
+            <if test = "tbl_pk2 != null and !tbl_pk2.equals('')">
+            AND t1.tbl_pk2 = #{tbl_pk2}
+            </if>
+            <if test = "tbl_pk3 != null and !tbl_pk3.equals('')">
+            AND t1.tbl_pk3 = #{tbl_pk3}
+            </if>
+            <if test = "tbl_pk4 != null and !tbl_pk4.equals('')">
+            AND t1.tbl_pk4 is null
+            </if>
+            <if test = "seq != null and !seq.equals('')">
+            AND t1.tbl_pk4 = #{ seq }
+            </if>
+        <if test = "orderby != null and orderby.equals('crtTime')">
+            ORDER BY crt_dt asc, crt_tm asc
+        </if>
+    </select>
+    
+    <select id="dummySelect">
+        SELECT 1 FROM dual
+    </select>
+    
+    <update id = "deleteFileUseYn" parameterType="map">
+        UPDATE  om019
+        SET  use_yn = #{use_yn}
+            ,  mod_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+            ,  mod_tm = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+            ,  mod_usr_id = #{login_usr_id}
+        WHERE  fl_id = #{fl_id}
+    </update>
+    
+    <update id = "addTbl_pk4">
+        UPDATE om019
+        SET tbl_pk4 = #{ seq }
+        WHERE
+            tbl_nm = #{tbl_nm}
+            AND tbl_pk = #{ tp_cd }
+            AND tbl_pk2 = #{ cd }
+            AND tbl_pk3 = #{ cat_seq }
+            AND tbl_pk4 is null
+    </update>
+    
+    <insert id="insertCatFile" parameterType="map">
+        INSERT  INTO 
+        om019 
+        (
+            fl_id
+            ,  tbl_nm
+            ,  tbl_pk
+            ,  tbl_pk2
+            ,  tbl_pk3
+            ,  LOC_FL_NM
+            ,  SVR_FL_NM
+            ,  SVR_SV_PTH
+            ,  fl_sz
+            ,  use_yn
+            ,  crt_dt
+            ,  crt_tm
+            ,  crt_usr_id
+            ,  mod_dt
+            ,  mod_tm
+            ,  mod_usr_id
+        )
+        SELECT 
+            som019.nextval
+            , tbl_nm
+            , tbl_pk
+            , tbl_pk2
+            , tbl_pk3
+            , LOC_FL_NM
+            , SVR_FL_NM
+            , SVR_SV_PTH
+            , fl_sz
+            , 'Y'
+            , crt_dt
+            , crt_tm
+            , crt_usr_id
+            , mod_dt
+            , mod_tm
+            , mod_usr_id
+        FROM om019
+        WHERE fl_id = #{ fl_id }
+    </insert>
+    
+</mapper>

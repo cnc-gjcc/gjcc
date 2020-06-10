@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:jdbc="http://www.springframework.org/schema/jdbc"
+	xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+		http://www.springframework.org/schema/jdbc  http://www.springframework.org/schema/jdbc/spring-jdbc-4.0.xsd
+		http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-3.2.xsd">
+
+<!--
+	<util:properties id="props" location="classpath:/egovframework/property/globals.properties"></util:properties>
+	<bean id="dataSourceSpied" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+		<property name="driverClassName" value="#{props['driverClassName']}"/>
+		<property name="url" value="#{props['url']}"/>
+		<property name="username" value="#{props['username']}"/>
+		<property name="password" value="#{props['password']}"/>
+		<property name="initialSize" value="50"/>
+		<property name="maxActive" value="100"/>
+		<property name="minIdle" value="50"/>
+		<property name="maxWait" value="3000"/>
+		<property name="poolPreparedStatements" value="true"></property>
+		<property name="maxOpenPreparedStatements" value="20"></property>
+		<property name="validationQuery" value="select 1 from dual"/>
+		<property name="testWhileIdle" value="true"/>
+		<property name="timeBetweenEvictionRunsMillis" value="7200000"/>
+-->
+	<bean id="dataSourceSpied" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+		<property name="driverClassName" value="${driverClassName}"/>
+		<property name="url" value="${url}"/>
+		<property name="username" value="${username}"/>
+		<property name="password" value="${password}"/>
+		<property name="initialSize" value="50"/>
+		<property name="maxActive" value="100"/>
+		<property name="minIdle" value="50"/>
+		<property name="maxWait" value="3000"/>
+		<property name="poolPreparedStatements" value="true"></property>
+		<property name="maxOpenPreparedStatements" value="20"></property>
+		<property name="validationQuery" value="select 1 from dual"/>
+		<property name="testWhileIdle" value="true"/>
+		<property name="timeBetweenEvictionRunsMillis" value="7200000"/>
+	</bean>
+	<bean id="dataSource" class="net.sf.log4jdbc.Log4jdbcProxyDataSource">
+		<constructor-arg ref="dataSourceSpied" />
+		<property name="logFormatter">
+			<bean class="net.sf.log4jdbc.tools.Log4JdbcCustomFormatter">
+				<property name="loggingType" value="MULTI_LINE" />
+				<property name="sqlPrefix" value="SQL         :  "/>
+			</bean>
+		</property>
+	</bean>
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<property name="mapperLocations" value="classpath:/egovframework/mappers/**/*.xml" />
+	</bean>
+	<bean id="sqlSession" class="org.mybatis.spring.SqlSessionTemplate">
+		<constructor-arg ref="sqlSessionFactory"/>
+	</bean>
+	
+	<bean id="dataSource2Spied" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close"> 
+    	<property name="driverClassName" value="${local.sudo.driverClassName}"/>
+		<property name="url" value="${local.sudo.url}"/>
+		<property name="username" value="${local.sudo.username}"/>
+		<property name="password" value="${local.sudo.password}"/>
+        <property name="initialSize" value="1"/>
+        <property name="maxActive" value="1"/>
+        <property name="minIdle" value="1"/>
+        <property name="maxWait" value="3000"/>
+        <property name="poolPreparedStatements" value="true"></property>
+        <property name="maxOpenPreparedStatements" value="10"></property>
+        <property name="validationQuery" value="select 1 from dual"/>
+        <property name="testWhileIdle" value="true"/>
+        <property name="timeBetweenEvictionRunsMillis" value="10000"/>
+	</bean>
+	<bean id="dataSource2" class="net.sf.log4jdbc.Log4jdbcProxyDataSource">
+		<constructor-arg ref="dataSource2Spied" />
+		<property name="logFormatter">
+			<bean class="net.sf.log4jdbc.tools.Log4JdbcCustomFormatter">
+				<property name="loggingType" value="MULTI_LINE" />
+				<property name="sqlPrefix" value="SQL         :  "/>
+			</bean>
+		</property>
+	</bean>
+	<bean id="sqlSessionFactory2" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dataSource2" />
+		<property name="mapperLocations" value="classpath:/egovframework/mappers/**/*.xml" />
+	</bean>
+	<bean id="sqlSession2" class="org.mybatis.spring.SqlSessionTemplate">
+	    <constructor-arg ref="sqlSessionFactory2" /> 
+	</bean>
+
+	<bean id="globeeMapper" class="kr.co.twoksystem.mapper.GlobeeMapper">
+		<property name="sqlSession" ref="sqlSession" />
+		<property name="sqlSessionSecond" ref="sqlSession2" />
+		<property name="secondDb" value="oh051" />	
+		<!-- <property name="sqlSessionThird" ref="sqlSession3" /> -->
+		<!--  -<property name="thirdDb" value="cw_cine04" /> -->
+	</bean>
+	
+	<bean id="encryptorConfig" class="org.jasypt.encryption.pbe.config.EnvironmentStringPBEConfig">
+        <property name="algorithm" value="PBEWithMD5AndDES" />
+        <property name="password" value="gpcc" />
+    </bean>
+    <bean id="encryptor" class="org.jasypt.encryption.pbe.StandardPBEStringEncryptor">
+        <property name="config" ref="encryptorConfig" />
+    </bean>
+    <bean class="org.jasypt.spring31.properties.EncryptablePropertyPlaceholderConfigurer">
+        <constructor-arg ref="encryptor" />
+        <property name="locations">
+            <list>
+                <value>classpath:/egovframework/property/globals.properties</value>
+            </list>
+        </property>
+    </bean>
+</beans>

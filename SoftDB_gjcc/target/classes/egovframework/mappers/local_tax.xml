@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="localtax">
+
+
+	<select id="localTaxselectList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>         
+        		SELECT
+					  GB,
+					  CN_EMP,
+					    과세번호,
+					    전자납부번호,
+					    대표세목코드,
+					  TO_CHAR(TO_DATE(과세년월,'YYYYMM'),'YYYY-MM') AS 과세년월,
+					    대표세목명,
+					    과세구분,
+					  DECODE(체납여부,'Y','체납','') AS 체납여부,
+					  TO_CHAR(TO_DATE(최초납기,'YYYYMMDD'),'YYYY-MM-DD') AS 최초납기,
+					  TO_CHAR(TO_DATE(납기,'YYYYMMDD'),'YYYY-MM-DD') AS 납기,
+					  TO_CHAR(TO_DATE(납부일,'YYYYMMDD'),'YYYY-MM-DD') AS 납부일,
+					  TO_CHAR(본세, '999,999,999,999') ||'원' AS 본세,
+					  TO_CHAR(가산금, '999,999,999,999') ||'원' AS 가산금,
+					  TO_CHAR(TO_DATE(부과일자,'YYYYMMDD'),'YYYY-MM-DD') AS 부과일자,
+				      TO_CHAR(미납액, '999,999,999,999') ||'원' AS 미납액,
+				      TO_CHAR(당초본세, '999,999,999,999') ||'원' AS 당초본세,
+					  TO_CHAR(TO_DATE(징수결정일,'YYYYMMDD'),'YYYY-MM-DD') AS 징수결정일,
+					  C.VIR_ACC AS 가상계좌번호,
+					  VIR_COM AS 가상계좌은행,
+					  C.VIR_ACC_2 AS 가상계좌번호2,
+					  VIR_COM_2 AS 가상계좌은행2,
+					  ACC_OWNER AS 예금주명,
+					  '' AS 차량번호
+					FROM
+					    (
+					        SELECT
+					            '공주' AS GB,
+					            CN_EMP,
+					            V_GWASE,
+					            C_DONG,
+							          과세번호,
+							          전자납부번호,
+							          대표세목코드,
+							          과세년월,
+					            MAX(대표세목명) AS 대표세목명,
+					            MAX(X_NPAY_OCC) AS 체납여부,
+					            MAX(과세구분) AS 과세구분,
+					            MAX(최초납기) AS 최초납기,
+					            MAX(납기) AS 납기,
+					            MAX(납부일) AS 납부일,
+					            SUM(본세) AS 본세,
+					            SUM(가산금) AS 가산금,
+					            MAX(부과일자) AS 부과일자,
+					            SUM(미납액) AS 미납액,
+					            SUM(당초본세) AS 당초본세,
+					            MAX(징수결정일) AS 징수결정일
+					        FROM
+					            (
+					                SELECT
+					                    A.CN_EMP,
+					                    A.V_GWASE,
+					                    A.C_DONG,
+					                    A.S_ESUNAP,
+					                    B.전자납부번호,
+					                    A.S_GWASE,
+					                    B.과세번호,
+					                    A.X_NPAY_OCC,
+					                    B.대표세목코드,
+					                    DECODE(회계세목코드,대표세목코드,회계세목명,'') AS 대표세목명,
+								                   회계세목코드,
+								                   회계세목명,
+								                   과세년월,
+								                   과세구분,
+								                   최초납기,
+								                   납기,
+								                   납부일,
+								                   본세,
+								                   가산금,
+								                   부과일자,
+								                   미납액,
+								                   당초본세,
+								                   징수결정일
+					                FROM
+					                    V_SCON704 A,
+					                    V_BUGWA_LIST2 B
+					                WHERE
+					                	1 = 1
+					                	AND A.TPR_NO = LTIS.F_TTPR030(#{tpr_no})
+					                	
+					                	<if test="eNapbuNumb != null and !eNapbuNumb.equals('')">
+						                	AND B.전자납부번호 = #{eNapbuNumb} 
+					                	</if>
+					                	
+					                	<if test="cn_emp != null and !cn_emp.equals('')">
+					                		AND CN_EMP = #{cn_emp}
+					                	</if>
+					                	
+					                    AND A.S_ESUNAP = B.전자납부번호
+					                    AND A.S_GWASE = B.과세번호
+					                    AND B.부과취소유무 IS NULL
+					            )
+					        GROUP BY
+					            CN_EMP,
+					            V_GWASE,
+					            C_DONG,
+							          과세번호,
+							          전자납부번호,
+							          대표세목코드,
+							          과세년월
+					       HAVING
+					            SUM(미납액) > 0
+					       ORDER BY
+							          과세년월 DESC,
+							          대표세목코드
+					    ) D,
+					    SCON604 C
+					WHERE
+					    D.V_GWASE = C.V_GWASE (+)
+					    AND D.C_DONG = C.C_DONG (+)
+					    AND D.과세번호 = C.S_GWASE (+)
+					    AND D.대표세목코드 = C.C_SSEMOK (+)
+					    AND D.과세년월 = YY_GWASE (+) || MM_GWASE (+)			 
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>			
+				
+		<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>
+</mapper>

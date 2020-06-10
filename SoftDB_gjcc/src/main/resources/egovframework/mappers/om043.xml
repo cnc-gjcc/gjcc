@@ -1,0 +1,472 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="om043">
+	
+	<select id="selectCrsList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+      SELECT EDU_ID  
+           , EDU_CLASS_CD  
+           , GETCODENM(EDU_CLASS_CD, '90085') AS EDU_CLASS_NM  
+           , EDU_CONT  
+           , DECODE(EDU_STRT_DT, '', '', GETFORMATDATE(EDU_STRT_DT) || ' ~ ' || GETFORMATDATE(EDU_END_DT)) AS EDU_STED_DT   
+           , TOTA_EDU_TM  
+           , '' AS TRGT_CNT
+           , '' AS CMPLT_CNT 
+        FROM OM042
+       WHERE 1 = 1
+         AND USE_YN = 'Y'
+      <if test="edu_Class_Cd != null and !edu_Class_Cd.equals('all')">
+         AND EDU_CLASS_CD = #{edu_Class_Cd}
+      </if>
+
+      <if test="sidx != null and sord != null">
+       ORDER BY ${sidx} ${sord}
+      </if>  
+	    <if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+	    </if>		
+	</select>
+	
+ <!-- 교육신청자, 이수자 List -->
+	<select id="selectConfirmList" parameterType="map" resultType="map">
+    <if test="rows != null and page != null">
+    SELECT *
+    FROM
+    (
+      SELECT A1.*
+        , CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+        , CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+        , CEIL(COUNT(1) OVER()) TOTROWCOUNT
+      FROM
+      (
+    </if>
+      SELECT T1.EDU_ID                                       
+           , T1.EDU_PRSN_GB_CD   
+           , GETCODENM(T2.TEAM_CD, '90003') AS TEAM_NM                                 
+           , T1.USR_ID    
+           , DECODE(T1.EDU_ORD, '', '', T1.EDU_ORD || '차교육') AS EDU_ORD_NM
+           , DECODE(T1.EDU_ORD, '', '', T1.EDU_ORD) AS EDU_ORD                                                                   
+           , T1.SCR    
+           , T2.USR_NM
+        FROM OM043 T1 
+             RIGHT OUTER JOIN OM001 T2 ON T1.USR_ID = T2.USR_ID AND T2.USE_YN = 'Y'
+       WHERE T1.EDU_ID  = #{edu_Id}
+         AND T1.EDU_PRSN_GB_CD = '300000'
+         AND T1.USE_YN = 'Y'
+
+      <if test="sidx != null and sord != null">
+       ORDER BY ${sidx} ${sord}
+      </if>  
+      <if test="rows != null and page != null">
+      ) A1
+    )
+    WHERE PAGENUM = #{page}
+      </if>   
+	</select>
+   
+ <!-- 교육신청자 List -->
+  <select id="selectApplyList" parameterType="map" resultType="map">
+    <if test="rows != null and page != null">
+    SELECT *
+    FROM
+    (
+      SELECT A1.*
+        , CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+        , CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+        , CEIL(COUNT(1) OVER()) TOTROWCOUNT
+      FROM
+      (
+    </if>
+      SELECT T1.EDU_ID                                       
+           , T1.EDU_PRSN_GB_CD   
+           , GETCODENM(T2.TEAM_CD, '90003') AS TEAM_NM                                 
+           , T1.USR_ID   
+           , DECODE(T1.EDU_ORD, '', '', T1.EDU_ORD || '차교육') AS EDU_ORD_NM  
+           , DECODE(T1.EDU_ORD, '', '', T1.EDU_ORD) AS EDU_ORD                                                               
+           , NVL(T3.SCR, 0) AS SCR    
+           , T2.USR_NM
+           , DECODE(T3.USR_ID, '', 'N', 'Y') AS TRGT_YN
+        FROM OM043 T1 
+             RIGHT OUTER JOIN OM001 T2 ON T1.USR_ID = T2.USR_ID AND T2.USE_YN = 'Y'
+             LEFT OUTER JOIN OM043 T3 ON T1.EDU_ID = T3.EDU_ID AND T1.USR_ID = T3.USR_ID AND T3.EDU_PRSN_GB_CD = '300000' AND T3.USE_YN = 'Y'
+       WHERE T1.EDU_ID  = #{edu_Id}
+         AND T1.EDU_PRSN_GB_CD = '200000'
+         AND T1.USE_YN = 'Y'
+
+      <if test="sidx != null and sord != null">
+       ORDER BY ${sidx} ${sord}
+      </if>  
+      <if test="rows != null and page != null">
+      ) A1
+    )
+    WHERE PAGENUM = #{page}
+      </if>   
+  </select> 
+ 
+ <!-- 교육신청자 Insert, Update -->
+	<update id="updateEduTrgtInfo" parameterType="map">
+    MERGE INTO OM043
+    USING dual
+    ON
+    (
+      EDU_ID = #{ edu_Id }
+      AND USR_ID = #{ usr_Id }
+      AND EDU_ORD = #{ edu_ord }
+      AND EDU_PRSN_GB_CD = '200000'
+      <!-- AND USE_YN = 'Y' -->
+    )
+    WHEN MATCHED THEN
+      UPDATE
+      SET
+        USE_YN = #{use_yn}
+    WHEN NOT MATCHED THEN
+      INSERT
+      ( 
+             EDU_PRSN_ID          
+           , EDU_ID          
+           , EDU_PRSN_GB_CD      
+           , USR_ID  
+           , EDU_ORD       
+           , USE_YN 
+           , SCR
+           , EDU_CMPLT_YN
+           , CRT_DT 
+           , CRT_TM 
+           , CRT_USR_ID 
+           , MOD_DT 
+           , MOD_TM 
+           , MOD_USR_ID 
+      )
+      VALUES
+      (
+            SOM043.NEXTVAL
+          , #{edu_Id}
+          , '200000'
+          , #{usr_Id}
+          , #{edu_ord}
+          , #{use_yn}
+          , 0
+          , 'N'
+          , to_char(sysdate, 'yyyyMMdd')
+          , to_char(sysdate, 'hh24miss')
+          , #{login_usr_id}
+          , to_char(sysdate, 'yyyyMMdd')
+          , to_char(sysdate, 'hh24miss')
+          , #{login_usr_id}
+      )
+
+	</update>
+ 
+   <!-- 교육신청자 update(삭제 기능) -->
+  <update id="deleteEduTrgt" parameterType="map">
+
+    /* 신청자, 이수자 삭제 */
+     UPDATE OM043
+        SET EDU_CMPLT_YN = 'N'
+          , SCR = 0
+          , USE_YN = #{use_yn}
+          , MOD_USR_ID = #{login_usr_id}
+          , MOD_DT = to_char(sysdate, 'yyyymmdd')
+          , MOD_TM = to_char(sysdate, 'hh24miss')
+      WHERE EDU_ID = #{edu_Id}
+        AND USR_ID = #{usr_Id}
+        AND EDU_ORD = #{edu_ord}
+       
+  </update>  
+  
+ <!-- 이수자 Insert, Update -->
+  <update id="updateEduCnfrmInfo" parameterType="map">
+    MERGE INTO OM043
+    USING dual
+    ON
+    (
+      EDU_ID = #{ edu_Id }
+      AND EDU_PRSN_GB_CD = '300000'
+      AND USR_ID = #{ usr_Id }
+      AND EDU_ORD = #{ edu_ord }
+      <!-- AND USE_YN = 'Y' -->
+    )
+    WHEN MATCHED THEN
+      UPDATE
+      SET
+        USE_YN = #{use_yn}
+      , SCR = #{scr}
+    WHEN NOT MATCHED THEN
+      INSERT
+      ( 
+             EDU_PRSN_ID          
+           , EDU_ID          
+           , EDU_PRSN_GB_CD      
+           , USR_ID    
+           , EDU_ORD     
+           , USE_YN 
+           , SCR
+           , EDU_CMPLT_YN
+           , CRT_DT 
+           , CRT_TM 
+           , CRT_USR_ID 
+           , MOD_DT 
+           , MOD_TM 
+           , MOD_USR_ID 
+      )
+      VALUES
+      (
+            SOM043.NEXTVAL
+          , #{edu_Id}
+          , '300000'
+          , #{usr_Id}
+          , #{edu_ord}
+          , #{use_yn}
+          , #{scr}
+          , 'N'
+          , to_char(sysdate, 'yyyyMMdd')
+          , to_char(sysdate, 'hh24miss')
+          , #{login_usr_id}
+          , to_char(sysdate, 'yyyyMMdd')
+          , to_char(sysdate, 'hh24miss')
+          , #{login_usr_id}
+      )
+
+  </update> 
+
+ <!-- 교육결과현황 상담사별 교육시간 조회 -->
+  <select id="selectEduResultList" parameterType="map" resultType="map">
+    <if test="rows != null and page != null">
+    SELECT *
+    FROM
+    (
+      SELECT A1.*
+        , CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+        , CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+        , CEIL(COUNT(1) OVER()) TOTROWCOUNT
+      FROM
+      (
+    </if>
+         
+      SELECT T2.USR_ID
+           , (SELECT USR_NM FROM OM001 ST1 WHERE T2.USR_ID = ST1.USR_ID) AS USR_NM
+           , SUM(DECODE(T2.EDU_PRSN_GB_CD, '300000', 1, 0)) AS EDU_CNT
+           , GETSECONDTOTIME(SUM(DECODE(T2.EDU_PRSN_GB_CD, '300000', NVL(T1.TOTA_EDU_TM, 0) * 60, 0))) AS TOTA_EDU_TM   
+           , SUM(DECODE(T1.EDU_GB_CD, '100000', DECODE(T2.EDU_PRSN_GB_CD, '300000', 1, 0), 0)) AS EDU_IN_CNT
+           , GETSECONDTOTIME(SUM(DECODE(T1.EDU_GB_CD, '100000', DECODE(T2.EDU_PRSN_GB_CD, '300000', NVL(T1.TOTA_EDU_TM, 0) * 60, 0), 0))) AS EDU_IN_TM
+           , SUM(DECODE(T1.EDU_GB_CD, '200000', DECODE(T2.EDU_PRSN_GB_CD, '300000', 1, 0), 0)) AS EDU_OUT_CNT
+           , GETSECONDTOTIME(SUM(DECODE(T1.EDU_GB_CD, '200000', DECODE(T2.EDU_PRSN_GB_CD, '300000', NVL(T1.TOTA_EDU_TM, 0) * 60, 0), 0))) AS EDU_OUT_TM
+           , SUM(DECODE(T2.EDU_PRSN_GB_CD, '300000', NVL(T2.SCR, 0), 0)) AS TOTA_SCR 
+           
+           /* , SUM(DECODE(T2.EDU_PRSN_GB_CD, '300000', NVL(T1.TOTA_EDU_TM, 0), 0)) AS TOTA_EDU_TM */   
+           /*, SUM(DECODE(T1.EDU_GB_CD, '100000', DECODE(T2.EDU_PRSN_GB_CD, '300000', NVL(T1.TOTA_EDU_TM, 0), 0), 0)) AS EDU_IN_TM */
+           /* , SUM(DECODE(T1.EDU_GB_CD, '200000', DECODE(T2.EDU_PRSN_GB_CD, '300000', NVL(T1.TOTA_EDU_TM, 0), 0), 0)) AS EDU_OUT_TM */
+        
+        FROM OM042 T1
+             JOIN OM043 T2 ON T1.EDU_ID = T2.EDU_ID AND T2.USE_YN = 'Y'
+       WHERE T1.EDU_STRT_DT <![CDATA[<=]]> #{edu_End_Dt}   
+         AND T1.EDU_END_DT <![CDATA[>=]]> #{edu_Strt_Dt}
+         AND T1.USE_YN = 'Y'
+         AND T2.EDU_PRSN_GB_CD = '300000'
+         AND T2.USR_ID IN (SELECT ST2.USR_ID 
+                             FROM OM001 ST2 
+                            WHERE ST2.USE_YN = 'Y'
+      <if test="team_cd != null and !team_cd.equals('all') and !team_cd.equals('')">
+                             AND ST2.TEAM_CD = #{team_cd}
+      </if>                                 
+                            
+<!--                                
+      <if test="cntr_cd != null and !cntr_cd.equals('all') and !cntr_cd.equals('')">
+        AND ST2.CNTR_CD = #{cntr_cd}
+      </if>     
+ -->                                                          
+                             AND (ST2.RET_DT is null OR ST2.RET_DT = ''))
+                              
+      <if test="srchagtid != null and !srchagtid.equals('all') and !srchagtid.equals('')">                        
+         AND T2.USR_ID = #{srchagtid}
+      </if>   
+         
+      <if test="edu_Class_Cd != null and !edu_Class_Cd.equals('all')">
+         AND T1.EDU_CLASS_CD = #{edu_Class_Cd}
+      </if> 
+       GROUP BY T2.USR_ID    
+      
+      <if test="sidx != null and sord != null">
+       ORDER BY ${sidx} ${sord}
+      </if>  
+         
+      <if test="rows != null and page != null">
+      ) A1
+    )
+    WHERE PAGENUM = #{page}
+      </if>   
+  </select>
+  
+  <!-- 교육과정 이수/미이수조회 -->
+  <select id="selectEduCmpltlAgtList" parameterType="map" resultType="map">
+    <if test="rows != null and page != null">
+    SELECT *
+    FROM
+    (
+      SELECT A1.*
+        , CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+        , CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+        , CEIL(COUNT(1) OVER()) TOTROWCOUNT
+      FROM
+      (
+    </if>
+      SELECT T1.EDU_ID
+           , T1.USR_ID 
+           , (SELECT USR_NM FROM OM001 ST1 WHERE T1.USR_ID = ST1.USR_ID) AS USR_NM
+           , DECODE(T1.USE_YN, 'Y', '이수', '미이수') AS EDU_PRSN_GB_NM
+           , DECODE(T2.USR_ID, '', '없음', '완료') AS SUVY_SEND
+           , T1.EDU_CMPLT_YN AS TRGT_YN
+        FROM OM043 T1
+             LEFT OUTER JOIN (SELECT EDU_ID, USR_ID 
+                                FROM OM045 
+                               WHERE USE_YN = 'Y'                                      
+                               GROUP BY EDU_ID, USR_ID) T2 ON T1.EDU_ID = T2.EDU_ID AND T1.USR_ID = T2.USR_ID        
+       WHERE T1.EDU_ID = #{edu_Id}
+         AND T1.USR_ID IN (SELECT ST2.USR_ID 
+                             FROM OM001 ST2 
+                            WHERE ST2.USE_YN = 'Y'
+      <if test="team_cd != null and !team_cd.equals('all') and !team_cd.equals('')">
+                             AND ST2.TEAM_CD = #{team_cd}
+      </if>                                 
+      <if test="Agt_Id != null and !Agt_Id.equals('all') and !Agt_Id.equals('')">
+                             AND ST2.USR_ID = #{Agt_Id}
+      </if>                         
+                             AND (ST2.RET_DT is null OR ST2.RET_DT = ''))       
+         AND T1.EDU_PRSN_GB_CD = '300000'        
+         AND T1.USE_YN = 'Y'
+      <if test="sidx != null and sord != null">
+       ORDER BY ${sidx} ${sord}
+      </if>           
+         
+      <if test="rows != null and page != null">
+      ) A1
+    )
+    WHERE PAGENUM = #{page}
+      </if>   
+  </select>      
+
+    <!-- 교육과정관리 ExcelDownload -->
+  <select id="selectEduRsltExcel" parameterType="map" resultType="map">
+    <if test="rows != null and page != null">
+    SELECT *
+    FROM
+    (
+      SELECT A1.*
+        , CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+        , CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+        , CEIL(COUNT(1) OVER()) TOTROWCOUNT
+      FROM
+      (
+    </if>
+      SELECT COL1, COL2, COL3, COL4, COL5, COL6, COL7, COL8, COL9, COL10, COL11
+        FROM
+            (
+             SELECT '1_H' AS COL1
+                  , T2.USR_ID AS COL2
+                  , (SELECT USR_NM FROM OM001 ST1 WHERE T2.USR_ID = ST1.USR_ID) AS COL3
+                  , '' AS COL4
+                  , TO_CHAR(SUM(DECODE(T2.EDU_PRSN_GB_CD, '300000', 1, 0))) AS COL5
+                  , GETSECONDTOTIME(SUM(DECODE(T2.EDU_PRSN_GB_CD, '300000', NVL(T1.TOTA_EDU_TM, 0), 0)) * 60) AS COL6   
+                  , TO_CHAR(SUM(DECODE(T1.EDU_GB_CD, '100000', DECODE(T2.EDU_PRSN_GB_CD, '300000', 1, 0), 0))) AS COL7
+                  , GETSECONDTOTIME(SUM(DECODE(T1.EDU_GB_CD, '100000', DECODE(T2.EDU_PRSN_GB_CD, '300000', NVL(T1.TOTA_EDU_TM, 0), 0), 0)) * 60) AS COL8
+                  , TO_CHAR(SUM(DECODE(T1.EDU_GB_CD, '200000', DECODE(T2.EDU_PRSN_GB_CD, '300000', 1, 0), 0))) AS COL9
+                  , GETSECONDTOTIME(SUM(DECODE(T1.EDU_GB_CD, '200000', DECODE(T2.EDU_PRSN_GB_CD, '300000', NVL(T1.TOTA_EDU_TM, 0), 0), 0)) * 60) AS COL10  
+                  , TO_CHAR(SUM(DECODE(T2.EDU_PRSN_GB_CD, '300000', NVL(T2.SCR, 0), 0))) AS COL11    
+               FROM OM042 T1
+                    LEFT OUTER JOIN OM043 T2 ON T1.EDU_ID = T2.EDU_ID AND T2.USE_YN = 'Y'
+              WHERE T1.EDU_STRT_DT <![CDATA[<=]]> #{edu_End_Dt}   
+                AND T1.EDU_END_DT <![CDATA[>=]]> #{edu_Strt_Dt}
+                AND T1.USE_YN = 'Y'
+                AND T2.EDU_PRSN_GB_CD = '300000' 
+             <if test="edu_Class_Cd != null and !edu_Class_Cd.equals('all')">
+                AND T1.EDU_CLASS_CD = #{edu_Class_Cd}
+             </if>               
+                AND T2.USR_ID IN (SELECT ST2.USR_ID 
+                                    FROM OM001 ST2 
+                                   WHERE ST2.USE_YN = 'Y'
+             <if test="team_cd != null and !team_cd.equals('all') and !team_cd.equals('')">                                   
+                                     AND ST2.TEAM_CD = #{team_cd}
+             </if>
+             
+             <if test="srchagtid != null and !srchagtid.equals('all') and !srchagtid.equals('')">                        
+                                     AND ST2.USR_ID = #{srchagtid}
+             </if>                
+                                     AND (ST2.RET_DT is null OR ST2.RET_DT = ''))
+              GROUP BY T2.USR_ID
+             UNION   
+             SELECT '2_D' AS COL1
+                  , T2.USR_ID AS COL2
+                  , '' AS COL3
+                  , (SELECT USR_NM FROM OM001 SUT1 WHERE T2.USR_ID = SUT1.USR_ID) AS COL4
+                  , GETCODENM(T1.EDU_CLASS_CD, '90085') AS COL5
+                  , T1.EDU_CONT AS COL6
+                  , GETCODENM(T1.EDU_GB_CD, '90084') AS COL7
+                  , DECODE(T1.EDU_STRT_DT, '', '', GETFORMATDATE(T1.EDU_STRT_DT) || ' ~ ' || GETFORMATDATE(T1.EDU_END_DT)) AS COL8
+                  , GETSECONDTOTIME(NVL(T1.TOTA_EDU_TM, 0) * 60) AS COL9
+                  , ST1.TCH_NM AS COL10
+                  , TO_CHAR(NVL(T2.SCR, 0)) AS COL11
+               FROM OM042 T1
+                    LEFT OUTER JOIN OM041 ST1 ON T1.TCH_ID = ST1.TCH_ID
+                  , OM043 T2    
+              WHERE T1.EDU_ID = T2.EDU_ID
+                AND T1.EDU_STRT_DT <![CDATA[<=]]> #{edu_End_Dt}   
+                AND T1.EDU_END_DT <![CDATA[>=]]> #{edu_Strt_Dt}
+                AND T1.USE_YN = 'Y'
+                AND T2.USE_YN = 'Y'
+                AND T2.EDU_PRSN_GB_CD = '300000' 
+             <if test="edu_Class_Cd != null and !edu_Class_Cd.equals('all')">
+                AND T1.EDU_CLASS_CD = #{edu_Class_Cd}
+             </if>                
+                AND T2.USR_ID IN (SELECT ST2.USR_ID 
+                                    FROM OM001 ST2 
+                                   WHERE ST2.USE_YN = 'Y'
+             <if test="team_cd != null and !team_cd.equals('all') and !team_cd.equals('')">                                   
+                                     AND ST2.TEAM_CD = #{team_cd}
+             </if>
+             
+             <if test="srchagtid != null and !srchagtid.equals('all') and !srchagtid.equals('')">                        
+                                     AND ST2.USR_ID = #{srchagtid}
+             </if>               
+                                     AND (ST2.RET_DT is null OR ST2.RET_DT = ''))
+                AND T2.EDU_PRSN_GB_CD = '300000' )
+              ORDER BY COL2, COL1   
+                              
+<!--       <if test="sidx != null and sord != null">
+       ORDER BY ${sidx} ${sord}
+      </if>   -->    
+      <if test="rows != null and page != null">
+      ) A1
+    )
+    WHERE PAGENUM = #{page}
+      </if>   
+  </select>  
+  
+  <!-- 이수현황 교육확인 update -->
+  <update id="updateCmplt" parameterType="map">
+    UPDATE OM043
+       SET EDU_CMPLT_YN  = #{cmplt_yn}
+         , MOD_USR_ID = #{login_usr_id}
+         , MOD_DT = to_char(sysdate, 'yyyymmdd')
+         , MOD_TM = to_char(sysdate, 'hh24miss')
+     WHERE EDU_ID  = #{edu_Id}
+       AND USR_ID = #{usr_Id}
+       AND EDU_PRSN_GB_CD = '300000'
+  </update>  
+  
+</mapper>

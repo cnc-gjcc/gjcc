@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="ch014">
+
+	<sql id="where">
+		 WHERE  1 = 1
+		<if test="asgn_seq != null">
+		   AND  t1.asgn_id = #{asgn_seq}
+		</if>
+		<if test="cmpg_cust_seq != null">
+		   AND  t1.cmpg_cust_id = #{cmpg_cust_seq}
+		</if>
+		<if test="srhText != null">
+			<!-- 조회조건에 따라 칼럼 수정해서 사용하세요 -->
+			<if test="srhType == asgn_seq">
+			   AND  t1.asgn_id LIKE '%' || #{srhText} || '%'
+			</if>
+		</if>
+	</sql>
+
+	<select id="selectList" parameterType="map" resultType="map">
+		<if test="page != null">
+		SELECT A2.* FROM (
+		</if>
+			SELECT ROW_NUMBER() OVER(ORDER BY ROWNUM) row_no
+				  ,  CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) pagenum
+				  ,  CEIL((COUNT(1) OVER()) / #{rows}) totpagecount              
+				  ,  CEIL(COUNT(1) OVER()) totrowcount                           
+				  ,  A1.*                                                        
+			 FROM (                                                            
+				   SELECT  t1.asgn_id, t1.usr_id, t1.cmpg_cust_id, t1.asgn_dt, t1.asgn_tm, t1.asgnr_usr_id
+					 FROM ch014  t1
+				   <include refid="where" />
+					ORDER  BY ${sidx} ${sord}
+				  ) A1
+		<if test="page != null">
+			  ) A2
+		 WHERE pagenum = #{page}
+		</if>
+	</select>
+
+	<select id="selectListCount" parameterType="map" resultType="int">
+		SELECT COUNT(1) AS rows_tot
+		  FROM ch014  t1
+		<include refid="where" />
+	</select>
+
+	<select id="select" parameterType="map" resultType="map">
+		SELECT  ROWNUM AS row_no, t1.asgn_id, t1.usr_id, t1.cmpg_cust_id, t1.asgn_dt, t1.asgn_tm, t1.asgnr_usr_id
+		  FROM  ch014  t1
+		 WHERE  t1.asgn_id = #{asgn_seq}
+	</select>
+
+	<insert id="insert" parameterType="map">
+		INSERT  INTO ch014 (asgn_id
+			 ,  usr_id
+			 ,  cmpg_cust_id
+			 ,  asgn_dt
+			 ,  asgn_tm
+			 ,  asgnr_usr_id
+			) VALUES (sch014.nextval
+			 ,  #{usr_id}
+			 ,  #{cmpg_cust_seq}
+			 ,  TO_CHAR(SYSDATE, 'YYYYMMDD')
+			 ,  TO_CHAR(SYSDATE, 'HH24MISS')
+			 ,  #{login_usr_id}
+		)
+	</insert>
+
+	<update id="update" parameterType="map">
+		UPDATE  ch014
+		   SET  usr_id = #{usr_id}
+			 ,  cmpg_cust_id = #{cmpg_cust_seq}
+			 ,  asgn_dt     = #{asgn_dt}
+			 ,  asgn_tm     = #{asgn_tm}
+			 ,  asgnr_usr_id = #{asgn_usr_id}
+		 WHERE  asgn_id = #{asgn_seq}
+	</update>
+
+	<delete id="delete" parameterType="map">
+		DELETE  FROM ch014
+		 WHERE  asgn_id = #{asgn_seq}
+	</delete>
+
+</mapper>

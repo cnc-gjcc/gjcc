@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="cm011">
+
+	<sql id="where">
+		 WHERE  1 = 1
+		<if test="qst_seq != null">
+		   AND  t1.qst_seq = #{qst_seq}
+		</if>
+		<if test="srhText != null">
+			<!-- 조회조건에 따라 칼럼 수정해서 사용하세요 -->
+			<if test="srhType == qst_seq">
+			   AND  t1.qst_seq LIKE '%' || #{srhText} || '%'
+			</if>
+		</if>
+	</sql>
+
+	<select id="selectList" parameterType="map" resultType="map">
+		<if test="page != null">
+		SELECT A2.* FROM (
+		</if>
+			SELECT ROW_NUMBER() OVER(ORDER BY ROWNUM) row_no
+				  ,  CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) pagenum
+				  ,  CEIL((COUNT(1) OVER()) / #{rows}) totpagecount              
+				  ,  CEIL(COUNT(1) OVER()) totrowcount                           
+				  ,  A1.*                                                        
+			 FROM (                                                            
+				   SELECT   t1.qst_id as qst_seq 
+				   		   ,t1.qst_no
+				   		   ,getCodeNM('90117', t2.qst_type_cd) qst_type
+				   		   ,t1.qst_nm
+				   		   ,t1.XAMP_SCNT
+					 FROM   cm011  t1
+					 JOIN   cm010  t2
+					   ON   t2.cmpg_id = t1.cmpg_id
+					WHERE   t1.cmpg_id = #{cmpg_id}
+				   <include refid="where" />
+					ORDER  BY ${sidx} ${sord}
+				  ) A1
+		<if test="page != null">
+			  ) A2
+		 WHERE pagenum = #{page}
+		</if>
+	</select>
+	
+	<select id="cmpgBasic" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+		
+				 SELECT  t1.qst_id as qst_seq
+				   		  ,t1.qst_no
+				   		  ,getCodeNM(t1.qst_type_cd,'90117') qst_type
+				   		  ,t1.qst_nm
+				   		  ,t1.XAMP_SCNT
+				   		  ,t1.qst_type_cd qst_type_cd
+				   		  ,xamp1
+				   		  ,xamp2
+				   		  ,xamp3
+				   		  ,xamp4
+				   		  ,xamp5
+					 FROM  cm011  t1
+					 
+		<if test="cmpg_id != null and !cmpg_id.equals('')">
+					WHERE  t1.cmpg_id = #{cmpg_id}
+		</if>	
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>
+	</select>	
+
+	<select id="selectListCount" parameterType="map" resultType="int">
+		SELECT COUNT(1) AS rows_tot
+		  FROM cm011  t1
+		<include refid="where" />
+	</select>
+
+	<select id="select" parameterType="map" resultType="map">
+		SELECT  ROWNUM AS row_no
+          , t1.qst_id as qst_seq
+          , t1.cmpg_id
+          , t1.qst_no
+          , t1.qst_type_cd
+          , t1.qst_nm
+          , t1.XAMP_SCNT
+		  FROM  cm011  t1
+		 WHERE  t1.qst_id = #{qst_seq}
+	</select>
+
+	<select id="nextval" parameterType="map" resultType="map">
+		SELECT scm011.nextval nextval
+		  FROM dual
+	</select>
+
+	<insert id="insert" parameterType="map">
+	
+	{call
+	    declare
+	    begin
+		INSERT  INTO cm011 (
+      			qst_id
+      		,	cmpg_id
+      		,	qst_no
+      		,	qst_type_cd
+      		,	qst_nm
+      		,	XAMP_SCNT
+      	 	<if test="xamp1 != null and !xamp1.equals('')">
+      	 	,	xamp1
+      		</if>
+      		<if test="xamp2 != null and !xamp2.equals('')">
+      	 	,	xamp2
+      		</if>
+      		<if test="xamp3 != null and !xamp3.equals('')">
+      		,	xamp3
+      		</if>
+      		<if test="xamp4 != null and !xamp4.equals('')">
+      		,	xamp4
+      		</if>
+      		<if test="xamp5 != null and !xamp5.equals('')">
+      		,	xamp5
+      		</if>
+      		,	crt_dt
+      		,	crt_tm
+      		,	crt_usr_id
+      		,	mod_dt
+      		,	mod_tm
+      		,	mod_usr_id
+      		) 
+   VALUES (
+      			scm011.nextval
+      		,	#{cmpg_id}
+      		,	#{qst_no}
+      		,	#{qst_type_cd}
+      		,	#{qst_nm}
+      		,	#{ans_cnt}
+       		<if test="xamp1 != null and !xamp1.equals('')">
+      		,	#{xamp1}
+      		</if>
+      		<if test="xamp2 != null and !xamp2.equals('')">
+      		,	#{xamp2}
+      		</if>
+      		<if test="xamp3 != null and !xamp3.equals('')">
+      		,	#{xamp3}
+      		</if>
+      		<if test="xamp4 != null and !xamp4.equals('')">
+      		,	#{xamp4}
+      		</if>
+      		<if test="xamp5 != null and !xamp5.equals('')">
+      		,	#{xamp5}
+      		</if>
+      		, TO_CHAR(SYSDATE, 'YYYYMMDD')
+      		, TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+      		, #{login_usr_id}
+      		, TO_CHAR(SYSDATE, 'YYYYMMDD')
+      		, TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+      		, #{login_usr_id}
+		);
+		
+		UPDATE cm010
+		SET qst_scnt = ( select count(1) FROM cm011 WHERE cmpg_id = #{cmpg_id})
+		WHERE  cmpg_id = #{cmpg_id};
+
+		end
+	 }
+	</insert>
+
+	<update id="update" parameterType="map">
+		UPDATE  cm011
+		SET  
+			cmpg_id = #{cmpg_id}
+		,	qst_no = #{qst_no}
+		,	qst_type_cd = #{qst_type_cd}
+		,	qst_nm = #{qst_nm}
+		,	XAMP_SCNT = #{ans_cnt}
+	 	<if test="xamp1 != null and !xamp1.equals('')">
+	 	,	xamp1 = #{xamp1}
+		</if>
+		<if test="xamp1 == null or xamp1.equals('')">
+		,	xamp1 = ''
+		</if>
+		<if test="xamp2 != null and !xamp2.equals('')">
+	 	,	xamp2 = #{xamp2}
+		</if>
+		<if test="xamp2 == null or xamp2.equals('')">
+		,	xamp2 = ''
+		</if>
+		<if test="xamp3 != null and !xamp3.equals('')">
+		,	xamp3 = #{xamp3}
+		</if>
+		<if test="xamp3 == null or xamp3.equals('')">
+		,	xamp3 = ''
+		</if>
+		<if test="xamp4 != null and !xamp4.equals('')">
+		,	xamp4 = #{xamp4}
+		</if>
+		<if test="xamp4 == null or xamp4.equals('')">
+		,	xamp4 = ''
+		</if>
+		<if test="xamp5 != null and !xamp5.equals('')">
+		,	xamp5 = #{xamp5}
+		</if>
+		<if test="xamp5 == null or xamp5.equals('')">
+		,	xamp5 = ''
+		</if>
+		,	mod_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		,	mod_tm = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+		,	mod_usr_id = #{login_usr_id}
+		WHERE qst_id = #{qst_seq}
+	</update>
+
+	<delete id="delete" parameterType="map">
+		DELETE FROM cm011
+		 WHERE qst_id = #{qst_seq}
+	</delete>
+
+	<delete id="deleteList" parameterType="map">
+		{call
+	    	declare
+	    	begin
+	    		DELETE FROM cm015 WHERE qst_id = #{qst_seq};
+		        DELETE FROM cm011 WHERE qst_id = #{qst_seq};
+		        
+				UPDATE cm010
+				   SET qst_scnt = ( select count(1) FROM cm011 WHERE cmpg_id = #{cmpg_id})
+				 WHERE  cmpg_id = #{cmpg_id};
+		 
+			end
+		}
+	</delete>
+	
+	<select id="selectCustCmpg" parameterType="map" resultType="map">
+         SELECT 	cm11.cmpg_id
+         		,	cm11.qst_id
+         		,	cm11.qst_type_cd
+         		,	cm11.qst_no
+         		,	cm11.qst_nm
+         		,	cm11.XAMP_SCNT
+         		,	cm11.xamp1
+         		,	cm11.xamp2
+         		,	cm11.xamp3
+         		,	cm11.xamp4
+         		,	cm11.xamp5
+						,	(SELECT COUNT(1) FROM cm015 cm15, cm012 cm12 WHERE cm15.qst_id = cm11.qst_id AND cm12.CMPG_CUST_ID = cm15.CMPG_CUST_ID AND cm12.proc_st_cd = '030400') AS xamp_tot_cnt
+						,	(SELECT COUNT(1) FROM cm015 cm15, cm012 cm12 WHERE cm15.qst_id = cm11.qst_id AND cm15.ans_no = '1' AND cm12.CMPG_CUST_ID = cm15.CMPG_CUST_ID AND cm12.proc_st_cd = '030400') AS xamp1_cnt
+						,	(SELECT COUNT(1) FROM cm015 cm15, cm012 cm12 WHERE cm15.qst_id = cm11.qst_id AND cm15.ans_no = '2' AND cm12.CMPG_CUST_ID = cm15.CMPG_CUST_ID AND cm12.proc_st_cd = '030400') AS xamp2_cnt
+						,	(SELECT COUNT(1) FROM cm015 cm15, cm012 cm12 WHERE cm15.qst_id = cm11.qst_id AND cm15.ans_no = '3' AND cm12.CMPG_CUST_ID = cm15.CMPG_CUST_ID AND cm12.proc_st_cd = '030400') AS xamp3_cnt
+						,	(SELECT COUNT(1) FROM cm015 cm15, cm012 cm12 WHERE cm15.qst_id = cm11.qst_id AND cm15.ans_no = '4' AND cm12.CMPG_CUST_ID = cm15.CMPG_CUST_ID AND cm12.proc_st_cd = '030400') AS xamp4_cnt
+						,	(SELECT COUNT(1) FROM cm015 cm15, cm012 cm12 WHERE cm15.qst_id = cm11.qst_id AND cm15.ans_no = '5' AND cm12.CMPG_CUST_ID = cm15.CMPG_CUST_ID AND cm12.proc_st_cd = '030400') AS xamp5_cnt
+						,	CASE WHEN cm11.qst_type_cd = '1002' 
+							THEN (SELECT COUNT(1) FROM cm015 cm15, cm012 cm12 WHERE cm15.qst_id = cm11.qst_id AND cm15.ans_nm IS NOT NULL AND cm12.CMPG_CUST_ID = cm15.CMPG_CUST_ID AND cm12.proc_st_cd = '030400') 
+							END AS shortAns_cnt 
+         FROM cm011 cm11
+         WHERE cmpg_id = #{cmpg_id}
+         ORDER BY qst_no ASC	
+<!-- 	
+         SELECT 	cm11.cmpg_id
+         		,	cm11.qst_id
+         		,	cm11.qst_type_cd
+         		,	cm11.qst_no
+         		,	cm11.qst_nm
+         		,	cm11.XAMP_SCNT
+         		,	cm11.xamp1
+         		,	cm11.xamp2
+         		,	cm11.xamp3
+         		,	cm11.xamp4
+         		,	cm11.xamp5
+					<if test="isResult">
+						,	(SELECT COUNT(1) FROM cm015 cm15 WHERE cm15.qst_id = cm11.qst_id) AS xamp_tot_cnt
+						,	(SELECT COUNT(1) FROM cm015 cm15 WHERE cm15.qst_id = cm11.qst_id AND cm15.ans_no = '1') AS xamp1_cnt
+						,	(SELECT COUNT(1) FROM cm015 cm15 WHERE cm15.qst_id = cm11.qst_id AND cm15.ans_no = '2') AS xamp2_cnt
+						,	(SELECT COUNT(1) FROM cm015 cm15 WHERE cm15.qst_id = cm11.qst_id AND cm15.ans_no = '3') AS xamp3_cnt
+						,	(SELECT COUNT(1) FROM cm015 cm15 WHERE cm15.qst_id = cm11.qst_id AND cm15.ans_no = '4') AS xamp4_cnt
+						,	(SELECT COUNT(1) FROM cm015 cm15 WHERE cm15.qst_id = cm11.qst_id AND cm15.ans_no = '5') AS xamp5_cnt
+						,	CASE WHEN cm11.qst_type_cd = '1002' 
+							THEN (SELECT COUNT(1) FROM cm015 cm15 WHERE cm15.qst_id = cm11.qst_id AND cm15.ans_nm IS NOT NULL) 
+							END AS shortAns_cnt 
+					</if>
+         FROM cm011 cm11
+         WHERE cmpg_id = #{cmpg_id}
+         ORDER BY qst_no ASC
+ -->         
+	</select>
+	
+	<select id="excelSelectCustCmpg" parameterType="map" resultType="map">
+
+		SELECT	t1.qst_nm																	/* 제목 */
+					, t1.qst_id	as qst_seq														/* 질문순서 */
+					, t1.qst_no																	/* 질문번호 */
+					, t1.qst_type_cd														/* qst_type_cd: 90117	(1002: 주관식) */
+					, t1.xamp as ans_nm													/* 질문에 대한 답변 항목 */
+					, t1.ans_no																	/* 답변번호 */
+    			, NVL(t2.totcnt, 0) as selectCnt						/* 전체 답변 갯수*/
+    			, NVL((select count(1) from cm012 where cmpg_id = t1.cmpg_id and proc_st_cd = '030400'), 0) comcnt 			/* 캠페인대상고객-완료갯수 (cm012) */
+    			, NVL(DECODE(t1.qst_type_cd, '1002', t4.anscnt, t3.anscnt), 0) as cmplcnt																/* 답변 항목에 대한 갯수 */
+		  FROM (     
+		        SELECT cmpg_id, qst_id, qst_no, qst_type_cd, qst_nm, ans_no, xamp        
+		          FROM (
+	                  select cmpg_id, qst_id, qst_no, qst_type_cd, qst_nm, '1' as ans_no, xamp1 as xamp    /* 1번 답변 */
+	                    from cm011
+	                   where xamp1 is not null
+	                   union
+	                  select cmpg_id, qst_id, qst_no, qst_type_cd, qst_nm, '2' as ans_no, xamp2 as xamp    /* 2번 답변 */
+	                    from cm011
+	                   where xamp2 is not null
+	                   union   
+	                  select cmpg_id, qst_id, qst_no, qst_type_cd, qst_nm, '3' as ans_no, xamp3 as xamp    /* 3번 답변 */
+	                    from cm011
+	                   where xamp3 is not null
+	                   union   
+	                  select cmpg_id, qst_id, qst_no, qst_type_cd, qst_nm, '4' as ans_no, xamp4 as xamp    /* 4번 답변 */
+	                    from cm011
+	                   where xamp4 is not null
+	                   union      
+	                  select cmpg_id, qst_id, qst_no, qst_type_cd, qst_nm, '5' as ans_no, xamp5 as xamp    /* 5번 답변 */
+	                    from cm011
+	                   where xamp5 is not null
+    								) 
+				    )  t1
+		   LEFT JOIN (SELECT qst_id, COUNT(*) as totcnt 
+		                FROM cm015 
+		               GROUP BY qst_id) t2 
+		          ON t1.qst_id = t2.qst_id     																																			/*캠페인답변 (전체답변 갯수)*/
+		   LEFT JOIN (SELECT qst_id, ans_no, COUNT(ans_no) as anscnt FROM cm015 st1, cm012 st2 
+		               WHERE st1.CMPG_CUST_ID = st2.CMPG_CUST_ID 
+		                 AND st2.proc_st_cd = '030400' 
+		               GROUP BY qst_id, ans_no) t3 
+		          ON t1.qst_id = t3.qst_id AND t1.ans_no = t3.ans_no <![CDATA[ AND t1.qst_type_cd <> '1002' ]]>  		/*캠페인답변 (객관식, 체크박스 답변)*/
+		   LEFT JOIN (SELECT qst_id, COUNT(*) as anscnt 
+		                FROM cm015 st1, cm012 st2 
+		               WHERE st1.CMPG_CUST_ID = st2.CMPG_CUST_ID 
+		                 AND st2.proc_st_cd = '030400' 
+		               GROUP BY qst_id) t4 
+		          ON t1.qst_id = t4.qst_id AND t1.qst_type_cd = '1002'      																				/*캠페인답변 (주관식 답변)*/
+<!-- 		   
+		   LEFT JOIN (SELECT qst_id, ans_no, COUNT(ans_no) as anscnt FROM cm015 GROUP BY qst_id, ans_no) t3 ON t1.qst_id = t3.qst_id AND t1.ans_no = t3.ans_no <![CDATA[ AND t1.qst_type_cd <> '1002' ]]> 		/*캠페인답변 (객관식, 체크박스 답변)*/
+		   LEFT JOIN (SELECT qst_id, COUNT(*) as anscnt FROM cm015 GROUP BY qst_id) t4 ON t1.qst_id = t4.qst_id AND t1.qst_type_cd = '1002'      																															/*캠페인답변 (주관식 답변)*/
+ -->		 
+		 WHERE t1.cmpg_id = #{cmpg_id}
+		 ORDER BY t1.qst_id, t1.ans_no
+
+<!-- 
+	    SELECT  t2.qst_nm
+		    ,  t1.qst_id
+		    ,  t1.ans_seq
+		    ,  t1.ans_nm
+		    ,  (select count(1) from cm016 where ans_seq = t1.ans_seq) selectCnt    
+		    ,  (SELECT count(1) FROM cm012 WHERE cmpg_id = t2.cmpg_id AND proc_st_cd = '030000') comcnt
+		    ,  t2.qst_no
+		    ,  t2.qst_type_cd
+		    ,  (SELECT count(*) FROM cm016 WHERE ans_seq in ( SELECT ans_seq FROM cm015 WHERE qst_id = T1.qst_id )) AS cmplcnt	    
+	    FROM cm011 t2
+	    LEFT JOIN cm015 t1
+	    ON t1.qst_id = t2.qst_id 
+	    WHERE t2.cmpg_id = #{cmpg_id}
+	    ORDER BY t2.qst_no,t1.ans_no
+ -->	    
+	    
+	</select>
+	
+	<update id="cleanAnswer" parameterType="map">
+		UPDATE cm011 
+		SET
+			xamp1 = ''
+		,	xamp2 = ''
+		,	xamp3 = ''
+		,	xamp4 = ''
+		,	xamp5 = ''
+		WHERE 
+	</update>
+	
+</mapper>

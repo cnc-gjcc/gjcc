@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="od022">
+
+  <!-- 날짜 사이의 년월 리스트 구하기(공통처리하는 부분이 없어서 여기에 삽입 -->
+  <select id="getYearMonList" parameterType="map" resultType="map">
+    <![CDATA[
+    SELECT MON AS MON_CD
+         , SUBSTR(MON, 1, 4) || '년' || SUBSTR(MON, 5, 2) || '월' AS MON_NM
+      FROM (
+            SELECT TO_CHAR (ADD_MONTHS (TO_DATE (#{syymm}, 'YYYYMM'), LEVEL - 1), 'YYYYMM') MON
+              FROM DUAL
+            CONNECT BY ADD_MONTHS (TO_DATE (#{syymm}, 'YYYYMM'), LEVEL - 1) <= TO_DATE (#{eyymm}, 'YYYYMM')
+            )    
+    ]]>
+  </select>     
+     
+     
+  <!-- 업무지식결과 리스트 조회 -->
+  <select id="selectJisikSuvyTrgtList" parameterType="map" resultType="map">
+    <if test="rows != null and page != null">
+    SELECT *
+    FROM
+    (
+      SELECT A1.*
+        , CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+        , CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+        , CEIL(COUNT(1) OVER()) TOTROWCOUNT
+      FROM
+      (
+    </if>
+         
+       SELECT A.USR_ID 
+            , T2.USR_NM
+            , T2.TEAM_CD
+            , GETCODENM(T2.TEAM_CD, '90003') AS TEAM_NM
+            , A.FST 
+            , A.SEC 
+            , (A.FST + A.SEC) / 2 AS AVG_SCR
+            , A.DSTB_TM 
+            , GETSECONDTOTIME(A.DSTB_TM) AS DSTB_TM_FORMAT
+            , A.RNK 
+            , GETFORMATDATE(substr(A.EDU_CFM_DTM, 0, 8)) || ' ' || GETFORMATTIME(substr(A.EDU_CFM_DTM, 9, 6)) AS EDU_CFM_DTM
+            , DECODE(A.EDU_CFM_DTM, '', '미확인', '확인') AS EDU_CFM_NM
+            , A.USE_YN 
+            , (SELECT SA.USR_NM FROM OM001 SA WHERE SA.USR_ID = A.MOD_USR_ID) AS MOD_USR_NM
+         FROM OD022 A
+              LEFT JOIN OM001 T2 ON A.USR_ID = T2.USR_ID         
+         
+        WHERE A.TASK_KNWG_ID = #{task_knwg_id}
+          AND A.USE_YN = 'Y'
+          AND A.USR_ID IN (SELECT ST2.USR_ID 
+                             FROM OM001 ST2 
+                            WHERE ST2.USE_YN = 'Y'
+      <if test="team_cd != null and !team_cd.equals('all') and !team_cd.equals('')">
+                              AND ST2.TEAM_CD = #{team_cd}                 
+      </if>
+      
+      <if test="usr_id != null and !usr_id.equals('all') and !usr_id.equals('')">
+                              AND ST2.USR_ID = #{usr_id}                 
+      </if>
+      
+                              AND (ST2.RET_DT is null OR ST2.RET_DT = ''))                    
+                                
+      <if test="sidx != null and sord != null">
+        ORDER BY ${sidx} ${sord}
+      </if>
+    <if test="rows != null and page != null">
+      ) A1
+    )
+    WHERE PAGENUM = #{page}
+    </if> 
+  </select>    
+  
+  <!-- 업무지식결과 등록 및 업무지식테스트 인원 업뎃 -->
+  <update id = "jisikSuvyTrgtSave" parameterType="map">
+    {CALL
+        DECLARE
+        BEGIN
+          
+           MERGE INTO OD022
+           USING DUAL
+              ON (TASK_KNWG_ID = #{task_knwg_id} AND USR_ID  = #{usr_id})
+           WHEN MATCHED THEN
+                UPDATE SET
+                       FST  = #{fst}
+                     , SEC  = #{sec}
+                     , DSTB_TM  = (#{dstb_tm} * 60 + #{dstb_mm})
+                     , RNK  = #{rnk}
+                     <choose>
+                     <when test='edu_cfm_dtm.equals("Y") and !edu_cfm_dtm.equals("")'>
+                     , EDU_CFM_DTM = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+                     </when>
+                     <otherwise>
+                     , EDU_CFM_DTM = ''
+                     </otherwise>   
+                     </choose> 
+                     , USE_YN = #{use_yn}
+                     , MOD_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+                     , MOD_TM = TO_CHAR(SYSDATE, 'HH24MISS')
+                     , MOD_USR_ID = #{login_usr_id}           
+           WHEN NOT MATCHED THEN
+                INSERT(
+                       TASK_KNWG_ID 
+                     , USR_ID 
+                     , FST 
+                     , SEC  
+                     , DSTB_TM
+                     , RNK
+                     , EDU_CFM_DTM 
+                     , USE_YN 
+                     , CRT_DT
+                     , CRT_TM
+                     , CRT_USR_ID             
+                     , MOD_DT
+                     , MOD_TM
+                     , MOD_USR_ID
+                   ) VALUES (
+                       #{task_knwg_id}
+                     , #{usr_id}
+                     , #{fst}
+                     , #{sec}
+                     , (#{dstb_tm} * 60 + #{dstb_mm})
+                     , #{rnk}
+   
+                    <choose>
+                    <when test='edu_cfm_dtm.equals("Y") and !edu_cfm_dtm.equals("")'>
+                    , TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+                    </when>
+                    <otherwise>
+                    , ''
+                    </otherwise>   
+                    </choose>                 
+                    
+                     , #{use_yn}
+                     , TO_CHAR(SYSDATE, 'YYYYMMDD')
+                     , TO_CHAR(SYSDATE, 'HH24MISS')
+                     , #{login_usr_id}
+                     , TO_CHAR(SYSDATE, 'YYYYMMDD')
+                     , TO_CHAR(SYSDATE, 'HH24MISS')
+                     , #{login_usr_id}
+                );  
+          
+        END
+    }
+  </update>  
+  
+  <!-- 업무지식테스트 현황 그래프 조회 -->
+  <select id="eduJisikSuvyUsrAct" parameterType="map" resultType="map">
+  
+    WITH DATA AS (
+      SELECT  A.* 
+          , (
+          <foreach collection="gActCdArr" item="i" separator="+" index="index">  
+            NVL("${i}_FST" ,0)
+          </foreach>
+            ) AS TOT      
+          , (
+          <foreach collection="gActCdArr" item="i" separator="+" index="index">  
+            NVL("${i}_CNT" ,0)
+          </foreach>
+            ) AS CNT    
+      FROM (
+        SELECT *
+        FROM
+        (
+            SELECT SUBSTR(T1.EXAM_STRT_DT, 1, 6) AS EXAM_DT
+                 , T2.USR_ID
+                 , GETUSERNM('CC', T2.USR_ID) AS USR_NM
+                 , (CASE WHEN COUNT(T2.USR_ID) > 1 THEN AVG(T2.FST) ELSE SUM(T2.FST) END) AS FST   
+                 , COUNT(T2.USR_ID) AS CNT
+              FROM OM022 T1
+              JOIN OD022 T2 ON T1.TASK_KNWG_ID = T2.TASK_KNWG_ID
+             WHERE T1.USE_YN = 'Y'
+            <if test="task_knwg_id != null and !task_knwg_id.equals('all') and !task_knwg_id.equals('')">
+               AND T1.TASK_KNWG_ID = #{task_knwg_id} 
+            </if>
+             <![CDATA[
+               AND T1.EXAM_STRT_DT <= #{schEndDt}
+               AND T1.EXAM_END_DT >= #{schStartDt}
+             ]]>
+           <if test="gUserArr != null">           
+               AND T2.USR_ID IN       
+            <foreach collection="gUserArr" item="gUserArr1" index="index" open="(" separator="," close=")">
+                  #{gUserArr1}
+            </foreach>
+           </if>
+
+             GROUP BY SUBSTR(T1.EXAM_STRT_DT, 1, 6), T2.USR_ID
+             ORDER BY EXAM_DT, USR_NM
+        )
+          PIVOT ( SUM(FST) AS FST, SUM(CNT) AS CNT
+                  FOR  EXAM_DT IN (        
+            <foreach collection="gActCdArr" item="j" separator="," index="index">  
+                '${j}' AS "${j}"
+            </foreach>        
+                ))
+        ORDER BY USR_NM
+      )A
+    )
+    
+    SELECT  'D' AS TITLE, USR_ID, USR_NM,
+        <foreach collection="gActCdArr" item="k" separator="," index="index">
+            NVL("${k}_FST", 0) AS "FST_${k}"
+        </foreach>            
+          , DECODE(CNT, 0, 0, (CASE WHEN CNT > 1 THEN TOT ELSE ROUND((TOT / CNT), 2) END)) AS AVG_FST
+
+    FROM DATA
+    
+    UNION ALL
+    
+    SELECT  'F' AS TITLE, '' AS USR_ID, '평균' AS USR_NM,
+        <foreach collection="gActCdArr" item="l" separator="," index="index">
+            ROUND(AVG(NVL("${ l}_FST", 0)), 2) AS "FST_${ l}"
+        </foreach>
+          , DECODE(SUM(CNT), 0, 0, (CASE WHEN SUM(CNT) > 1 THEN SUM(TOT) ELSE ROUND(AVG(TOT / CNT), 2) END)) AS AVG_FST
+          
+    FROM DATA
+
+    <if test="sidx != null and sord != null">
+    ORDER BY TITLE, ${sidx} ${sord}
+    </if>   
+    
+  </select>
+
+</mapper>

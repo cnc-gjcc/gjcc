@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+    <mapper namespace="od028">
+
+    <!-- 상담품질 평가의견, 이의제기 수정 -->
+    <update id="updateRecObjct" parameterType="map">
+      UPDATE od028
+         SET VLTN_OPN = #{vltn_Opn}
+           , OBJCT = #{objct}
+           , ANS = #{ans}
+           , MOD_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+           , MOD_TM = TO_CHAR(SYSDATE, 'HH24MISS')
+           , MOD_USR_ID = #{login_usr_id}
+       WHERE VLTN_ID = #{vltn_Id} 
+         AND VLTN_USR_ID = #{vltn_Usr_Id}
+         AND ORD = #{ord}
+    </update>   
+    
+</mapper>

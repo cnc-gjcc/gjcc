@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="ch021">
+
+  <insert id="insert" parameterType="map">
+    INSERT  INTO ch021 (WRK_DT
+       , WRK_TM
+       , USR_ID
+       , CUST_TEL_NO
+       , CALL_GB_CD
+       , CRT_DT
+       , CRT_TM
+       , CRT_USR_ID
+       , MOD_DT
+       , MOD_TM
+       ,MOD_USR_ID
+      ) VALUES (TO_CHAR(SYSDATE, 'YYYYMMDD')
+       , TO_CHAR(SYSDATE, 'HH24MISS')
+       , #{usr_id}
+       , #{cust_tel_no}
+       , #{call_gb_cd}
+       , TO_CHAR(SYSDATE, 'YYYYMMDD')
+       , TO_CHAR(SYSDATE, 'HH24MISS')
+       , #{login_usr_id}
+       , TO_CHAR(SYSDATE, 'YYYYMMDD')
+       , TO_CHAR(SYSDATE, 'HH24MISS')
+       , #{login_usr_id}
+    )
+  </insert>
+
+
+	<select id="cnsSmsList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT
+					A2.*				
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+			
+				  SELECT  CH_GB_CD, CH_SND_ID AS RCV_ID, CH_SND_ID, 
+				          getFormatPhoneNum(SNDR_CNTCT_INFM) AS RCVR_CNTCT_INFM,
+				          RCV_CONT, '' AS SND_CONT, 
+				          getFormatDate(RCV_DT)||' '||getFormatTime(RCV_TM) AS RCV_DTM,            
+				          '' AS SND_REQ_DTM,          
+				          '' AS SND_END_DTM,          
+				          NVL2(RCV_DIV_DT, getFormatDate(RCV_DIV_DT)||' '||getFormatTime(RCV_DIV_TM), '') AS RCV_DIV_DTM,
+				          RCV_DIV_USR_ID, (SELECT USR_NM  FROM OM001 WHERE USR_ID = RCV_DIV_USR_ID ) as USR_NM,
+				          RCV_ACT_ST_CD, getCodeNM(RCV_ACT_ST_CD, '90020') AS RCV_ACT_ST_NM, '' AS SND_RSLT_NM
+				  FROM CH021 
+				  WHERE USE_YN = 'Y'
+				  AND RCV_DIV_USR_ID IS NOT NULL 
+				  AND CH_GB_CD = #{ch_gb_cd}
+				  
+				  <if test="srchDate != null and !srchDate.equals('')">
+				  AND RCV_DT BETWEEN #{srchDate} and #{srchDateEn}
+				  </if>
+				  
+				  <if test="srchUsr != null and !srchUsr.equals('')">
+				  AND RCV_DIV_USR_ID = #{srchUsr}
+				  </if>
+				  				  
+				  <if test='srchType.equals("srchTel") and srchText != null and !srchText.equals("")'>
+				  AND SNDR_CNTCT_INFM LIKE REPLACE(#{srchText},'-')||'%'
+				  </if>
+				  
+				  <if test='srchType.equals("srchMsg") and srchText != null and !srchText.equals("")'>
+				  AND RCV_CONT LIKE '%'||#{srchText}||'%'
+				  </if>
+				  
+				  UNION ALL 
+				  
+				  SELECT  A.CH_GB_CD, A.TCKT_ID AS RCV_ID, A.CH_SND_ID, 
+				          getFormatPhoneNum(A.RCVR_CNTCT_INFM) AS RCVR_CNTCT_INFM,
+				          R.RCV_CONT, A.SND_CONT, 
+				          getFormatDate(R.RCV_DT)||' '||getFormatTime(R.RCV_TM) AS RCV_DTM,
+				          NVL2(SND_REQ_DT, getFormatDate(SND_REQ_DT)||' '||getFormatTime(SND_REQ_TM), '') AS SND_REQ_DTM,
+				          NVL2(SND_END_DT, getFormatDate(SND_END_DT)||' '||getFormatTime(SND_END_TM), '') AS SND_END_DTM,
+				          '' RCV_DIV_DTM,          
+				          A.SND_REQ_USR_ID, (SELECT USR_NM  FROM OM001 WHERE USR_ID = A.SND_REQ_USR_ID ) as USR_NM,
+				          R.RCV_ACT_ST_CD, getCodeNM(RCV_ACT_ST_CD, '90020') AS RCV_ACT_ST_NM, getCodeNM(SND_RSLT_CD, '90057') AS SND_RSLT_NM
+				  FROM CH021 R, CH020 A
+				  WHERE R.USE_YN = 'Y'
+				  AND R.RCV_DIV_USR_ID IS NOT NULL 
+				  AND R.CH_GB_CD = #{ch_gb_cd}
+				  
+				  <if test="srchDate != null and !srchDate.equals('')">
+				  AND R.RCV_DT BETWEEN #{srchDate} and #{srchDateEn}
+				  </if>
+				  
+				  <if test="srchUsr != null and !srchUsr.equals('')">
+				  AND R.RCV_DIV_USR_ID = #{srchUsr}
+				  </if>
+				  
+				  <if test='srchType.equals("srchTel") and srchText != null and !srchText.equals("")'>
+				  AND R.SNDR_CNTCT_INFM LIKE REPLACE(#{srchText},'-')||'%'
+				  </if>
+				  
+				  <if test='srchType.equals("srchMsg") and srchText != null and !srchText.equals("")'>
+				  AND R.RCV_CONT LIKE '%'||#{srchText}||'%'
+				  </if>
+				  
+				  AND R.CH_SND_ID = A.TCKT_ID
+				  AND A.USE_YN = 'Y'			
+				
+			<if test="sidx != null and sord != null">					
+				ORDER BY ${sidx} ${sord}					
+			</if>
+		<if test="rows != null and page != null">
+			) A1
+		) A2
+		WHERE A2.PAGENUM = #{page}
+		</if>
+	</select>
+
+
+	<select id="cnsSmsListExcel" parameterType="map" resultType="map">
+
+		SELECT  RCV_ID, CH_SND_ID, RCVR_CNTCT_INFM,
+		        DECODE(CH_GB_CD, '12010', RCV_DTM, '12000','  '||SND_REQ_DTM, '') AS VIEW_DTM,
+		        DECODE(CH_GB_CD, '12010', RCV_CONT, '12000','  답변] '||SND_CONT, '') AS VIEW_CONT,
+		        RCV_DIV_DTM, USR_NM, 
+		        DECODE(CH_GB_CD, '12010', RCV_ACT_ST_NM, '12000', SND_RSLT_NM, '') AS VIEW_ST_NM
+		FROM (		
+			
+				  SELECT  CH_GB_CD, CH_SND_ID AS RCV_ID, CH_SND_ID, 
+				          getFormatPhoneNum(SNDR_CNTCT_INFM) AS RCVR_CNTCT_INFM,
+				          RCV_CONT, '' AS SND_CONT, 
+				          getFormatDate(RCV_DT)||' '||getFormatTime(RCV_TM) AS RCV_DTM,            
+				          '' AS SND_REQ_DTM,          
+				          '' AS SND_END_DTM,          
+				          NVL2(RCV_DIV_DT, getFormatDate(RCV_DIV_DT)||' '||getFormatTime(RCV_DIV_TM), '') AS RCV_DIV_DTM,
+				          RCV_DIV_USR_ID, (SELECT USR_NM  FROM OM001 WHERE USR_ID = RCV_DIV_USR_ID ) as USR_NM,
+				          RCV_ACT_ST_CD, getCodeNM(RCV_ACT_ST_CD, '90020') AS RCV_ACT_ST_NM, '' AS SND_RSLT_NM
+				  FROM CH021 
+				  WHERE USE_YN = 'Y'
+				  AND RCV_DIV_USR_ID IS NOT NULL 
+				  AND CH_GB_CD = #{ch_gb_cd}
+				  
+				  <if test="srchDate != null and !srchDate.equals('')">
+				  AND RCV_DT BETWEEN #{srchDate} and #{srchDateEn}
+				  </if>
+				  
+				  <if test="srchUsr != null and !srchUsr.equals('')">
+				  AND RCV_DIV_USR_ID = #{srchUsr}
+				  </if>
+				  
+				  <if test='srchType.equals("srchTel") and srchText != null and !srchText.equals("")'>
+				  AND SNDR_CNTCT_INFM LIKE REPLACE(#{srchText},'-')||'%'
+				  </if>
+				  
+				  <if test='srchType.equals("srchMsg") and srchText != null and !srchText.equals("")'>
+				  AND RCV_CONT LIKE '%'||#{srchText}||'%'
+				  </if>
+				  
+				  UNION ALL 
+				  
+				  SELECT  A.CH_GB_CD, A.TCKT_ID AS RCV_ID, A.CH_SND_ID, 
+				          getFormatPhoneNum(A.RCVR_CNTCT_INFM) AS RCVR_CNTCT_INFM,
+				          R.RCV_CONT, A.SND_CONT, 
+				          getFormatDate(R.RCV_DT)||' '||getFormatTime(R.RCV_TM) AS RCV_DTM,
+				          NVL2(SND_REQ_DT, getFormatDate(SND_REQ_DT)||' '||getFormatTime(SND_REQ_TM), '') AS SND_REQ_DTM,
+				          NVL2(SND_END_DT, getFormatDate(SND_END_DT)||' '||getFormatTime(SND_END_TM), '') AS SND_END_DTM,
+				          '' RCV_DIV_DTM,          
+				          A.SND_REQ_USR_ID, (SELECT USR_NM  FROM OM001 WHERE USR_ID = A.SND_REQ_USR_ID ) as USR_NM,
+				          R.RCV_ACT_ST_CD, getCodeNM(RCV_ACT_ST_CD, '90020') AS RCV_ACT_ST_NM, getCodeNM(SND_RSLT_CD, '90057') AS SND_RSLT_NM
+				  FROM CH021 R, CH020 A
+				  WHERE R.USE_YN = 'Y'
+				  AND R.RCV_DIV_USR_ID IS NOT NULL   
+				  AND R.CH_GB_CD = #{ch_gb_cd}
+				  
+				  <if test="srchDate != null and !srchDate.equals('')">
+				  AND R.RCV_DT BETWEEN #{srchDate} and #{srchDateEn}
+				  </if>
+				  
+				  <if test="srchUsr != null and !srchUsr.equals('')">
+				  AND R.RCV_DIV_USR_ID = #{srchUsr}
+				  </if>
+				  
+				  <if test='srchType.equals("srchTel") and srchText != null and !srchText.equals("")'>
+				  AND R.SNDR_CNTCT_INFM LIKE REPLACE(#{srchText},'-')||'%'
+				  </if>
+				  
+				  <if test='srchType.equals("srchMsg") and srchText != null and !srchText.equals("")'>
+				  AND R.RCV_CONT LIKE '%'||#{srchText}||'%'
+				  </if>
+				  
+				  AND R.CH_SND_ID = A.TCKT_ID
+				  AND A.USE_YN = 'Y'			
+				
+			<if test="sidx != null and sord != null">					
+				ORDER BY ${sidx} ${sord}					
+			</if>
+			)T
+	</select>
+
+	<update id="update" parameterType="map">
+		{call
+	    	declare
+	    	begin
+				UPDATE ch021
+					SET
+							mod_dt = to_char(sysdate, 'yyyymmdd')
+						,	mod_tm = to_char(sysdate, 'hh24miss')
+						,	mod_usr_id = #{login_usr_id}
+					<if test="rcv_act_st_cd != null and !rcv_act_st_cd.equals('')">
+						,	RCV_ACT_ST_CD = #{rcv_act_st_cd}
+					</if>
+					<if test="rcv_div_dt != null and !rcv_div_dt.equals('')">
+						,	RCV_DIV_DT = #{rcv_div_dt}
+					</if>
+					<if test="rcv_div_tm != null and !rcv_div_tm.equals('')">
+						,	RCV_DIV_TM = #{rcv_div_tm}
+					</if>
+					<if test="rcv_div_usr_id != null and !rcv_div_usr_id.equals('')">
+						,	RCV_DIV_USR_ID = #{rcv_div_usr_id}
+					</if>
+					<if test="at_div_yn != null and !at_div_yn.equals('')">
+						,	AT_DIV_YN = #{at_div_yn}
+					</if>
+									
+					<if test="use_yn != null and !use_yn.equals('')">
+						,	use_yn = #{use_yn}
+					</if>
+				 WHERE ch_snd_id = #{ch_snd_id};
+			end
+		}
+	</update>
+	
+
+	
+	<select id="cnsSmsDivUsrList" parameterType="map" resultType="map">
+		/* 	우측 샹댬사별 건수 구하기 	 */
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				
+		SELECT T1.USR_ID AS USR_ID, T1.USR_NM AS USR_NM, NVL(T2.DIV_CNT,0) AS DIV_CNT, NVL(T2.COMP_CNT,0) AS COMP_CNT, NVL(T2.NOTYET_CNT,0) AS NOTYET_CNT
+		FROM  OM001 T1, 
+		(
+		  SELECT RCV_DIV_USR_ID, COUNT(1) DIV_CNT,  SUM(DECODE(RCV_ACT_ST_CD,'030000', 1, 0)) AS COMP_CNT, SUM(DECODE(RCV_ACT_ST_CD,'030000', 0, 1)) AS NOTYET_CNT
+		  FROM CH021
+		  WHERE USE_YN = 'Y'
+		<if test="frDt != null and !frDt.equals('') and toDt != null and !toDt.equals('')">
+			<if test="srchDtType.equals('dt')">		  
+		  AND RCV_DT BETWEEN #{frDt} AND #{toDt}
+			</if>
+		</if>		  
+		  AND RCV_DIV_USR_ID IS NOT NULL 
+		  GROUP BY RCV_DIV_USR_ID
+		)T2
+		WHERE  T1.USE_YN = 'Y'
+		AND    T1.USR_ID = T2.RCV_DIV_USR_ID(+)
+		<if test="cntr_cd != null and !cntr_cd.equals('')">
+		AND T1.CNTR_CD=#{cntr_cd}
+		</if>
+		<if test="sidx != null and sord != null">
+		ORDER BY ${sidx} ${sord}
+		</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>		
+	</select>
+	
+	<select id="cnsSmsRcvList" parameterType="map" resultType="map">	
+		/* 리스트  */
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>		
+		SELECT  CH_SND_ID, getFormatDate(RCV_DT) ||' ' ||getFormatTime(RCV_TM) AS RCV_DTM,
+		        getFormatPhoneNum(SNDR_CNTCT_INFM) AS RCVR_CNTCT_INFM,
+		        NVL2(RCV_DIV_DT, getFormatDate(RCV_DIV_DT) || ' ' ||getFormatTime(RCV_DIV_TM), '') AS RCV_DIV_DTM,
+		        RCV_ACT_ST_CD, getCodeNM(RCV_ACT_ST_CD, '90020') AS RCV_ACT_ST_NM,
+		        RCV_DIV_USR_ID, (SELECT USR_NM FROM    OM001 WHERE   USR_ID = RCV_DIV_USR_ID ) AS USR_NM
+		FROM   CH021
+		WHERE  USE_YN = 'Y'
+		<if test="frDt != null and !frDt.equals('') and toDt != null and !toDt.equals('')">
+			<if test="srchDtType.equals('dt')">				
+		AND  RCV_DT BETWEEN #{frDt} AND #{toDt}
+			</if>
+		</if>			
+		<if test="selUsrId != null and !selUsrId.equals('all')">	
+		AND  RCV_DIV_USR_ID = #{selUsrId}
+		</if>
+		<if test="selRcvActStCd != null and !selRcvActStCd.equals('all')">	
+		AND  RCV_ACT_ST_CD = #{selRcvActStCd}
+		</if>
+		<if test="sidx != null and sord != null">
+		ORDER BY ${sidx} ${sord}
+		</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>
+	</select>
+ 
+ 	<select id="cnsSmsListCnt" parameterType="map" resultType="map">	
+		/* 상단 총건수 구하기 */
+
+		SELECT  COUNT(1) AS TOTAL_CNT, SUM(DECODE(RCV_ACT_ST_CD,'010000', 1, 0)) AS RCV_CNT, SUM(DECODE(RCV_ACT_ST_CD,'012000', 1, 0)) AS REDIV_CNT, 
+		        SUM(DECODE(NVL(RCV_DIV_USR_ID,''),'', 0, 1)) AS DIV_CNT,
+		        SUM(CASE WHEN RCV_DIV_USR_ID IS NOT NULL AND RCV_ACT_ST_CD ='030000' THEN 1 ELSE 0 END) COMP_CNT,
+		        SUM(CASE WHEN RCV_DIV_USR_ID IS NOT NULL AND RCV_ACT_ST_CD !='030000' THEN 1 ELSE 0 END) NOTYET_CNT
+		FROM   CH021
+		WHERE  USE_YN = 'Y'
+		<if test="frDt != null and !frDt.equals('') and toDt != null and !toDt.equals('')">
+			<if test="srchDtType.equals('dt')">			
+		AND	   RCV_DT BETWEEN #{frDt} AND #{toDt}
+			</if>
+		</if>
+		<if test="selUsrId != null and !selUsrId.equals('all')">	
+		AND    RCV_DIV_USR_ID = #{selUsrId}
+		</if>
+		<if test="selRcvActStCd != null and !selRcvActStCd.equals('all')">	
+		AND    RCV_ACT_ST_CD = #{selRcvActStCd}
+		</if>
+	</select>
+	 
+	<update id="updateCnsSmsList" parameterType="map">
+		UPDATE CH021
+		SET				
+				mod_dt = to_char(sysdate, 'yyyymmdd')
+			,	mod_tm = to_char(sysdate, 'hh24miss')
+			,	mod_usr_id = #{login_usr_id}
+			
+			<if test='releaseYn != null and releaseYn.equals("Y") '>
+			,   RCV_DIV_DT = ''
+			,   RCV_DIV_TM = ''
+			,   RCV_DIV_USR_ID = ''
+			</if>
+			
+			<if test="rcv_act_st_cd != null and !rcv_act_st_cd.equals('')">
+			,   RCV_ACT_ST_CD = #{rcv_act_st_cd}
+			</if>
+			<if test="use_yn != null and !use_yn.equals('')">
+			,   USE_YN = #{use_yn}
+			</if>			
+		WHERE CH_SND_ID IN
+		<foreach item="cnsSmsIds" index="index" collection="cnsSmsIds" open="(" separator="," close=")">
+        	#{cnsSmsIds}
+	  	</foreach>
+	</update>	 
+
+
+
+	<update id="updateCnsSmsDiv" parameterType="map">
+		UPDATE CH021
+		SET				
+				mod_dt = to_char(sysdate, 'yyyymmdd')
+			,	mod_tm = to_char(sysdate, 'hh24miss')
+			,	mod_usr_id = #{login_usr_id}			
+			,   RCV_DIV_DT = to_char(sysdate, 'yyyymmdd')
+			,   RCV_DIV_TM = to_char(sysdate, 'hh24miss')
+			,   RCV_DIV_USR_ID = #{rcv_div_usr_id}		
+			,   RCV_ACT_ST_CD = #{rcv_act_st_cd}
+			,   AT_DIV_YN = 'N'						
+		WHERE CH_SND_ID = #{ch_snd_id}
+	</update>
+				
+</mapper>

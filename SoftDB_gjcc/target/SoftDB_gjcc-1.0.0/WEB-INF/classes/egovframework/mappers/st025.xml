@@ -1,0 +1,444 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+    <mapper namespace="st025">
+    
+    <!-- 성과관리 목록 -->
+    <select id="kpiList" parameterType="map" resultType="map">
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+                SELECT '(' || YEAR || '년 ' || MONTH || ' 월) ' || KPI_TTL AS title
+                    ,   YEAR
+                    ,   MONTH
+                    ,   KPI_TTL
+                    ,   KPI_ID                  
+                FROM st025
+                WHERE 1 = 1
+                <if test="searchYear != null and !searchYear.equals('')">
+                    AND YEAR = #{searchYear}
+                </if>
+                <if test="searchMonth != null and !searchMonth.equals('')">
+                    AND MONTH = #{searchMonth}
+                </if>
+                <if test="!notuse">
+                    AND USE_YN = 'Y'
+                </if>
+                <if test="sidx != null and sord != null">
+                    ORDER  BY ${sidx} ${sord}
+                </if>
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+    </select>
+
+    <!-- 시퀀스 불러오기 -->
+    <select id="getKpiId" parameterType="map" resultType="map">
+        SELECT st025.NEXTVAL AS KPI_ID
+        FROM dual
+    </select>
+    
+    <!-- 성과관리 목록 저장 -->
+    <insert id="insertKpiList" parameterType="map">
+        INSERT  INTO  st025 
+        (
+            KPI_ID
+            , KPI_TTL
+            , YEAR
+            , MONTH
+            , CUST_RSPN_RATE
+            , PRDT
+            , FCR
+            , AGT_STSFDG
+            , SEC20_CNSL_STRT_RATE
+            , AGT_RET_PRSN
+            , VLTN_SCR
+            , CUST_STSFDG
+            , TASK_KNWG_VLTN_SCR
+            , MEMO
+            , USE_YN
+            , CRT_DT
+            , CRT_TM
+            , CRT_USR_ID
+            , MOD_DT
+            , MOD_TM
+            , MOD_USR_ID            
+        ) VALUES (
+              #{kpiId}
+            , #{title}
+            , #{year}
+            , #{month}
+            
+            , #{cust_rspn_rate}
+            , #{prdt}
+            , #{fcr}
+            , #{agt_stsfdg}
+            , #{sec20_cnsl_rate}
+            , #{agt_ret_prsn}
+            , #{vltn_scr}
+            , #{cust_stsfdg}
+            , #{task_knwg_scr}
+            
+            , #{note}
+            , 'Y'
+            , TO_CHAR(SYSDATE, 'YYYYMMDD')
+            , TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+            , #{login_usr_id}
+            , TO_CHAR(SYSDATE, 'YYYYMMDD')
+            , TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+            , #{login_usr_id}
+        )
+    </insert>
+    
+    <!-- 성과관리 목록 수정 -->
+    <update id="updateKpiList" parameterType="map">
+        UPDATE  st025
+           SET  YEAR = #{year}
+             ,  MONTH = #{month}
+             ,  KPI_TTL = #{title}
+             
+             ,  CUST_RSPN_RATE = #{cust_rspn_rate}
+             ,  PRDT = #{prdt}
+             ,  FCR = #{fcr}
+             ,  AGT_STSFDG = #{agt_stsfdg}
+             ,  SEC20_CNSL_STRT_RATE = #{sec20_cnsl_rate}
+             ,  AGT_RET_PRSN = #{agt_ret_prsn}
+             ,  VLTN_SCR = #{vltn_scr}
+             ,  CUST_STSFDG = #{cust_stsfdg}
+             ,  TASK_KNWG_VLTN_SCR = #{task_knwg_scr}
+             ,  MEMO = #{note}
+             
+             ,  MOD_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+             ,  MOD_TM = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+             ,  MOD_USR_ID = #{login_usr_id}
+         WHERE  KPI_ID = #{kpiId}
+    </update>
+    
+    <!-- 성과관리 목록 삭제 -->
+    <update id="deleteKpiList" parameterType="map">
+        UPDATE  st025
+           SET  USE_YN = #{use_yn}
+             ,  MOD_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+             ,  MOD_TM = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+             ,  MOD_USR_ID = #{login_usr_id}
+         WHERE  KPI_ID = #{kpiId}
+    </update>
+
+    <!-- 성과관리 목록 클릭 -->
+    <select id="selectKpiSpec" parameterType="map" resultType="map">
+        SELECT KPI_ID
+             , KPI_TTL
+             , YEAR
+             , MONTH
+             , CUST_RSPN_RATE
+             , PRDT
+             , FCR
+             , AGT_STSFDG
+             , SEC20_CNSL_STRT_RATE
+             , AGT_RET_PRSN
+             , VLTN_SCR
+             , CUST_STSFDG
+             , TASK_KNWG_VLTN_SCR
+             , MEMO 
+          FROM ST025
+         WHERE (YEAR || LPAD(MONTH, 2, '0')) IN (SELECT MON 
+                                                   FROM (
+                                                        SELECT YEAR || LPAD(MONTH, 2, '0') AS THMON
+                                                             , TO_CHAR(ADD_MONTHS(TO_DATE(YEAR || LPAD(MONTH, 2, '0'), 'yyyymm'), - 0), 'yyyymm') AS LSMON
+                                                          FROM ST025
+                                                         WHERE KPI_ID = #{kpi_id}
+                                                        ) 
+                                                UNPIVOT (MON FOR GB IN (THMON, LSMON)) 
+                                                )
+           AND USE_YN = 'Y'
+          ORDER BY YEAR DESC, MONTH DESC
+    </select>
+
+    <select id="select" parameterType="map" resultType="map">
+        SELECT  ROWNUM AS row_no, t1.fl_id, t1.tbl_nm, t1.tbl_pk, t1.LOC_FL_NM, t1.SVR_FL_NM, t1.SVR_SV_PTH, t1.fl_sz, t1.use_yn, t1.crt_dt, t1.crt_tm, t1.crt_usr_id, t1.mod_dt, t1.mod_tm, t1.mod_usr_id
+          FROM  om019  t1
+         WHERE  t1.fl_id = #{fl_id}
+    </select>
+
+    <insert id="insert" parameterType="map">
+        INSERT  INTO om019 (fl_id
+             ,  tbl_nm
+             ,  tbl_pk
+             ,  LOC_FL_NM
+             ,  SVR_FL_NM
+             ,  SVR_SV_PTH
+             ,  fl_sz
+             ,  use_yn
+             ,  crt_dt
+             ,  crt_tm
+             ,  crt_usr_id
+             ,  mod_dt
+             ,  mod_tm
+             ,  mod_usr_id
+            <if test = "tbl_pk2 != null and !tbl_pk2.equals('')">
+             ,  tbl_pk2
+            </if>
+            <if test = "tbl_pk3 != null and !tbl_pk3.equals('')">
+             ,  tbl_pk3
+            </if>
+            <if test = "tbl_pk4 != null and !tbl_pk4.equals('')">
+             ,  tbl_pk4
+            </if>
+            ) VALUES (som019.NEXTVAL
+             ,  #{tbl_nm}
+             ,  #{tbl_pk}
+             ,  #{locfl_nm}
+             ,  #{svrfl_nm}
+             ,  #{svrfl_pth}
+             ,  #{fl_sz}
+             ,  'Y'
+             ,   TO_CHAR(SYSDATE, 'YYYYMMDD')
+             ,   TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+             ,  #{login_usr_id}
+             ,   TO_CHAR(SYSDATE, 'YYYYMMDD')
+             ,   TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+             ,  #{login_usr_id}
+            <if test = "tbl_pk2 != null and !tbl_pk2.equals('')">
+             ,  #{ tbl_pk2 }
+            </if>
+            <if test = "tbl_pk3 != null and !tbl_pk3.equals('')">
+             ,  #{ tbl_pk3 }
+            </if>
+            <if test = "tbl_pk4 != null and !tbl_pk4.equals('')">
+             ,  #{ tbl_pk3 }
+            </if>
+        )
+    </insert>
+
+    <update id="update" parameterType="map">
+        UPDATE  om019
+           SET  tbl_nm = #{tbl_nm}
+             ,  tbl_pk = #{tbl_pk}
+             ,  LOC_FL_NM = #{locfl_nm}
+             ,  SVR_FL_NM = #{svrfl_nm}
+             ,  SVR_SV_PTH = #{svrfl_pth}
+             ,  fl_sz = #{fl_sz}
+             ,  use_yn = #{use_yn}
+             ,  mod_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+             ,  mod_tm = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+             ,  mod_usr_id = #{login_usr_id}
+         WHERE  fl_id = #{fl_id}
+    </update>
+
+    <delete id="delete" parameterType="map">
+        DELETE FROM om019
+         WHERE fl_id = #{fl_id}
+    </delete>
+
+    <delete id="deleteList" parameterType="map">
+        DELETE  FROM om019
+         WHERE  tbl_nm = #{tbl_nm}
+           AND  tbl_pk = #{tbl_pk}
+    </delete>
+
+    <select id="fileList" parameterType="map" resultType="map">
+        SELECT  ROWNUM row_no
+            , t1.fl_id
+            , t1.tbl_nm
+            , t1.tbl_pk
+            , t1.tbl_pk2
+            , t1.tbl_pk3
+            , t1.tbl_pk4
+            , t1.LOC_FL_NM
+            , t1.SVR_FL_NM
+            , t1.SVR_SV_PTH
+            , t1.fl_sz
+            , t1.use_yn
+            , t1.crt_dt
+            , t1.crt_tm
+            , t1.crt_usr_id
+            , t1.mod_dt
+            , t1.mod_tm
+            , t1.mod_usr_id
+            , 'X' AS file_delete
+            , changeNumberFormat(CEIL(FL_SZ/1024)) || 'KB' AS FL_KB_SZ
+        FROM  om019  t1
+        WHERE 1 = 1
+            AND use_yn = 'Y'  
+            AND t1.tbl_nm = #{tbl_nm}
+            AND  t1.tbl_pk = to_char(#{tbl_pk})
+            <if test = "tbl_pk2 != null and !tbl_pk2.equals('')">
+            AND t1.tbl_pk2 = #{tbl_pk2}
+            </if>
+            <if test = "tbl_pk3 != null and !tbl_pk3.equals('')">
+            AND t1.tbl_pk3 = #{tbl_pk3}
+            </if>
+            <if test = "tbl_pk4 != null and !tbl_pk4.equals('')">
+            AND t1.tbl_pk4 is null
+            </if>
+            <if test = "seq != null and !seq.equals('')">
+            AND t1.tbl_pk4 = #{ seq }
+            </if>
+        <if test = "orderby != null and orderby.equals('crtTime')">
+            ORDER BY crt_dt asc, crt_tm asc
+        </if>
+    </select>
+    
+    <select id="dummySelect">
+        SELECT 1 FROM dual
+    </select>
+    
+    <update id = "deleteFileUseYn" parameterType="map">
+        UPDATE  om019
+        SET  use_yn = #{use_yn}
+            ,  mod_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+            ,  mod_tm = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+            ,  mod_usr_id = #{login_usr_id}
+        WHERE  fl_id = #{fl_id}
+    </update>
+    
+    <update id = "addTbl_pk4">
+        UPDATE om019
+        SET tbl_pk4 = #{ seq }
+        WHERE
+            tbl_nm = #{tbl_nm}
+            AND tbl_pk = #{ tp_cd }
+            AND tbl_pk2 = #{ cd }
+            AND tbl_pk3 = #{ cat_seq }
+            AND tbl_pk4 is null
+    </update>
+    
+    <insert id="insertCatFile" parameterType="map">
+        INSERT  INTO 
+        om019 
+        (
+            fl_id
+            ,  tbl_nm
+            ,  tbl_pk
+            ,  tbl_pk2
+            ,  tbl_pk3
+            ,  LOC_FL_NM
+            ,  SVR_FL_NM
+            ,  SVR_SV_PTH
+            ,  fl_sz
+            ,  use_yn
+            ,  crt_dt
+            ,  crt_tm
+            ,  crt_usr_id
+            ,  mod_dt
+            ,  mod_tm
+            ,  mod_usr_id
+        )
+        SELECT 
+            som019.nextval
+            , tbl_nm
+            , tbl_pk
+            , tbl_pk2
+            , tbl_pk3
+            , LOC_FL_NM
+            , SVR_FL_NM
+            , SVR_SV_PTH
+            , fl_sz
+            , 'Y'
+            , crt_dt
+            , crt_tm
+            , crt_usr_id
+            , mod_dt
+            , mod_tm
+            , mod_usr_id
+        FROM om019
+        WHERE fl_id = #{ fl_id }
+    </insert>
+    
+    <!-- 성과관리 엑셀저장 -->
+    <select id="selectKpiExcel" parameterType="map" resultType="map">
+       WITH DATA AS
+       (
+         SELECT KPI_ID, KPI_TTL, YEAR, MONTH
+              , DECODE(LV, 1, '상담운용능력', 2, '', 3, '', 4, '', 5, '', 6, '', 7, '상담품질', 8, '', 9, '') AS HDRNM  /* 대분류 */
+              , DECODE(LV, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9) AS NUM                                 /* 순번 */
+              , DECODE(LV, 1, 95, 2, 95, 3, 85, 4, 90, 5, 90, 6, 3, 7, 90, 8, 87, 9, 85) AS GOAL_SCR                    /* 목표 */
+              , DECODE(LV, 1, '고객응대율(%)', 2, '콜센터 생산성(콜)', 3, 'FCR(1차 처리율)(%)'
+                         , 4, '상담사 만족도(점)', 5, '20초내 상담개시율(%)', 6, '상담사 이직인원'
+                         , 7, '모니터링 평가(점)', 8, '고객만족도(점)', 9, '상담사 업무지식평가(점)') AS COLNM           /* 평가항목 */
+              , DECODE(LV, 1, CUST_RSPN_RATE, 2, PRDT, 3, FCR
+                         , 4, AGT_STSFDG, 5, SEC20_CNSL_STRT_RATE, 6, AGT_RET_PRSN
+                         , 7, VLTN_SCR, 8, CUST_STSFDG, 9, TASK_KNWG_VLTN_SCR) AS DATA                                    /* 당월실적 */
+           FROM 
+                (
+                   SELECT KPI_ID
+                        , KPI_TTL
+                        , YEAR
+                        , MONTH
+                        , NVL2(CUST_RSPN_RATE, CUST_RSPN_RATE, 0) AS CUST_RSPN_RATE
+                        , NVL2(PRDT, PRDT, 0) AS PRDT
+                        , NVL2(FCR, FCR, 0) AS FCR
+                        , NVL2(AGT_STSFDG, AGT_STSFDG, 0) AS AGT_STSFDG
+                        , NVL2(SEC20_CNSL_STRT_RATE, SEC20_CNSL_STRT_RATE, 0) AS SEC20_CNSL_STRT_RATE
+                        , NVL2(AGT_RET_PRSN, AGT_RET_PRSN, 0) AS AGT_RET_PRSN
+                        , NVL2(VLTN_SCR, VLTN_SCR, 0) AS VLTN_SCR
+                        , NVL2(CUST_STSFDG, CUST_STSFDG, 0) AS CUST_STSFDG
+                        , NVL2(TASK_KNWG_VLTN_SCR, TASK_KNWG_VLTN_SCR, 0) AS TASK_KNWG_VLTN_SCR
+                     FROM ST025
+                    WHERE (YEAR || LPAD(MONTH, 2, '0')) IN (SELECT MON 
+                                                              FROM (
+                                                                   SELECT YEAR || LPAD(MONTH, 2, '0') AS THMON
+                                                                        , TO_CHAR(ADD_MONTHS(TO_DATE(YEAR || LPAD(MONTH, 2, '0'), 'yyyymm'), - 1), 'yyyymm') AS LSMON
+                                                                     FROM ST025
+                                                                    WHERE KPI_ID = #{kpi_id}
+                                                                   ) 
+                                                           UNPIVOT (MON FOR GB IN (THMON, LSMON)) 
+                                                           )
+                      AND USE_YN = 'Y'
+                    ORDER BY YEAR ASC, MONTH ASC               
+                ),
+                (
+                  SELECT LEVEL LV
+                    FROM DUAL
+                 CONNECT BY LEVEL <![CDATA[ <= ]]> 9
+                )     
+        ), 
+        BFDATA AS   /* 전월 성과지표*/
+        (
+            SELECT * FROM DATA WHERE YEAR || MONTH = TO_CHAR(ADD_MONTHS(TO_DATE(#{yyyymm}, 'YYYYMM'), -1), 'YYYYMM')
+        ), 
+        THDATA AS   /* 당월 성과지표*/
+        (
+            SELECT * FROM DATA WHERE YEAR || MONTH = #{yyyymm}
+        )   
+        SELECT HDRNM
+             , COLNM
+             , GOAL_SCR
+             , THDATA
+             , THACHIV || '%' AS THACHIV
+             , BFDATA
+             , BFACHIV || '%' AS BFACHIV
+             , (CASE WHEN (THDATA - BFDATA) <![CDATA[ < ]]> 0 THEN '(' || TO_CHAR(ABS(THDATA - BFDATA), 'FM9990.0') || ')' 
+                     WHEN (THDATA - BFDATA) = 0 THEN '-' 
+                     ELSE TO_CHAR((THDATA - BFDATA), 'FM9990.0') 
+                END) AS IRDS
+          FROM 
+                (
+                  SELECT T2.HDRNM
+                       , T2.COLNM
+                       , T2.GOAL_SCR
+                       , T2.DATA AS THDATA
+                       , DECODE(T2.NUM, '6', ROUND(NVL2(T2.GOAL_SCR, (T2.DATA / 35) * 100, 0)), ROUND(NVL2(T2.GOAL_SCR, (T2.DATA / T2.GOAL_SCR) * 100, 0))) AS THACHIV
+                       , T1.DATA AS BFDATA 
+                       , DECODE(T2.NUM, '6', ROUND(NVL2(T2.GOAL_SCR, (T1.DATA / 35) * 100, 0)), ROUND(NVL2(T2.GOAL_SCR, (T1.DATA / T2.GOAL_SCR) * 100, 0))) AS BFACHIV
+                    FROM THDATA T2 
+                         LEFT JOIN BFDATA T1 ON T1.COLNM = T2.COLNM
+                   ORDER BY T2.NUM
+                )
+
+    </select>    
+    
+</mapper>

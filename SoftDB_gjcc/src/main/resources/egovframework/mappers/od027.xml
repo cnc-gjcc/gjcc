@@ -1,0 +1,541 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+    <mapper namespace="od027">
+    
+    <insert id="recCounselList" parameterType="map">
+      MERGE INTO od027
+      USING dual
+      ON (VLTN_ID = #{vltn_Id} 
+        AND VLTN_USR_ID = #{usr_Id}
+        AND TCKT_ID = #{tckt_Id})
+      WHEN MATCHED THEN
+      UPDATE SET
+          mod_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+        , mod_tm = TO_CHAR(SYSDATE, 'HH24MISS')
+        , mod_usr_id = #{login_usr_id}
+      WHEN NOT MATCHED THEN
+      INSERT (
+            VLTN_ID 
+          , VLTN_USR_ID 
+          , TCKT_ID 
+          , USE_YN 
+          , CRT_DT 
+          , CRT_TM 
+          , CRT_USR_ID 
+          , MOD_DT 
+          , MOD_TM 
+          , MOD_USR_ID 
+      ) VALUES (
+            #{vltn_Id} 
+         ,  #{usr_Id}
+         ,  #{tckt_Id}
+         ,  'Y'
+         ,  TO_CHAR(SYSDATE, 'YYYYMMDD')
+         ,  TO_CHAR(SYSDATE, 'HH24MISS')
+         ,  #{login_usr_id}
+         ,  TO_CHAR(SYSDATE, 'YYYYMMDD')
+         ,  TO_CHAR(SYSDATE, 'HH24MISS')
+         ,  #{login_usr_id}   
+      )
+    </insert>        
+        
+    <!-- 평가대상 상담이력 리스트 -->
+    <select id="recTargetCounsel" parameterType="map" resultType="map">
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+              SELECT T1.CRT_DT AS CRT_DT
+                   , T1.TCKT_ID                                                                                                                                /*ID*/
+                   , T1.RECD_ID                                                                                                                                /*녹취경로*/
+                   , T1.CALL_ID                                                                                                                                /*녹취ID*/
+                   , T2.VLTN_ID
+                   , T2.VLTN_USR_ID
+                   , GETUSERNM('CC', T2.VLTN_USR_ID) AS VLTN_USR_NM
+                   , NVL2(T1.RCV_DT, GETFORMATDATE(T1.RCV_DT) || ' ' || GETFORMATTIME(T1.RCV_TM), ' ') AS RCV_DT_FORMAT                                       /*접수일시*/
+                   , NVL2(T1.SNDR_CNTCT_INFM, GETFORMATPHONENUM(T1.SNDR_CNTCT_INFM), ' ') AS CNTCT_INFM_FORMAT                                                 /*전화번호*/
+                   , T1.ACT_TYPE_CD 
+                   , GETCODENM(T1.ACT_TYPE_CD, '90014') AS ACT_TYPE_NM                                                                                         /*처리유형*/
+                   , T1.ACT_ST_CD 
+                   , NVL((SELECT CD_NM FROM SM002 WHERE TP_CD = '90013' AND CD = T1.ACT_ST_CD), '미완료') ACT_ST_NM                                             /*상담결과*/
+                   , GETSECONDTOTIME(ROUND((TO_DATE(T1.CALL_END_TM, 'HH24MISS') - TO_DATE(T1.CALL_CNNCT_TM, 'HH24MISS')) * 24 * 60 * 60, 0)) AS CALL_TIME        /*통화시간*/
+                   , T1.CALL_GB_CD             
+<!--                    , CASE WHEN T1.CALL_GB_CD = '1' THEN 'IN' WHEN T1.CALL_GB_CD = '2' THEN 'OUT' WHEN T1.CALL_GB_CD = '3' THEN '콜백' END AS CALL_GB_NM_ENG      /*통화구분*/ --> <!-- 원본 -->
+                   , CASE WHEN T1.CALL_GB_CD = '2' THEN 'IN' WHEN T1.CALL_GB_CD = '3' THEN 'OUT' END AS CALL_GB_NM_ENG      /*통화구분*/ <!-- 수정 2020.06.03 -->
+                   , GETCODENM(T1.CALL_GB_CD, '90010') AS CALL_GB_NM
+                   <!-- 
+                   , (SELECT CTG_CD_NM FROM om020 WHERE CTG_CD = T1.CTG_EX_CD AND CTG_LVL = '1') || ' > ' ||     
+                           (SELECT CTG_CD_NM FROM om020 WHERE CTG_CD = T1.CTG_LG_CD AND CTG_LVL = '2') || ' > ' || 
+                               (SELECT CTG_CD_NM FROM om020 WHERE CTG_CD = T1.CTG_MD_CD AND CTG_LVL = '3') || ' > ' || 
+                                 (SELECT CTG_CD_NM FROM om020 WHERE CTG_CD = T1.CTG_SM_CD AND CTG_LVL = '4')  AS INTV_NM                      /*상담유형*/ 
+                   -->
+                   , (SELECT CTG_CD_NM FROM om020 WHERE CTG_CD = T1.CTG_LG_CD AND CTG_LVL = '1') || ' > ' || 
+                               (SELECT CTG_CD_NM FROM om020 WHERE CTG_CD = T1.CTG_MD_CD AND CTG_LVL = '2') || ' > ' || 
+                                 (SELECT CTG_CD_NM FROM om020 WHERE CTG_CD = T1.CTG_SM_CD AND CTG_LVL = '3')  AS INTV_NM                      /*상담유형*/ 
+                   , T1.QST_CONT 
+                   , T1.ACT_CONT
+                   , T3.ORD
+                   , T3.ORD_NM    
+                   , DECODE(T3.VLTR_ID, '', T2.CRT_USR_ID, T3.VLTR_ID) AS VLTR_ID
+                   , GETUSERNM('CC', DECODE(T3.VLTR_ID, '', T2.CRT_USR_ID, T3.VLTR_ID)) AS VLTR_NM
+                   , NVL(T3.SCR, 0) AS SCR 
+                   , T1.RCV_DT
+                   , T1.RCV_USR_ID
+                   , T3.VLTR_DT
+              FROM CH001 T1 
+                   LEFT JOIN OD027 T2 ON T1.TCKT_ID = T2.TCKT_ID
+                   LEFT JOIN (SELECT VLTN_ID
+                                   , VLTN_USR_ID
+                                   , TCKT_ID
+                                   , VLTR_ID
+                                   , ORD
+                                   , DECODE(ORD, '1', '1차평가', '2', '2차평가', '') AS ORD_NM
+                                   , SUM(SCR) AS SCR 
+                                   , GETFORMATDATE(MOD_DT) AS VLTR_DT 
+                                FROM OD029
+                               WHERE 1 = 1
+                       <if test="vltn_Id != null and !vltn_Id.equals('')">
+                                 AND VLTN_ID = #{vltn_Id}
+                       </if>
+                       <if test="toDt != vltn_Usr_Id and !vltn_Usr_Id.equals('')">
+                                 AND VLTN_USR_ID = #{vltn_Usr_Id}  
+                       </if>                                                 
+                               GROUP BY VLTN_ID, VLTN_USR_ID, TCKT_ID, VLTR_ID, ORD, MOD_DT
+                             ) T3 ON T1.TCKT_ID = T3.TCKT_ID                      
+              WHERE 1 = 1
+              <if test="vltn_Id != null and !vltn_Id.equals('')">
+                AND T2.VLTN_ID = #{vltn_Id}
+              </if>
+              <if test="toDt != vltn_Usr_Id and !vltn_Usr_Id.equals('')">
+                AND T2.VLTN_USR_ID = #{vltn_Usr_Id}  
+              </if>
+           <if test="sidx != null and sord != null">
+               ORDER  BY ${sidx} ${sord}
+           </if>
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+    </select>
+  
+    <!-- 모니터링평가 대상 상담이력 삭제 -->
+    <delete id="deleteRecCounselList" parameterType="map">
+    {call
+        declare
+        begin
+
+          <!-- 평가상세 항목별 점수 -->   
+          DELETE FROM od029
+           WHERE  VLTN_ID = #{vltn_Id}
+             AND  VLTN_USR_ID = #{vltn_Usr_Id}
+             AND  TCKT_ID = #{tckt_Id};            
+        
+          <!-- 평가이의제기상세 -->   
+          DELETE FROM od028
+           WHERE  VLTN_ID = #{vltn_Id}
+             AND  VLTN_USR_ID = #{vltn_Usr_Id}
+             AND  TCKT_ID = #{tckt_Id};         
+                
+          <!-- 평가대상자 상담이력정보 -->
+          DELETE FROM od027
+           WHERE  VLTN_ID = #{vltn_Id}
+             AND  VLTN_USR_ID = #{vltn_Usr_Id}
+             AND  TCKT_ID = #{tckt_Id}; 
+             
+          <!-- 평가대상자상세(필요없음) subquery update query 참고 --> 
+          <!--   
+          UPDATE 
+                 (SELECT T1.RECO_VLTN_SCNT AS RECO_CNT_26
+                       , T1.TOTA_SCR AS TOTA_SCR_26
+                       , T2.RECO_VLTN_SCNT AS RECO_CNT_27
+                       , T2.VLTN_TOTA_SCR AS TOTA_SCR_27
+                    FROM OD026 T1
+                         LEFT JOIN (SELECT VLTN_ID
+                                         , VLTN_USR_ID
+                                         , SUM(CASE WHEN NVL(VLTN_TOTA_SCR, 0) > 0 THEN 1 ELSE 0 END) AS RECO_VLTN_SCNT 
+                                         , SUM(NVL(VLTN_TOTA_SCR, 0)) AS VLTN_TOTA_SCR
+                                      FROM OD027 
+                                     GROUP BY VLTN_ID, VLTN_USR_ID) T2 ON T1.VLTN_ID = T2.VLTN_ID AND T1.VLTN_USR_ID = T2.VLTN_USR_ID
+                   WHERE T1.VLTN_ID = #{vltn_Id}
+                     AND T1.VLTN_USR_ID = #{vltn_Usr_Id}
+                 )  
+             SET RECO_CNT_26 = RECO_CNT_27
+               , TOTA_SCR_26 = TOTA_SCR_27 ; 
+          -->    
+             
+      end
+    }  
+    </delete>
+    
+    <!-- 모니터링 목록 -->
+    <select id="mntList" parameterType="map" resultType="map">
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>                
+               SELECT DISTINCT '(' || SUBSTR(T4.STRT_DT, 0, 4) ||'년 ' ||  SUBSTR(T4.STRT_DT, 5, 2) ||'월 ' || SUBSTR(T4.STRT_DT, 7) ||'일' || ' ~ ' || SUBSTR(T4.END_DT, 0, 4) ||'년 ' ||  SUBSTR(T4.END_DT, 5, 2) ||'월 ' || SUBSTR(T4.END_DT, 7) ||'일' || ')' || T4.VLTN_TTL AS TITLE
+                    , SUBSTR(T4.STRT_DT, 0, 6) AS MONTH
+                    , T4.STRT_DT
+                    , T4.END_DT
+                    , T4.VLTN_TTL
+                    , T4.VLTN_ID 
+                 FROM OD027 T1
+                      LEFT JOIN OD026 T2 ON T1.VLTN_ID = T2.VLTN_ID AND T1.VLTN_USR_ID = T2.VLTN_USR_ID AND T2.USE_YN = 'Y' 
+                      JOIN OM001 T3 ON T1.VLTN_USR_ID = T3.USR_ID 
+
+                <if test = "!chkRetire">
+                             AND (T3.RET_DT is null OR T3.RET_DT = '')
+                </if>
+                <if test="  !notuse">
+                             AND T3.USE_YN = 'Y'
+                </if>
+                <if test="cntr_cd != null and !cntr_cd.equals('all') and !cntr_cd.equals('')">
+                             AND T3.CNTR_CD = #{cntr_cd}
+                </if>
+                <if test="team_cd != null and !team_cd.equals('all') and !team_cd.equals('')">
+                             AND T3.TEAM_CD = #{team_cd}
+                </if>
+                <if test="cmpg_usr_id != null and !cmpg_usr_id.equals('') and !cmpg_usr_id.equals('all')">
+                             AND T3.USR_ID = #{cmpg_usr_id}
+                </if>
+
+                      JOIN OM025 T4 ON T1.VLTN_ID = T4.VLTN_ID AND T4.CLS_DT IS NOT NULL
+                WHERE T1.USE_YN = 'Y'
+                  AND T1.VLTN_TOTA_SCR > 0
+                               
+                <if test="frDt != null and !frDt.equals('')">
+                    AND #{frDt} <![CDATA[<=]]> T4.END_DT
+                </if>
+                <if test="toDt != null and !toDt.equals('')">
+                    AND #{toDt} <![CDATA[>=]]> T4.STRT_DT
+                </if>
+
+                <if test="sidx != null and sord != null">
+                    ORDER  BY ${sidx} ${sord}
+                </if>
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+    </select>
+    
+    
+  <select id="counsellist" parameterType="map" resultType="map">
+    <if test="rows != null and page != null">
+    SELECT *
+    FROM
+    (
+      SELECT A1.*
+        , CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+        , CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+        , CEIL(COUNT(1) OVER()) TOTROWCOUNT
+      FROM
+      (
+    </if>
+        SELECT *
+        FROM
+        (
+          SELECT
+                T1.TCKT_ID
+              , T1.RECD_ID
+              , T1.CALL_ID
+              , NVL2( T1.RCV_DT, GETFORMATDATE(T1.RCV_DT) || ' ' || GETFORMATTIME(T1.RCV_TM), ' ') AS RCV_DT_FORMAT
+              , T3.CORP_NM
+            <if test="rows != null and page != null"> 
+              , T3.CUST_NM
+            </if>
+            <if test="rows == null and page == null">
+              , CASE WHEN T3.CUST_NM IN ('고객','민원인','테스트') THEN T3.CUST_NM 
+                ELSE SUBSTR(T3.CUST_NM,1,1) || LPAD('*',LENGTH(T3.CUST_NM)-2,'*') || SUBSTR(T3.CUST_NM, LENGTH(CUST_NM), 1) END AS CUST_NM
+            </if>
+              , (SELECT USR_NM FROM OM001 WHERE USR_ID = T1.RCV_USR_ID) AS RCV_USR_NM
+              , (SELECT CD_NM FROM SM002 WHERE TP_CD = '90009' AND CD = T1.CH_GB_CD) CH_GB_NM
+              , (SELECT CD_NM FROM SM002 WHERE TP_CD = '90014' AND CD = T1.ACT_TYPE_CD) ACT_TYPE_NM
+              , NVL((SELECT CD_NM FROM SM002 WHERE TP_CD = '90013' AND CD = T1.ACT_ST_CD), '미완료') ACT_ST_NM
+              <!-- 
+              , (SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = t1.ctg_ex_cd AND ctg_lvl = '1') ||      
+                      (SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = t1.ctg_lg_cd AND ctg_lvl = '2') ||
+                          (SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = t1.ctg_md_cd AND ctg_lvl = '3') ||  
+                            (SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = t1.ctg_sm_cd AND ctg_lvl = '4')  AS intv_nm   
+              ,   (select CTG_CD_NM from OM020 where CTG_LVL = '1' and CTG_CD = t1.CTG_EX_CD)  as INTV_EX_NM                        
+              ,   (select CTG_CD_NM from OM020 where CTG_LVL = '2' and PARNT_CD = t1.CTG_EX_CD AND CTG_CD = t1.CTG_LG_CD)  as INTV_LG_NM  
+              ,   (select CTG_CD_NM from OM020 where CTG_LVL = '3' and PARNT_CD = t1.CTG_LG_CD AND CTG_CD = t1.CTG_MD_CD)  as INTV_MD_NM  
+              ,   (select CTG_CD_NM from OM020 where CTG_LVL = '4' and PARNT_CD = t1.CTG_MD_CD AND CTG_CD = t1.CTG_SM_CD)  as INTV_SM_NM                
+              
+              , T1.CTG_EX_CD AS INST_CD
+              , T1.CTG_LG_CD AS INTV_LG_CD
+              , T1.CTG_MD_CD AS INTV_MD_CD
+              , T1.CTG_SM_CD AS INTV_SM_CD
+               -->
+              ,       (SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = t1.ctg_lg_cd AND ctg_lvl = '1') ||
+                          (SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = t1.ctg_md_cd AND ctg_lvl = '2') ||  
+                            (SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = t1.ctg_sm_cd AND ctg_lvl = '3')  AS intv_nm   
+              ,   (select CTG_CD_NM from OM020 where CTG_LVL = '1' and CTG_CD = t1.CTG_LG_CD)  as INTV_LG_NM                        
+              ,   (select CTG_CD_NM from OM020 where CTG_LVL = '2' and PARNT_CD = t1.CTG_LG_CD AND CTG_CD = t1.CTG_MD_CD)  as INTV_MD_NM  
+              ,   (select CTG_CD_NM from OM020 where CTG_LVL = '3' and PARNT_CD = t1.CTG_MD_CD AND CTG_CD = t1.CTG_SM_CD)  as INTV_SM_NM                
+              
+              , T1.CTG_LG_CD AS INTV_LG_CD
+              , T1.CTG_MD_CD AS INTV_MD_CD
+              , T1.CTG_SM_CD AS INTV_SM_CD
+              , REPLACE(REPLACE((CASE WHEN LENGTH(T1.QST_CONT) > 18 THEN SUBSTR(T1.QST_CONT, 0, 18) || '...' ELSE T1.QST_CONT END), CHR(10), ''), CHR(13), '') AS RCV_CONT_TTL
+              , T1.ACT_CONT
+              , T1.QST_CONT AS RCV_CONT
+              , (
+                 CASE WHEN T2.RESV_DT IS NULL
+                  THEN ''
+                  ELSE GETFORMATDATE(T2.RESV_DT) || ' ' || GETFORMATTIME(T2.RESV_TM)
+                  END
+                ) AS RESV_DT_FORMAT
+              , NVL2( T4.RCV_DT, GETFORMATDATE(T4.RCV_DT) || ' ' || GETFORMATTIME(T4.CALL_STRT_TM), ' ') AS SEND_DT_FORMAT
+              <if test="rows != null and page != null"> 
+              , NVL2(T1.SNDR_CNTCT_INFM, GETFORMATPHONENUM(T1.SNDR_CNTCT_INFM), ' ') AS CNTCT_INFM_FORMAT
+              </if>
+              <if test="rows == null and page == null">
+              ,  NVL2(T1.SNDR_CNTCT_INFM,  SUBSTR(GETFORMATPHONENUM(T1.SNDR_CNTCT_INFM),1,LENGTH(GETFORMATPHONENUM(T1.SNDR_CNTCT_INFM))-4) || RPAD('*',4,'*'), '')  AS CNTCT_INFM_FORMAT
+              </if>
+              , NVL2(T2.RESV_CNTCT_INFM, GETFORMATPHONENUM(T2.RESV_CNTCT_INFM), ' ') AS RESV_TEL_NO
+              , (SELECT CNTR_CD FROM OM001 WHERE USR_ID = T1.RCV_USR_ID) AS CNTR_CD
+<!--               , CASE WHEN T1.CALL_GB_CD = '1' THEN 'IN' WHEN T1.CALL_GB_CD = '2' THEN 'OUT' WHEN T1.CALL_GB_CD = '3' THEN '콜백' END AS CALL_GB_NM_ENG --> <!-- 원본 -->
+              , CASE WHEN T1.CALL_GB_CD = '2' THEN 'IN' WHEN T1.CALL_GB_CD = '3' THEN 'OUT' END AS CALL_GB_NM_ENG <!-- 수정 2020.06.03 -->
+              , GETCODENM(T1.CALL_GB_CD, '90010') AS CALL_GB_NM
+              , GETSECONDTOTIME(ROUND((TO_DATE(T1.CALL_END_TM, 'hh24miss') - TO_DATE(T1.CALL_CNNCT_TM, 'hh24miss')) * 24 * 60 * 60, 0)) AS CALL_TIME
+              , (SELECT USR_NM FROM OM001 WHERE USR_ID = T1.MOD_USR_ID) AS MOD_USR_NM
+              , NVL2( T1.MOD_DT, GETFORMATDATE(T1.MOD_DT) || ' ' || GETFORMATTIME(T1.MOD_DT), ' ') AS MOD_DT_FORMAT
+              , GETCODENM(T3.CUST_GB_CD, '90043') AS CST_TYPE_NM
+              , GETCODENM(T3.CST_COMP_CD, '90048') AS CST_COMP_NM
+              , T3.INFM_YN
+              , '' AS TRNR_ACT_ST_NM
+              , T5.VLTN_GB_CD 
+              , GETCODENM(T5.VLTN_GB_CD, '90011') AS BESTCALL_NM              
+          FROM CH001 T1 LEFT JOIN CM005 T2 ON T1.TCKT_ID = T2.RESV_REG_TCKT_ID
+               LEFT JOIN CM003 T3 ON T1.CUST_ID = T3.CUST_ID
+               LEFT JOIN CH001 T4 ON T4.TCKT_ID = T2.OUT_TCKT_ID
+               LEFT JOIN OD026 T5 ON T1.TCKT_ID = T5.TCKT_ID
+               LEFT JOIN OM001 T6 ON T1.RCV_USR_ID = T6.USR_ID      /*퇴사자 조건 추가 */
+          WHERE 1 = 1
+            AND T1.USE_YN = 'Y'
+            AND T5.VLTN_GB_CD NOT IN ('100000')
+        <!-- 조회조건 통화시간(단위:분) 추가 -->
+        <if test="call_Cnnct_Tm != null and !call_Cnnct_Tm.equals('') and call_End_Tm != null and !call_End_Tm.equals('')">
+           AND ROUND((TO_DATE(T1.CALL_END_TM, 'HH24MISS') - TO_DATE(T1.CALL_CNNCT_TM, 'HH24MISS')) * 24 * 60, 0) BETWEEN #{call_Cnnct_Tm} AND #{call_End_Tm}
+        </if> 
+               
+        <if test="frDt != null and !frDt.equals('') and toDt != null and !toDt.equals('')">
+          <if test="srchDtType == null">
+            AND T1.RCV_DT BETWEEN #{frDt} AND #{toDt}
+          </if>
+          <if test="srchDtType != null and srchDtType.equals('rcvDt')"> 
+            AND T1.RCV_DT BETWEEN #{frDt} AND #{toDt}
+          </if>
+          <if test="srchDtType != null and srchDtType.equals('resvDt')">
+            AND T2.RCV_DT BETWEEN #{frDt} AND #{toDt}
+          </if>
+        </if>
+        
+        <if test="srchtype != null and !srchval.equals('')">
+          <if test="srchtype.equals('all')">
+            AND 
+            (
+                upper(t3.cust_nm) like '%' || upper(#{srchval}) || '%'              
+              or  t1.sndr_cntct_infm like '%' || #{srchval} || '%'
+              or  t2.resv_cntct_infm like '%' || #{srchval} || '%'
+              or upper(t1.ACT_CONT) like '%' || #{srchval} || '%'
+              or upper(t1.qst_cont) like '%' || #{srchval} || '%'
+            )
+          </if>
+          <if test="srchtype.equals('custNm')">
+            AND UPPER(T3.CUST_NM) LIKE '%' || UPPER(#{srchval}) || '%'
+          </if>
+          <if test="infm_yn != null and !infm_yn.equals('')">
+            AND T3.INFM_YN = #{infm_yn}
+          </if>
+          <if test="srchtype.equals('srchPhone')">
+            AND UPPER(T1.SNDR_CNTCT_INFM) LIKE '%' || UPPER(#{srchval}) || '%'
+          </if>
+          <if test="srchtype.equals('srchContent')">
+            AND (UPPER(t1.ACT_CONT) LIKE '%' || #{srchval} || '%'
+                  OR UPPER(T1.QST_CONT) LIKE '%' || #{srchval} || '%')
+          </if>
+          <if test="srchtype.equals('resvPhone')">
+            AND T2.RESV_CNTCT_INFM LIKE '%' || #{srchval} || '%' 
+          </if>
+        </if>
+        <if test="selUsrId != null and !selUsrId.equals('all')">
+            AND T1.RCV_USR_ID = #{selUsrId}
+        </if>
+        <if test="selActTypeCd != null and !selActTypeCd.equals('all')">
+            AND T1.ACT_TYPE_CD = #{selActTypeCd}
+        </if>
+        <if test="selActStCd != null and !selActStCd.equals('all')">
+            AND T1.ACT_ST_CD = #{selActStCd}
+        </if>
+        <!-- 
+        <if test="instClass != null and !instClass.equals('all')">
+            AND T1.CTG_EX_CD = #{intv_ex_cd}
+        </if>
+         -->
+        <if test="intv_lg_cd != null and !intv_lg_cd.equals('all')">
+            AND T1.CTG_LG_CD = #{intv_lg_cd}
+        </if>
+        <if test="intv_md_cd != null and !intv_md_cd.equals('all')">
+            AND T1.CTG_MD_CD = #{intv_md_cd}
+        </if>
+        <if test="intv_sm_cd != null and !intv_sm_cd.equals('all')">
+            AND T1.CTG_SM_CD = #{intv_sm_cd}
+        </if>
+        <if test="call_gb_cd != null and !call_gb_cd.equals('all')">
+            AND T1.CALL_GB_CD = #{call_gb_cd}
+        </if>
+        <if test="lang_cd != null and !lang_cd.equals('all')">
+            AND T1.LANG_CD = #{lang_cd}
+        </if>
+       
+        <if test="vltn_gb_cd != null and !vltn_gb_cd.equals('all')">
+            AND T5.VLTN_GB_CD = #{vltn_gb_cd}
+        </if>
+
+        <!-- 퇴사자 조건 추가 -->
+        <if test = "!chkRetire">
+            AND (T6.RET_DT IS NULL OR T6.RET_DT = '')
+        </if>        
+        )
+        <if test="sidx != null and sord != null">
+        ORDER BY ${sidx} ${sord}
+        </if>
+    <if test="rows != null and page != null">
+      ) A1
+    )
+    WHERE PAGENUM = #{page}
+    </if>
+  </select>    
+  
+  <select id="counsellistcnt" parameterType="map" resultType="map">
+    SELECT NVL(SUM(CASE WHEN CALL_GB_CD = '1' THEN 1 ELSE 0 END), 0) AS INCNT
+         , NVL(SUM(CASE WHEN CALL_GB_CD = '2' THEN 1 ELSE 0 END), 0) AS OUTCNT
+    FROM
+    (
+      SELECT
+             T1.CALL_GB_CD
+           , (SELECT CNTR_CD FROM OM001 WHERE USR_ID = T1.RCV_USR_ID) AS CNTR_CD
+        FROM CH001 T1 LEFT JOIN CM005 T2 ON T1.TCKT_ID = T2.RESV_REG_TCKT_ID
+             LEFT JOIN CM003 T3 ON T1.CUST_ID = T3.CUST_ID
+             LEFT JOIN CH001 T4 ON T4.TCKT_ID = T2.OUT_TCKT_ID
+             LEFT JOIN OD026 T5 ON T1.TCKT_ID = T5.TCKT_ID
+             LEFT JOIN OM001 T6 ON T1.RCV_USR_ID = T6.USR_ID      /*퇴사자 조건 추가 */           
+      WHERE 1 = 1
+        AND T1.USE_YN = 'Y'
+        AND T5.VLTN_GB_CD NOT IN ('100000')
+    <!-- 조회조건 통화시간(단위:분) 추가 -->
+    <if test="call_Cnnct_Tm != null and !call_Cnnct_Tm.equals('') and call_End_Tm != null and !call_End_Tm.equals('')">
+        AND ROUND((TO_DATE(T1.CALL_END_TM, 'HH24MISS') - TO_DATE(T1.CALL_CNNCT_TM, 'HH24MISS')) * 24 * 60, 0) BETWEEN #{call_Cnnct_Tm} AND #{call_End_Tm}
+    </if>
+        
+    <if test="resv != null">
+        AND T2.TCKT_ID IS NOT NULL
+    </if>
+    <if test="frDt != null and !frDt.equals('') and toDt != null and !toDt.equals('')">
+      <if test="srchDtType == null">
+        AND T1.RCV_DT BETWEEN #{frDt} AND #{toDt}
+      </if>
+      <if test="srchDtType != null and srchDtType.equals('rcvDt')"> 
+        AND T1.RCV_DT BETWEEN #{frDt} AND #{toDt}
+      </if>
+      <if test="srchDtType != null and srchDtType.equals('resvDt')">
+        AND t2.RESV_DT BETWEEN #{frDt} AND #{toDt}
+      </if>
+    </if>
+    <if test="srchtype != null and !srchval.equals('')">
+      <if test="srchtype.equals('all')">
+        AND 
+        (
+            UPPER(T3.CUST_NM) LIKE '%' || UPPER(#{srchval}) || '%'
+          OR  UPPER(T3.CORP_NM) LIKE '%' || UPPER(#{srchval}) || '%'
+          OR  UPPER(T1.SNDR_CNTCT_INFM) LIKE '%' || UPPER(#{srchval}) || '%'
+          OR  UPPER(T1.ACT_CONT) LIKE '%' || #{srchval} || '%'
+          OR  UPPER(T1.QST_CONT) LIKE '%' || #{srchval} || '%'          
+        )
+      </if>
+      <if test="srchtype.equals('custNm')">
+        AND UPPER(T3.CUST_NM) LIKE '%' || UPPER(#{srchval}) || '%'
+      </if>
+      <if test="infm_yn != null and !infm_yn.equals('')">
+        AND T3.INFM_YN = #{infm_yn}
+      </if>
+      <if test="srchtype.equals('corpNm')">
+        AND UPPER(T3.CORP_NM) LIKE '%' || UPPER(#{srchval}) || '%'
+      </if>
+      <if test="srchtype.equals('srchPhone')">
+        AND UPPER(T1.SNDR_CNTCT_INFM) LIKE '%' || UPPER(#{srchval}) || '%'
+      </if>
+      <if test="srchtype.equals('srchContent')">
+        AND (UPPER(T1.ACT_CONT) LIKE '%' || #{srchval} || '%'
+                OR UPPER(T1.QST_CONT) LIKE '%' || #{srchval} || '%')
+      </if>
+    </if>
+    <if test="selUsrId != null and !selUsrId.equals('all')">
+        AND T1.RCV_USR_ID = #{selUsrId}
+    </if>
+    <if test="selChGbCd != null and !selChGbCd.equals('all')">
+        AND T1.CH_GB_CD = #{selChGbCd}
+    </if>
+    <if test="selActTypeCd != null and !selActTypeCd.equals('all')">
+        AND T1.ACT_TYPE_CD = #{selActTypeCd}
+    </if>
+    <if test="selActStCd != null and !selActStCd.equals('all')">
+        AND T1.ACT_ST_CD = #{selActStCd}
+    </if>
+    <!-- 
+    <if test="instClass != null and !instClass.equals('all')">
+        AND T1.CTG_EX_CD = #{intv_ex_cd}
+    </if>
+     -->
+    <if test="intv_lg_cd != null and !intv_lg_cd.equals('all')">
+        AND T1.CTG_LG_CD = #{intv_lg_cd}
+    </if>
+    <if test="intv_md_cd != null and !intv_md_cd.equals('all')">
+        AND T1.CTG_MD_CD = #{intv_md_cd}
+    </if>
+    <if test="intv_sm_cd != null and !intv_sm_cd.equals('all')">
+        AND T1.CTG_SM_CD = #{intv_sm_cd}
+    </if>
+    <if test="call_gb_cd != null and !call_gb_cd.equals('all')">
+        AND T1.CALL_GB_CD = #{call_gb_cd}
+    </if>
+    <if test="lang_cd != null and !lang_cd.equals('all')">
+        AND T1.LANG_CD = #{lang_cd}
+    </if>
+    
+    <if test="vltn_gb_cd != null and !vltn_gb_cd.equals('all')">
+        AND T5.VLTN_GB_CD = #{vltn_gb_cd}
+    </if>    
+  
+    <!-- 퇴사자 조건 추가 -->
+    <if test = "!chkRetire">
+        AND (T6.RET_DT IS NULL OR T6.RET_DT = '')
+    </if>     
+    
+    )
+
+  </select>  
+    
+</mapper>

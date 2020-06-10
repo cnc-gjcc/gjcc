@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+    <mapper namespace="om045">
+
+    <!-- 설문 답변 저장 -->
+    <update id = "saveAgtSuvy" parameterType="map">
+        MERGE INTO om045
+        USING dual
+        ON 
+        (
+            EDU_ID = #{edu_Id} and SUVY_ID = #{suvy_Id} and USR_ID = #{login_usr_id}
+        )
+        WHEN MATCHED THEN
+            UPDATE
+            SET ANS_NM = #{ans_Nm}
+              , USE_YN = 'Y'
+              , MOD_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+              , MOD_TM = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+              , MOD_USR_ID = #{login_usr_id}
+        WHEN NOT MATCHED THEN
+            INSERT 
+            (
+               EDU_ID 
+             , SUVY_ID 
+             , USR_ID 
+             , ANS_NM 
+             , USE_YN 
+             , CRT_DT 
+             , CRT_TM 
+             , CRT_USR_ID 
+             , MOD_DT 
+             , MOD_TM 
+             , MOD_USR_ID 
+            ) VALUES (
+               #{edu_Id}
+             , #{suvy_Id}
+             , #{login_usr_id}
+             , #{ans_Nm}
+             , 'Y'
+             , TO_CHAR(SYSDATE, 'YYYYMMDD')
+             , TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+             , #{login_usr_id}
+             , TO_CHAR(SYSDATE, 'YYYYMMDD')
+             , TO_CHAR(SYSTIMESTAMP, 'HH24MISS')            
+             , #{login_usr_id}
+            )
+    </update> 
+ 
+    <!-- 설문답변 조회 -->
+    <select id="selectAgtSuvy" parameterType="map" resultType="map">
+        SELECT T1.SUVY_ID 
+             , T1.ANS_NM 
+             , T2.QST_TYPE_CD
+          FROM OM045 T1
+               JOIN OM044 T2 ON T1.SUVY_ID = T2.SUVY_ID 
+         WHERE T1.EDU_ID = #{edu_Id}
+           AND T1.USR_ID = #{usr_Id}
+   
+    </select>  
+       
+</mapper>

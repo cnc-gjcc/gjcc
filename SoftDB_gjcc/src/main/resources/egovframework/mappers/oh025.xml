@@ -1,0 +1,431 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+    <mapper namespace="oh025">        
+        
+    <!-- 등급평가 조회 리스트 -->
+    <select id="selectKpiDataList" parameterType="map" resultType="map">
+
+       WITH USR_TBL AS     /* 상담사 정보 : 관리자 제외 한 상담사만 평가 */
+       (
+           SELECT #{yymm} AS YYMM
+                , USR_ID
+                , USR_NM    
+                , CNTR_CD
+                , TEAM_CD
+                , DEPT_CD
+                , USR_GRD_CD
+                , EMP_NO
+             FROM OM001 
+            WHERE USE_YN = 'Y' 
+              AND USR_GRD_CD = '010100'
+              AND TEAM_CD NOT IN ('7000')            
+       ),
+       QA_TBL AS         /* 상담품질 정보 */
+       (
+           SELECT SUBSTR(T1.END_DT, 1, 6) AS YYMM
+                , T2.USR_ID
+                , T2.ORD1_SCR AS QLT_1
+                , T2.ORD2_SCR AS QLT_2
+                , T2.AVG_SCR AS QLT_3
+                , T2.WNDGD AS QLT_4
+                , (T2.AVG_SCR - T2.WNDGD) AS QLT_5
+             FROM OM025 T1
+                  LEFT JOIN (SELECT VLTN_ID
+                                , VLTN_USR_ID AS USR_ID
+                                , SUM(ORD1_SCR) AS ORD1_SCR
+                                , SUM(ORD2_SCR) AS ORD2_SCR
+                                , SUM(WNDGD) AS WNDGD
+                                , DECODE(SUM(ORD_CNT), 0, 0, ROUND(SUM(ORD1_SCR + ORD2_SCR) / SUM(ORD_CNT), 1)) AS AVG_SCR
+                             FROM (
+                                   SELECT VLTN_ID
+                                        , VLTN_USR_ID
+                                        , NVL(ORD1_SCR, 0) AS ORD1_SCR
+                                        , NVL(ORD2_SCR, 0) AS ORD2_SCR
+                                        , 0 AS WNDGD 
+                                        , NVL2(ORD1_SCR, NVL2(ORD2_SCR, 2, 1), NVL2(ORD2_SCR, 1, 0)) AS ORD_CNT
+                                     FROM (                   
+                                           SELECT VLTN_ID
+                                                , VLTN_USR_ID
+                                                , ORD
+                                                , SUM(SCR) AS SCR 
+                                             FROM OD029    
+                                            WHERE USE_YN = 'Y'       
+                                            GROUP BY VLTN_ID , VLTN_USR_ID , ORD                               
+                                           )
+                                      PIVOT (SUM(SCR) AS SCR 
+                                        FOR ORD IN ('1' AS ORD1, '2' AS ORD2))
+                                   UNION
+                                   SELECT VLTN_ID
+                                        , VLTN_USR_ID
+                                        , 0 AS ORD1_SCR
+                                        , 0 AS ORD2_SCR
+                                        , SUM(WNDGD) AS WNDGD
+                                        , 0 AS ORD_CNT
+                                     FROM OD026
+                                    WHERE USE_YN = 'Y' 
+                                    GROUP BY VLTN_ID, VLTN_USR_ID 
+                                  )
+                            GROUP BY VLTN_ID, VLTN_USR_ID ) T2 ON T1.VLTN_ID = T2.VLTN_ID
+            WHERE T1.USE_YN = 'Y'
+              AND SUBSTR(T1.END_DT, 1, 6) = #{yymm}
+       /*       AND T1.CLS_DT IS NOT NULL */
+       ),
+       KPI_TBL AS        /* 생산성 정보 */
+       (
+           SELECT YYMM
+                , USR_ID
+                , NVL(SUM(ANS_CNT), 0) AS PRDT_1     
+                , NVL(SUM(WRK_CNT), 0) AS PRDT_2
+                , DECODE(NVL(SUM(WRK_CNT), 0), 0, 0, ROUND(NVL(SUM(ANS_CNT), 0) / NVL(SUM(WRK_CNT), 0))) AS PRDT_3 
+             FROM ( 
+                   SELECT #{yymm} AS YYMM
+                        , RCV_USR_ID AS USR_ID
+                        , COUNT(*) AS ANS_CNT
+                        , 0 AS WRK_CNT
+                     FROM CH001
+                    WHERE RCV_DT BETWEEN #{prdctvFrYm} AND #{prdctvToYm}
+                      AND USE_YN = 'Y'
+                   GROUP BY RCV_USR_ID
+                   UNION
+                   SELECT #{yymm} AS YYMM
+                        , USR_ID
+                        , 0 AS ANS_CNT
+                        , COUNT(*) AS WRK_CNT
+                     FROM OH021
+                    WHERE PNCT_CD IN ('100100', '100300') 
+                      AND WRK_DT BETWEEN #{prdctvFrYm} AND #{prdctvToYm}
+                      AND USE_YN = 'Y'
+                    GROUP BY USR_ID             
+  
+                  )
+            GROUP BY YYMM, USR_ID
+       ),          
+       FRST_TBL AS       /* 1차 처리율 정보 */
+       (
+           SELECT YYMM
+                , USR_ID
+                , SUM(ANS_CNT) AS FCR_1
+                , SUM(CPL_CNT) AS FCR_2
+                , SUM(AGT_CNT) AS FCR_3
+                , SUM(PCS_CNT) AS FCR_4
+             FROM (
+                   SELECT YYMM
+                        , USR_ID
+                        , ANS_CNT
+                        , CPL_CNT
+                        , ROUND((CPL_CNT / ANS_CNT * 100), 1) AS AGT_CNT 
+                        , 0 AS PCS_CNT
+                     FROM (
+                           SELECT #{yymm} AS YYMM
+                                , RCV_USR_ID AS USR_ID
+                                , COUNT(*) AS ANS_CNT
+                                , SUM(DECODE(ACT_ST_CD, '030400', DECODE(ACT_TYPE_CD, '010000', 1, '010100', 1, '030300', 1, '070000', 1, 0), 0)) AS CPL_CNT 
+                             FROM CH001
+                            WHERE RCV_DT BETWEEN #{prdctvFrYm} AND #{prdctvToYm}
+                              AND USE_YN = 'Y'
+                           GROUP BY RCV_USR_ID
+                           
+                          )
+                   UNION
+                   SELECT SUBSTR(T1.STRT_DT, 1, 6) AS YYMM
+                        , T2.USR_ID
+                        , 0 AS ANS_CNT
+                        , 0 AS CPL_CNT
+                        , 0 AS AGT_CNT
+                        , T2.PCS_CNT
+                     FROM OM025 T1
+                          LEFT JOIN (SELECT VLTN_ID
+                                          , VLTN_USR_ID AS USR_ID
+                                          , COUNT(*) AS PCS_CNT
+                                       FROM OD026
+                                      WHERE USE_YN = 'Y'
+                                      GROUP BY VLTN_ID, VLTN_USR_ID 
+                                    ) T2 ON T1.VLTN_ID = T2.VLTN_ID
+                    WHERE T1.USE_YN = 'Y'
+                      AND SUBSTR(T1.STRT_DT, 1, 6) = #{yymm}
+               /*       AND T1.CLS_DT IS NOT NULL */
+                   )
+            GROUP BY YYMM, USR_ID
+       ),
+       JISIK_TBL AS      /* 업무지식테스트 정보*/
+       (
+          SELECT SUBSTR(T1.EXAM_STRT_DT, 1, 6) AS YYMM 
+               , T2.USR_ID
+               , SUM(FST) AS BSN_KNWG_1
+               , SUM(AVG_PCS) AS BSN_KNWG_3 
+            FROM OM022 T1 
+                 LEFT JOIN (SELECT TASK_KNWG_ID, USR_ID, FST, FST AS AVG_PCS FROM OD022 WHERE USE_YN = 'Y') T2 ON T1.TASK_KNWG_ID = T2.TASK_KNWG_ID
+           WHERE SUBSTR(T1.EXAM_STRT_DT, 1, 6) = #{yymm}
+             AND T1.USE_YN = 'Y'
+           GROUP BY SUBSTR(T1.EXAM_STRT_DT, 1, 6), T2.USR_ID
+       ),
+       DETAIL_TBL AS    /* 데이터 조회 */
+       ( 
+          SELECT 'D' AS TITLE
+               , T1.EMP_NO 
+               , T1.USR_ID 
+               , T1.USR_NM 
+               , T2.QLT_1 
+               , T2.QLT_2 
+               , T2.QLT_3 
+               , T2.QLT_4 
+               , T2.QLT_5 
+               , T3.PRDT_1 
+               , T3.PRDT_2 
+               , T3.PRDT_3 
+               , T4.FCR_1 
+               , T4.FCR_2 
+               , T4.FCR_3 
+               , T4.FCR_4 
+               , T5.BSN_KNWG_1 
+               , T5.BSN_KNWG_3 
+            FROM USR_TBL T1 
+                 LEFT JOIN QA_TBL T2 ON T1.YYMM = T2.YYMM AND T1.USR_ID = T2.USR_ID 
+                 LEFT JOIN KPI_TBL T3 ON T1.YYMM = T3.YYMM AND T1.USR_ID = T3.USR_ID 
+                 LEFT JOIN FRST_TBL T4 ON T1.YYMM = T4.YYMM AND T1.USR_ID = T4.USR_ID 
+                 LEFT JOIN JISIK_TBL T5 ON T1.YYMM = T5.YYMM AND T1.USR_ID = T5.USR_ID 
+       ),
+       FOOTER_TBL AS    /* 평균 데이터 조회 */
+       (
+          SELECT 'F' TITLE
+               , '계' AS EMP_NO
+               , 'TOTAL' AS USR_ID
+               , '' AS USR_NM
+               , ROUND(AVG(QLT_1), 1) AS QLT_1
+               , ROUND(AVG(QLT_2), 1) AS QLT_2
+               , ROUND(AVG(QLT_3), 1) AS QLT_3
+               , ROUND(AVG(QLT_4), 1) AS QLT_4
+               , ROUND(AVG(QLT_5), 1) AS QLT_5
+               , ROUND(AVG(PRDT_1), 1) AS PRDT_1
+               , ROUND(AVG(PRDT_2), 1) AS PRDT_2
+               , ROUND(AVG(PRDT_3), 1) AS PRDT_3
+               , ROUND(AVG(FCR_1), 1) AS FCR_1
+               , ROUND(AVG(FCR_2), 1) AS FCR_2
+               , ROUND(AVG(FCR_3), 1) AS FCR_3
+               , ROUND(AVG(FCR_4), 1) AS FCR_4
+               , ROUND(AVG(BSN_KNWG_1), 1) AS BSN_KNWG_1
+               , ROUND(AVG(BSN_KNWG_3), 1) AS BSN_KNWG_3
+            FROM DETAIL_TBL
+       )
+       
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+          SELECT A1.*
+            , CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+            , CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+            , CEIL(COUNT(1) OVER()) TOTROWCOUNT
+          FROM
+          (
+        </if>          
+
+              SELECT TITLE, EMP_NO , USR_ID , USR_NM 
+                   , QLT_1 , QLT_2 , QLT_3 , QLT_4 , QLT_5 
+                   , PRDT_1 , PRDT_2 , PRDT_3 
+                   , FCR_1 , FCR_2 , FCR_3 , FCR_4 
+                   , BSN_KNWG_1 , BSN_KNWG_3 
+                FROM DETAIL_TBL  
+              UNION
+              SELECT TITLE, EMP_NO , USR_ID , USR_NM 
+                   , QLT_1 , QLT_2 , QLT_3 , QLT_4 , QLT_5 
+                   , PRDT_1 , PRDT_2 , PRDT_3 
+                   , FCR_1 , FCR_2 , FCR_3 , FCR_4 
+                   , BSN_KNWG_1 , BSN_KNWG_3 
+                FROM FOOTER_TBL  
+    
+          <if test="sidx != null and sord != null">
+               ORDER BY TITLE, ${sidx} ${sord}
+          </if>
+        <if test="rows != null and page != null">
+          ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if> 
+          
+    </select>    
+            
+    <!-- 등급평가결과 리스트 -->
+    <select id="selectKpiResultList" parameterType="map" resultType="map">
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+
+              SELECT USR_ID
+                   , EMP_NO
+                   , USR_NM
+                   , QLT_1
+                   , QLT_2
+                   , QLT_3
+                   , QLT_4
+                   , QLT_5
+                   , QLT_6
+                   , QLT_7
+                   , PRDT_1
+                   , PRDT_2
+                   , PRDT_3
+                   , PRDT_4
+                   , PRDT_5
+                   , FCR_1
+                   , FCR_2
+                   , FCR_3
+                   , FCR_4
+                   , FCR_5
+                   , FCR_6
+                   , FCR_7
+                   , FCR_8
+                   , BSN_KNWG_1
+                   , BSN_KNWG_3
+                   , BSN_KNWG_4
+                   , BSN_KNWG_5
+                   , ABLT_1
+                   , ABLT_2
+                   , ABLT_3
+                   , ABLT_4
+                   , ABLT_5
+                   , ABLT_6
+                   , ABLT_7
+                   , TOTA_SCR
+                   , RNK
+                   , GRD
+                   , PREV_MONTH_GRD
+                FROM OH025
+               WHERE YEAR || MONTH = #{yymm}
+                 AND USE_YN = 'Y'
+                
+           <if test="sidx != null and sord != null">
+               ORDER  BY ${sidx} ${sord}
+           </if>
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+    </select>
+    
+    <!-- 상담사 평가등급결과 삭제 -->
+    <delete id="deleteKpiResult" parameterType="map">
+        DELETE FROM OH025
+         WHERE YEAR || MONTH = #{yymm}
+    </delete>    
+    
+    <!-- 상담사 평가등급결과 엑셀저장 -->
+    <insert id="insertXLFile" parameterType="map">
+               
+       <!-- 캠페인대상고객기본 저장 -->
+       INSERT INTO OH025
+       (
+           YEAR
+         , MONTH
+         , USR_ID
+         , EMP_NO
+         , USR_NM
+         , QLT_1
+         , QLT_2
+         , QLT_3
+         , QLT_4
+         , QLT_5
+         , QLT_6
+         , QLT_7
+         , PRDT_1
+         , PRDT_2
+         , PRDT_3
+         , PRDT_4
+         , PRDT_5
+         , FCR_1
+         , FCR_2
+         , FCR_3
+         , FCR_4
+         , FCR_5
+         , FCR_6
+         , FCR_7
+         , FCR_8
+         , BSN_KNWG_1
+         , BSN_KNWG_3
+         , BSN_KNWG_4
+         , BSN_KNWG_5
+         , ABLT_1
+         , ABLT_2
+         , ABLT_3
+         , ABLT_4
+         , ABLT_5
+         , ABLT_6
+         , ABLT_7
+         , TOTA_SCR
+         , RNK
+         , GRD
+         , PREV_MONTH_GRD
+         , USE_YN
+         , CRT_DT
+         , CRT_TM
+         , CRT_USR_ID
+         , MOD_DT
+         , MOD_TM
+         , MOD_USR_ID 
+       )
+       VALUES
+       (
+           #{year}
+         , #{month}
+         , #{COL1}   /* USR_ID         */
+         , #{COL2}   /* EMP_NO         */
+         , #{COL3}   /* USR_NM         */
+         , #{COL4}   /* QLT_1          */
+         , #{COL5}   /* QLT_2          */
+         , #{COL6}   /* QLT_3          */
+         , #{COL7}   /* QLT_4          */
+         , #{COL8}   /* QLT_5          */
+         , #{COL9}   /* QLT_6          */
+         , #{COL10}    /* QLT_7          */
+         , #{COL11}    /* PRDT_1         */
+         , #{COL12}    /* PRDT_2         */
+         , #{COL13}    /* PRDT_3         */
+         , #{COL14}    /* PRDT_4         */
+         , #{COL15}    /* PRDT_5         */
+         , #{COL16}    /* FCR_1          */
+         , #{COL17}    /* FCR_2          */
+         , #{COL18}    /* FCR_3          */
+         , #{COL19}    /* FCR_4          */
+         , #{COL20}    /* FCR_5          */
+         , #{COL21}    /* FCR_6          */
+         , #{COL22}    /* FCR_7          */
+         , #{COL23}    /* FCR_8          */
+         , #{COL24}    /* BSN_KNWG_1     */
+         , #{COL25}    /* BSN_KNWG_3     */
+         , #{COL26}    /* BSN_KNWG_4     */
+         , #{COL27}    /* BSN_KNWG_5     */
+         , #{COL28}    /* ABLT_1         */
+         , #{COL29}    /* ABLT_2         */
+         , #{COL30}    /* ABLT_3         */
+         , #{COL31}    /* ABLT_4         */
+         , #{COL32}    /* ABLT_5         */
+         , #{COL33}    /* ABLT_6         */
+         , #{COL34}    /* ABLT_7         */
+         , #{COL35}    /* TOTA_SCR       */
+         , #{COL36}    /* RNK            */
+         , #{COL37}    /* GRD            */
+         , #{COL38}    /* PREV_MONTH_GRD */
+         , 'Y'
+         , TO_CHAR(SYSDATE, 'YYYYMMDD')
+         , TO_CHAR(SYSDATE, 'HH24MISS')
+         , #{login_usr_id}
+         , TO_CHAR(SYSDATE, 'YYYYMMDD')
+         , TO_CHAR(SYSDATE, 'HH24MISS')
+         , #{login_usr_id}        
+       )        
+
+    </insert>    
+    
+</mapper>

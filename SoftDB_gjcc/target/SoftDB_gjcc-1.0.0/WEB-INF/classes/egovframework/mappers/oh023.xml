@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="oh023">
+	 
+		<insert id="insertLocationInfo" parameterType="map">
+		  
+		 	 	MERGE INTO oh023
+				USING dual
+				ON (tckt_id = #{tckt_id})
+				WHEN MATCHED THEN
+					UPDATE SET 	
+						mod_dt = to_char(sysdate, 'yyyymmdd')
+					,	mod_tm = to_char(sysdate, 'hh24miss')
+					,	mod_usr_id = #{login_usr_id}
+				<if test="req_dt != null and !req_dt.equals('')">
+					, req_dt = #{req_dt}
+				</if>
+				<if test="req_tm != null and !req_tm.equals('')">
+					,	req_tm = #{req_tm}
+				</if>
+				<if test="loc_dtmn_cd != null and !loc_dtmn_cd.equals('')">
+					,	loc_dtmn_cd = #{loc_dtmn_cd}
+				</if>
+				<if test="rslt_cd != null and !rslt_cd.equals('')">
+					,	rslt_cd = #{rslt_cd}
+				</if>								
+				WHEN NOT MATCHED THEN
+					INSERT (
+							   loc_agr_id 
+							 , tckt_id
+							 , cust_id
+							 , agr_dt
+							 , agr_tm
+							 , req_dt
+							 , req_tm
+							 , loc_dtmn_cd
+							 , rslt_cd
+							 , agr_yn
+							 , use_yn    
+				       , crt_dt
+				       , crt_tm
+				       , crt_usr_id
+				       , mod_dt
+				       , mod_tm
+				       , mod_usr_id   
+					) VALUES (
+					  '' || SOH023.nextval
+		 	 		, #{tckt_id}
+		 	 		, #{cust_id}
+		 	 		, #{agr_dt}
+		 	 		, #{agr_tm}
+		 	 		, #{req_dt}
+		 	 		, #{req_tm}
+		 	 		, #{loc_dtmn_cd}
+		 	 		, #{rslt_cd}
+		 	 		, #{agr_yn}
+		 	 		, 'Y'
+		 	 		, to_char(sysdate, 'yyyymmdd')
+		 	 		, to_char(sysdate, 'hh24miss')
+		 	 		, #{ login_usr_id }
+		 	 		, to_char(sysdate, 'yyyymmdd')
+		 	 		, to_char(sysdate, 'hh24miss')
+		 	 		, #{ login_usr_id }
+				)				
+		</insert>
+</mapper>
+ 

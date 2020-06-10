@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="om020">
+
+	<resultMap id="MenuMap" type="map">
+		<result property="lv" column="LV"/>
+		<result property="text" column="TEXT"/>
+		<result property="id" column="ID"/>
+		<result property="parent" column="PARNT"/>
+		<result property="seq" column="SEQ"/>
+	</resultMap>
+	<select id="categoryall" parameterType="map" resultMap="MenuMap"> 	
+		<!-- SELECT LEVEL AS LV, ctg_cd_nm AS TEXT, CTG_CD AS ID, NVL(PARNT_CD,'#') AS PARNT, cd_ord AS SEQ-->
+		SELECT LEVEL AS LV, ctg_cd_nm AS TEXT, CTG_CD AS ID, cd_ord AS SEQ,
+		CASE
+        WHEN PARNT_CD = '00000000' THEN '#'
+        ELSE PARNT_CD
+        END AS PARNT		
+		FROM OM020		
+		WHERE USE_YN ='Y'
+		<!-- START WITH PARNT_CD IS NULL-->
+		START WITH PARNT_CD = '00000000' 
+		CONNECT BY PRIOR CTG_CD = PARNT_CD
+		ORDER SIBLINGS BY cd_ord
+	</select>
+		
+  <select id="categoryheader" parameterType="map" resultMap="MenuMap">   
+    <!--SELECT LEVEL AS LV, ctg_cd_nm AS TEXT, CTG_CD AS ID, NVL(PARNT_CD,'#') AS PARNT, cd_ord AS SEQ
+      FROM OM020
+     WHERE USE_YN ='Y'
+       AND CTG_LVL <![CDATA[<=]]> 3   
+     START WITH PARNT_CD IS NULL
+     CONNECT BY PRIOR CTG_CD = PARNT_CD
+     ORDER SIBLINGS BY cd_ord-->
+	  SELECT LEVEL AS LV, ctg_cd_nm AS TEXT, CTG_CD AS ID, NVL(PARNT_CD,'#') AS PARNT, cd_ord AS SEQ
+	  FROM OM020
+	  WHERE USE_YN ='Y'
+	  AND CTG_LVL <![CDATA[<=]]> 2
+	  START WITH PARNT_CD IS NULL
+	  CONNECT BY PRIOR CTG_CD = PARNT_CD
+	  ORDER SIBLINGS BY cd_ord
+  </select> 
+  
+  <select id="categorydetail" parameterType="map" resultMap="MenuMap">   
+    SELECT LEVEL AS LV, ctg_cd_nm AS TEXT, CTG_CD AS ID, NVL(PARNT_CD,'#') AS PARNT, cd_ord AS SEQ
+      FROM OM020
+     WHERE USE_YN ='Y'
+       AND LEVEL = #{categoryLvl} + 1
+       AND PARNT_CD = #{parntCd}     
+     START WITH PARNT_CD IS NULL
+     CONNECT BY PRIOR CTG_CD = PARNT_CD
+     ORDER SIBLINGS BY cd_ord
+  </select>  
+ 
+  <select id="categoryDetailAuto" parameterType="map" resultMap="MenuMap">
+	  SELECT t3.CD_ORD
+	  , t1.CTG_CD     as LCODE
+	  , t1.CTG_CD_NM  as LNAME
+	  , t2.CTG_CD     as MCODE
+	  , t2.CTG_CD_NM  as MNAME
+	  , t3.PARNT_CD
+	  , t3.CTG_LVL
+	  , t3.CTG_CD     as SCODE
+	  , t3.CTG_CD_NM  as SNAME
+	  FROM OM020 t3
+	  left join OM020 t2
+	  on  t2.CTG_CD = t3.PARNT_CD
+	  AND t2.CTG_LVL ='2'
+	  left join OM020 t1
+	  on  t1.CTG_CD = t2.PARNT_CD
+	  AND t1.CTG_LVL ='1'
+	  WHERE 1=1
+	  AND  t3.CTG_LVL = '3'
+	  AND  t3.CTG_CD_NM like '%'||#{keyword}||'%'
+	  AND t3.USE_YN ='Y'
+   <!--
+			SELECT t4.CD_ORD
+			      , t1.CTG_CD     as XCODE
+			      , t1.CTG_CD_NM  as XNAME 
+			      , t2.CTG_CD     as LCODE
+			      , t2.CTG_CD_NM  as LNAME
+			      , t3.CTG_CD     as MCODE
+			      , t3.CTG_CD_NM  as MNAME
+			      , t4.PARNT_CD   
+			      , t4.CTG_LVL   
+			      , t4.CTG_CD     as SCODE
+			      , t4.CTG_CD_NM  as SNAME
+			FROM OM020 t4 
+			            left join OM020 t3 
+			              on  t3.CTG_CD = t4.PARNT_CD 
+			              AND t3.CTG_LVL ='3'
+			            left join OM020 t2 
+			              on  t2.CTG_CD = t3.PARNT_CD 
+			              AND t2.CTG_LVL ='2'
+			            left join OM020 t1 
+			              on  t1.CTG_CD = t2.PARNT_CD 
+			              AND t1.CTG_LVL ='1'
+			 WHERE 1=1
+			   AND  t4.CTG_LVL = '4' 
+			   AND  t4.CTG_CD_NM like '%'||#{keyword}||'%' 
+			   AND t4.USE_YN ='Y'
+UNION ALL
+    SELECT  t4.CD_ORD     as CD_ORD
+			      , t1.CTG_CD     as XCODE
+			      , t1.CTG_CD_NM  as XNAME 
+			      , t2.CTG_CD     as LCODE
+			      , t2.CTG_CD_NM  as LNAME
+			      , t3.CTG_CD     as MCODE
+			      , t3.CTG_CD_NM  as MNAME
+			      , t4.PARNT_CD   
+			      , t4.CTG_LVL   
+			      , t4.CTG_CD     as SCODE
+			      , t4.CTG_CD_NM  as SNAME
+			FROM OM020 t4 
+			            left join OM020 t3 
+			              on  t3.CTG_CD = t4.PARNT_CD 
+			              AND t3.CTG_LVL ='3'
+			            left join OM020 t2 
+			              on  t2.CTG_CD = t3.PARNT_CD 
+			              AND t2.CTG_LVL ='2'
+			            left join OM020 t1 
+			              on  t1.CTG_CD = t2.PARNT_CD 
+			              AND t1.CTG_LVL ='1'
+			 WHERE 1=1
+			   AND  t3.CTG_LVL ='3'
+			   AND  t2.CTG_CD='50010000'
+         AND  t3.CTG_CD_NM like '%'||#{keyword}||'%'   
+			   AND  t4.USE_YN ='Y'
+			   -->
+  </select>  
+  
+  
+	<select id="categorylist" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				SELECT CTG_LVL, CTG_CD as CD, ctg_cd_nm as CD_NM, cd_ord, USE_YN
+				  FROM OM020 
+				 WHERE 1=1
+
+				<if test="categoryGb != null">
+					AND CTG_LVL = #{categoryGb}+1
+				</if>
+				<if test="parntCd != null and parntCd != ''">
+					AND PARNT_CD = #{parntCd}
+				</if>
+				<if test="!notuse">
+					AND USE_YN = 'Y'
+				</if>
+				
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>			
+				
+		<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>
+
+	<select id="categoryspec" parameterType="map" resultType="map">
+		SELECT CTG_LVL, CTG_CD, ctg_cd_nm, PARNT_CD, EXT1_CD, EXT2_CD, MEMO, cd_ord, USE_YN
+		  FROM OM020 
+		 WHERE 1=1 
+		   AND CTG_LVL = #{categoryGb}
+		   AND CTG_CD = #{categoryCd}
+	</select>
+
+	<select id="categoryspecdup" parameterType="map" resultType="map">
+		SELECT CTG_LVL, CTG_CD, ctg_cd_nm, PARNT_CD, EXT1_CD, EXT2_CD, MEMO, cd_ord, USE_YN
+		  FROM OM020 
+		 WHERE 1=1 
+		   AND CTG_LVL = #{categoryGb}
+		   AND PARNT_CD = #{parntCd}
+		   AND ctg_cd_nm = #{categoryNm}
+	</select>
+
+	<select id="categoryObjList" parameterType="map" resultType="map">
+			<if test="categoryGb == 'all'">
+					SELECT 
+							SUBSTR(CTG_CD,0,3) AS CD,CTG_CD, ctg_cd_nm AS CD_NM, CTG_LVL, cd_ord, USE_YN,
+							RANK() OVER (PARTITION BY substr(CTG_CD,0,3) ORDER BY CTG_CD ) as RANK
+					FROM OM020 
+					WHERE 1=1
+			</if>
+			<if test="categoryGb == 'lv2cat'">
+					SELECT 
+							SUBSTR(CTG_CD,0,3) AS CD,CTG_CD, ctg_cd_nm AS CD_NM, CTG_LVL, cd_ord, USE_YN,
+							RANK() OVER (PARTITION BY substr(CTG_CD,0,3) ORDER BY CTG_CD ) as RANK
+					FROM OM020 
+					WHERE 1=1
+					 AND CTG_LVL IN ('2','3')
+			</if>
+			<if test="categoryGb == 'lv2seq'">
+				 SELECT 
+		        	SUBSTR(CTG_CD,0,3) AS CD,CTG_CD, ctg_cd_nm AS CD_NM, CTG_LVL, cd_ord, USE_YN,
+	        		RANK() OVER (PARTITION BY CTG_LVL ORDER BY CTG_CD ) as RANK
+					FROM OM020 
+					WHERE 1=1 
+	 				AND CTG_LVL IN ('2','3')
+ 			</if>
+ 			<if test="categoryGb == 'allseq'">
+				 SELECT 
+		        	PARNT_CD ,CTG_CD, ctg_cd_nm AS CD_NM, CTG_LVL, cd_ord, USE_YN,
+	        		RANK() OVER (PARTITION BY CTG_LVL ORDER BY CTG_CD ) as RANK
+					FROM OM020 
+					WHERE 1=1  
+ 			</if>
+	</select>
+		
+	
+	<insert id="insert" parameterType="map">
+		INSERT INTO OM020 
+		    (CTG_LVL, CTG_CD, ctg_cd_nm, PARNT_CD, EXT1_CD, EXT2_CD, MEMO, cd_ord, USE_YN, CRT_DT, CRT_TM, CRT_USR_ID, MOD_DT, MOD_TM, MOD_USR_ID)
+		VALUES
+			(
+			 #{categoryGb}+1,			 
+			 GETTYPECODE(#{parntCd},#{categoryGb}),				 
+			 #{categoryNm},
+			 #{parntCd},
+			 #{ext1Cd}, #{ext2Cd}, #{memo}, 
+			 #{orderNo}, #{useYn}		 
+			,	TO_CHAR (SYSDATE,'YYYYMMDD')
+			,	TO_CHAR (SYSDATE,'HH24MISS')
+			,	#{login_usr_id}
+			,	TO_CHAR (SYSDATE,'YYYYMMDD')
+			,	TO_CHAR (SYSDATE,'HH24MISS')
+			,	#{login_usr_id}
+			)
+	</insert>
+
+	<update id="update" parameterType="map">
+		UPDATE OM020 SET
+		<if test="categoryNm != null">
+		ctg_cd_nm = #{categoryNm},
+		</if>
+		<if test="parntCd != null">
+		PARNT_CD = #{parntCd},
+		</if>
+		<if test="ext1Cd != null">
+		EXT1_CD = #{ext1Cd},
+		</if>
+		<if test="ext2Cd != null">
+		EXT2_CD = #{ext2Cd},
+		</if>
+		<if test="memo != null">
+		MEMO = #{memo},
+		</if>		
+		cd_ord = #{orderNo},
+		<if test="useYn != null">
+		USE_YN = #{useYn},
+		</if>
+		MOD_DT= TO_CHAR (SYSDATE,'YYYYMMDD'),
+		MOD_TM= TO_CHAR (SYSDATE,'HH24MISS'),
+		MOD_USR_ID = #{login_usr_id}
+		WHERE CTG_LVL = #{categoryGb} AND CTG_CD = #{categoryCd}
+	</update>
+</mapper>

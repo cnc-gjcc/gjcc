@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="cm015">
+
+	<sql id="where">
+		 WHERE  1 = 1
+		<if test="ans_seq != null">
+		   AND  t1.ANS_ID = #{ans_seq}
+		</if>
+		<if test="srhText != null">
+			<!-- 조회조건에 따라 칼럼 수정해서 사용하세요 -->
+			<if test="srhType == ans_seq">
+			   AND  t1.ANS_ID LIKE '%' || #{srhText} || '%'
+			</if>
+		</if>
+	</sql>
+
+	<select id="selectList" parameterType="map" resultType="map">
+		<if test="page != null">
+		SELECT A2.* FROM (
+		</if>
+			SELECT ROW_NUMBER() OVER(ORDER BY ROWNUM) row_no
+				  ,  CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) pagenum
+				  ,  CEIL((COUNT(1) OVER()) / #{rows}) totpagecount              
+				  ,  CEIL(COUNT(1) OVER()) totrowcount                           
+				  ,  A1.*                                                        
+			 FROM (                                                            
+				   SELECT                                                      
+						   	t1.ANS_ID
+						   , t1.QST_ID AS QST_SEQ
+						   , t1.ans_no
+						   , t1.ans_nm
+					 FROM cm015  t1
+				   <include refid="where" />
+					ORDER  BY ${sidx} ${sord}
+				  ) A1
+		<if test="page != null">
+			  ) A2
+		 WHERE pagenum = #{page}
+		</if>
+	</select>
+
+	<select id="selectListCount" parameterType="map" resultType="int">
+		SELECT COUNT(1) AS rows_tot
+		  FROM cm015  t1
+		<include refid="where" />
+	</select>
+
+	<select id="select" parameterType="map" resultType="map">
+		SELECT
+				cm11.cmpg_id
+			,	cm11.QST_ID AS QST_SEQ
+			,	cm11.qst_no
+			,	cm11.qst_type_cd
+			,	cm15.ans_no
+			,	cm15.ans_nm
+		FROM cm015 cm15 
+		JOIN cm011 cm11 ON (cm15.QST_ID = cm11.QST_ID)
+		WHERE 1 = 1
+		<if test="cmpg_cust_seq != null and !cmpg_cust_seq.equals('')">
+		AND cm15.CMPG_CUST_ID = #{cmpg_cust_seq}
+		</if>
+		<if test="cmpg_id != null and !cmpg_id.equals('')">
+		AND cmpg_id = #{cmpg_id}
+		</if>
+	</select>
+	
+	<select id="select2" parameterType="map" resultType="map">
+		SELECT  t1.ANS_ID, t1.QST_ID AS QST_SEQ, t1.ans_no, t1.ans_nm
+		  FROM  cm015  t1
+		 WHERE  t1.QST_ID = #{qst_seq}
+      ORDER BY  t1.ans_no
+	</select>
+
+	<select id = "selectShortAns" parameterType="map" resultType="map">
+		SELECT T1.ans_nm as ans_cntn, T1.ANS_ID, T2.xamp as ans_nm, T1.ans_no, T1.CMPG_CUST_ID AS CMPG_CUST_SEQ
+		, T2.qst_nm, T2.QST_ID AS QST_SEQ, T2.qst_no
+		   FROM cm015 T1
+            , (
+				        SELECT cmpg_id, QST_ID, qst_no, qst_type_cd, qst_nm, ans_no, xamp      
+				           FROM (
+				                  select cmpg_id, QST_ID, qst_no, qst_type_cd, qst_nm, '1' as ans_no, xamp1 as xamp    /* 1번 답변 */
+				                     from cm011
+				                   where xamp1 is not null
+				                   union
+				                  select cmpg_id, QST_ID, qst_no, qst_type_cd, qst_nm, '2' as ans_no, xamp2 as xamp     /* 2번 답변 */
+				                     from cm011
+				                   where xamp2 is not null
+				                   union   
+				                  select cmpg_id, QST_ID, qst_no, qst_type_cd, qst_nm, '3' as ans_no, xamp3 as xamp     /* 3번 답변 */
+				                     from cm011
+				                   where xamp3 is not null
+				                   union   
+				                  select cmpg_id, QST_ID, qst_no, qst_type_cd, qst_nm, '4' as ans_no, xamp4 as xamp     /* 4번 답변 */
+				                     from cm011
+				                   where xamp4 is not null
+				                   union      
+				                  select cmpg_id, QST_ID, qst_no, qst_type_cd, qst_nm, '5' as ans_no, xamp5 as xamp     /* 5번 답변 */
+				                     from cm011
+				                   where xamp5 is not null
+												)  
+							) T2
+            
+      WHERE T1.QST_ID = T2.QST_ID
+      <if test = "cmpg_id != null">
+      AND T2.cmpg_id = #{ cmpg_id }
+      </if>
+      <if test = "qst_type_cd != null">
+      AND T2.qst_type_cd = #{ qst_type_cd }
+      </if>
+
+	</select>
+
+	<insert id="insert" parameterType="map">
+		MERGE INTO cm015
+		USING dual
+		ON (QST_ID = #{qst_seq} AND CMPG_CUST_ID = #{cmpg_cust_seq})
+		WHEN MATCHED THEN
+		UPDATE SET
+				ans_no = #{ans_no}
+			,	ans_nm = #{ans_nm}
+			,	mod_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			,	mod_tm = TO_CHAR(SYSDATE, 'HH24MISS')
+			,	mod_usr_id = #{login_usr_id}
+		WHEN NOT MATCHED THEN
+		INSERT (
+			 	ANS_ID
+			 ,	QST_ID
+			 ,  CMPG_CUST_ID
+			 ,	ans_no
+			 ,	ans_nm
+			 ,	mod_dt
+			 ,	mod_tm
+			 ,	mod_usr_id
+			 ,	crt_dt
+			 ,	crt_tm
+			 ,	crt_usr_id
+		) VALUES (
+				scm015.nextval
+			 ,  #{qst_seq}
+			 ,  #{cmpg_cust_seq}
+			 ,	#{ans_no}
+			 ,	#{ans_nm}
+			 ,  TO_CHAR(SYSDATE, 'YYYYMMDD')
+			 ,  TO_CHAR(SYSDATE, 'HH24MISS')
+			 ,	#{login_usr_id}
+			 ,  TO_CHAR(SYSDATE, 'YYYYMMDD')
+			 ,  TO_CHAR(SYSDATE, 'HH24MISS')
+			 ,	#{login_usr_id}		
+		)
+	</insert>
+
+	<update id="update" parameterType="map">
+		UPDATE  cm015
+		   SET  QST_ID = #{qst_seq}
+			 ,  ans_no = #{ans_no}
+			 ,  ans_nm = #{ans_nm}
+		 WHERE  ANS_ID = #{ans_seq}
+	</update>
+
+	<delete id="delete" parameterType="map">
+		DELETE  FROM cm015
+		 WHERE  ANS_ID = #{ans_seq}
+	</delete>
+
+	<delete id="deleteList" parameterType="map">
+		DELETE  FROM cm015
+		<if test="qst_seq != null">
+		WHERE  QST_ID = #{qst_seq}
+		</if>
+		<if test="qst_seq == null">
+		WHERE  QST_ID = 0
+		</if>
+	</delete>
+ 
+  <select id="checkedAnswer" parameterType="map" resultType="map">
+    SELECT COUNT(1) checkcount 
+      FROM cm015 t1 LEFT JOIN cm012 t2 
+        ON T1.CMPG_CUST_ID = t2.CMPG_CUST_ID 
+     WHERE t2.cmpg_id = #{cmpg_id}
+  </select> 
+
+</mapper>

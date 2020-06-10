@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+    <mapper namespace="om025">
+    
+    <!-- 시퀀스 불러오기 -->
+    <select id="getMntId" parameterType="map" resultType="map">
+        SELECT som025.NEXTVAL as VLTN_ID
+        FROM dual
+    </select>
+    
+    <!-- 모니터링 목록 -->
+    <select id="mntList" parameterType="map" resultType="map">
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+                SELECT GETFORMATDATE(T1.STRT_DT) || ' ~ ' || GETFORMATDATE(T1.END_DT) AS STRT_END_DT
+                     , T1.VLTN_TTL
+                     , (SELECT ST.USR_NM FROM OM001 ST WHERE ST.USR_ID = T1.MOD_USR_ID) AS MOD_USR_NM 
+                     , DECODE(T1.CLS_DT, '', '', GETFORMATDATE(T1.CLS_DT)) AS CLS_DT
+                     , T1.VLTN_ID                  
+                 FROM OM025 T1
+                      LEFT OUTER JOIN (SELECT DISTINCT ST1.VLTN_ID  
+                                         FROM OM026 ST1
+                                              JOIN OM001 ST2 ON ST1.VLTN_USR_ID = ST2.USR_ID
+                                              
+                                 <if test = "!chkRetire">
+                                              AND (ST2.RET_DT is null OR ST2.RET_DT = '')
+                                 </if>
+                                 <if test="  !notuse">
+                                              AND ST2.USE_YN = 'Y'
+                                 </if>
+                                 <if test="cntr_cd != null and !cntr_cd.equals('all') and !cntr_cd.equals('')">
+                                              AND ST2.CNTR_CD = #{cntr_cd}
+                                 </if>
+                                 <if test="team_cd != null and !team_cd.equals('all') and !team_cd.equals('')">
+                                              AND ST2.TEAM_CD = #{team_cd}
+                                 </if>
+                                 <if test="usr_Id != null and !usr_Id.equals('') and !usr_Id.equals('all')">
+                                              AND ST2.USR_ID = #{usr_Id}
+                                 </if>  
+
+                                      ) T2 ON T1.VLTN_ID = T2.VLTN_ID
+                WHERE 1 = 1
+                <if test="frDt != null and !frDt.equals('')">
+                    AND #{frDt} <![CDATA[<=]]> T1.END_DT
+                </if>
+                <if test="toDt != null and !toDt.equals('')">
+                    AND #{toDt} <![CDATA[>=]]> T1.STRT_DT
+                </if>
+                <if test="!notuse">
+                    AND T1.USE_YN = 'Y'
+                </if>
+                <if test="sidx != null and sord != null">
+                    ORDER  BY ${sidx} ${sord}
+                </if>
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+    </select>
+    
+    <!-- 모니터링 목록 저장 -->
+    <insert id="insertMntList" parameterType="map">
+        INSERT  INTO  om025 
+        (
+            VLTN_ID
+            , STRT_DT
+            , END_DT
+            , USE_YN
+            , CRT_DT
+            , CRT_TM
+            , CRT_USR_ID
+            , MOD_DT
+            , MOD_TM 
+            , MOD_USR_ID            
+            , VLTN_TTL
+            , SUVY_ID
+        ) VALUES (
+              #{mntId}
+            , #{fromDt}
+            , #{toDt}
+            , 'Y'
+            , TO_CHAR(SYSDATE, 'YYYYMMDD')
+            , TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+            , #{login_usr_id}
+            , TO_CHAR(SYSDATE, 'YYYYMMDD')
+            , TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+            , #{login_usr_id}            
+            , #{title}
+            , #{suvy_Id}
+        )
+    </insert>
+    
+    <!-- 모니터링 목록 수정 -->
+    <update id="updateMntList" parameterType="map">
+        UPDATE  om025
+           SET  VLTN_TTL = #{title}
+             ,  strt_dt = #{fromDt}
+             ,  end_dt = #{toDt}
+             ,  mod_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+             ,  mod_tm = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+             ,  mod_usr_id = #{login_usr_id}
+         WHERE  VLTN_ID = #{mntId}
+    </update>
+    
+    <!-- 모니터링 목록 삭제 -->
+    <update id="deleteMntList" parameterType="map">
+        UPDATE  om025
+           SET  use_yn = #{use_yn}
+             ,  mod_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+             ,  mod_tm = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+             ,  mod_usr_id = #{login_usr_id}
+         WHERE  VLTN_ID = #{mntId}
+    </update>
+    
+    <!-- 모니터링 대상자 불러오기 -->
+    <select id="selectTargetList" parameterType="map" resultType="map">
+        SELECT  USR_ID as USR_ID
+        FROM    om001
+        WHERE   1 = 1
+          AND   use_yn = 'Y'
+          AND   usr_grd_cd = '010100'
+          AND   ret_dt is null
+        order by usr_id asc
+    </select>
+     
+    <!-- 모니터링 목록 클릭 -->
+    <select id="selectMntSpec" parameterType="map" resultType="map">
+       SELECT
+              VLTN_ID
+            , VLTN_TTL
+            , GETFORMATDATE(STRT_DT) AS STRT_DT
+            , GETFORMATDATE(END_DT) AS END_DT
+            , DECODE(CLS_DT, '', '', GETFORMATDATE(CLS_DT)) AS CLS_DT
+            , SUVY_ID
+            , USE_YN
+            , CRT_DT
+            , CRT_TM
+            , CRT_USR_ID
+            , MOD_DT
+            , MOD_TM
+            , MOD_USR_ID
+         FROM om025
+        WHERE VLTN_ID = #{mnt_id}
+    </select>
+     
+    <!-- 모니터링평가 마감등록, 마감취소 -->
+    <update id="updateMagamMnt" parameterType="map">
+        UPDATE  om025
+           SET  CLS_DT = #{cls_dt}
+             ,  MOD_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+             ,  MOD_TM = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+             ,  MOD_USR_ID = #{login_usr_id}
+         WHERE  VLTN_ID = #{mntId}
+    </update>    
+</mapper>

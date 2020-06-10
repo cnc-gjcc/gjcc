@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="oh014">
+    <resultMap id="boardSearchResult" type="map" >
+        <result property="TBBS_CNTN" column="TBBS_CNTN" jdbcType="CLOB" javaType="java.lang.String" />
+    </resultMap>
+   <select id="nextval" parameterType="map" resultType="map">
+        SELECT  soh013.NEXTVAL wrk_id
+          FROM  dual
+    </select>
+    
+<select id="countHistory" resultType="map">
+select wrk_id from oh013 where req_id=#{req_id}
+</select>
+	<select id="selectJisikHistory" parameterType="map" resultMap="boardSearchResult">
+		SELECT tbbs_id
+		, cntr_nm
+		, team_nm
+		, usr_id
+		, usr_nm
+		, tbbs_gb_cd
+		, cdb_gb_cd
+		, decode(CC_APPR_YN,'P','처리중','N','미승인','Y','승인') as ARR_YN
+		, CC_APPR_YN
+		, getCodeNM(cdb_gb_cd, '90303') AS CDB_GB_NM
+		<!-- , DBMS_LOB.SUBSTR(tbbs_cont_c, 2000, 1) AS TBBS_CNTN -->
+		,   tbbs_cont_c AS TBBS_CNTN 
+		, dtls
+		, tbbs_ttl
+		, tbbs_inqr_cnt
+		, inst_cd
+		, ctg_lg_cd AS INTV_LG_CD
+		, ctg_md_cd AS INTV_MD_CD
+		, ctg_sm_cd AS INTV_SM_CD
+		, (
+		(SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_lg_cd AND ctg_lvl = '1')
+		|| (SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_md_cd AND ctg_lvl = '2')
+		|| (SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_sm_cd AND ctg_lvl = '3')
+		) AS intv_nm
+		, (SELECT NVL(usr_nm,'') FROM om001 WHERE usr_id = A.RSPN_PRSN) AS respon_prsn
+		, rspn_prsn
+		, NVL(RSPN_TEL_NO,'') as respon_tel
+		, use_yn
+		, unuse_rsn AS NTUSE_DESC
+		, NVL((select OU from om061 BB where bb.UID_ = A.CRT_USR_ID),getCodeNM((select CNTR_CD from om001 where USR_ID =A.CRT_USR_ID), '90002'))as CRT_USR_DEPT
+		, NVL((select OU from om061 BB where bb.UID_ = A.MOD_USR_ID),getCodeNM((select CNTR_CD from om001 where USR_ID =A.MOD_USR_ID), '90002'))as MOD_USR_DEPT
+		, NVL((select DISPLAYNAME from om061 BB where bb.UID_ = A.MOD_USR_ID),(select USR_NM from om001 where usr_id =A.MOD_USR_ID)) as MOD_USR_NM
+		, NVL((select DISPLAYNAME from om061 BB where bb.UID_ = A.CRT_USR_ID),(select USR_NM from om001 where usr_id =A.CRT_USR_ID)) as CRT_USR_NM
+		, getFormatDate(crt_dt) AS crt_dt_format
+		, getFormatTime(crt_tm) AS crt_tm_format
+		, crt_usr_id
+		, getFormatDate(mod_dt) AS mod_dt_format
+		, getFormatTime(mod_tm) AS mod_tm_format
+		, mod_usr_id
+		FROM oh013 A
+		<!-- WHERE WRK_ID = #{wrkid} -->
+		WHERE REQ_ID = #{reqid}
+	</select>
+	<select id="selectHistoryList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+			SELECT *
+			FROM
+			(
+			SELECT A1.*
+			, CEIL((ROW_NUMBER() OVER(ORDER BY
+			ROWNUM)) / #{rows}) PAGENUM
+			, CEIL(COUNT(1) OVER() / #{rows})
+			TOTPAGECOUNT
+			, CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+		SELECT
+		REQ_ID
+		, GETFORMATDATE(T1.WRK_DT)|| ' ' ||
+		GETFORMATTIME(T1.WRK_TM) AS
+		WRK_DTTM_FORMAT
+		, T1.MOD_USR_ID
+		, NVL((SELECT
+		DISPLAYNAME FROM OM061 B WHERE B.UID_ =
+		T1.MOD_USR_ID),(select usr_nm
+		from om001
+		where usr_id =
+		T1.MOD_USR_ID)) AS MOD_USER_NM
+		<!-- , DBMS_LOB.SUBSTR(T1.MOD_CONT_C, INSTR(T1.MOD_CONT_C,',', 1) -1, 1) AS ACT_ST_CD , GETCODENM(SUBSTR(T1.MOD_CONT_C, 1, INSTR(T1.MOD_CONT_C,',', 1) -1), '90301') AS ACT_ST_NM , DBMS_LOB.SUBSTR(T1.MOD_CONT_C, LENGTH(T1.MOD_CONT_C), INSTR(T1.MOD_CONT_C,',', 1)+1) AS RTN_RSN -->
+		FROM OH013 T1
+		WHERE T1.TBBS_ID = #{tbbsId}
+		AND T1.CC_APPR_YN = 'Y'
+		<if test="frDt != null and !frDt.equals('') and toDt != null and !toDt.equals('')">
+			AND T1.WRK_DT BETWEEN #{frDt} AND #{toDt}
+		</if>
+		<if test="sidx != null and sord != null">
+			ORDER BY ${sidx} ${sord}
+		</if>
+		<if test="rows != null and page != null">
+			) A1
+			)
+			WHERE PAGENUM = #{page}
+		</if>
+	</select>
+
+	<insert id="insertJisikHistory" parameterType="map">
+		<selectKey resultType="string" keyProperty="WRK_ID" order="BEFORE">
+			select NVL((select sum((select max(to_number(WRK_ID))+1 as max from oh013)) as max from dual), 0) from dual
+		</selectKey>
+		{call
+		declare
+		begin
+		INSERT INTO oh013
+		(
+		WRK_ID
+		, TBBS_ID
+		, REQ_ID
+		, WRK_DT
+		, WRK_TM
+		, WRK_CL
+		, tbbs_gb_cd
+		, cdb_gb_cd
+		, CC_APPR_YN
+		, TBBS_TTL
+		, TBBS_CONT_C
+		, ctg_lg_cd
+		, ctg_md_cd
+		, ctg_sm_cd
+		, USE_YN
+		, cntr_nm
+		, RSPN_PRSN
+		, RSPN_TEL_NO
+		, CRT_DT
+		, CRT_TM
+		, CRT_USR_ID
+		, MOD_DT
+		, MOD_TM
+		, MOD_USR_ID
+		)VALUES (
+		#{WRK_ID}
+		, #{tbl_pk}
+		, #{req_id}
+		, to_char(sysdate, 'yyyymmdd')
+		, to_char(sysdate, 'hh24miss')
+		, #{wrk_cl}
+		, '040101'
+		, #{cdb_gb_cd}
+		, #{cc_appr_yn}
+		, #{tbbs_ttl}
+		, Empty_Clob()
+		, #{intv_lg_cd}
+		, #{intv_md_cd}
+		, #{intv_sm_cd}
+		, #{use_yn}
+		, #{cntr_nm}
+		, #{rspn_prsn}
+		, #{rspn_tel_no}
+		, to_char(sysdate, 'yyyymmdd')
+		, to_char(sysdate, 'hh24miss')
+		, #{sendingUid}
+		, to_char(sysdate, 'yyyymmdd')
+		, to_char(sysdate, 'hh24miss')
+		, #{sendingUid}
+		);
+
+		UPDATE oh013
+		SET TBBS_CONT_C = #{tbbs_cntn, jdbcType = CLOB}
+		WHERE WRK_ID = #{WRK_ID};
+		end
+		}
+
+	</insert>
+	
+	<insert id="updateJisikHistory" parameterType="map">
+		{call
+		declare
+		begin
+		UPDATE oh013
+		SET		
+		  TBBS_ID=#{tbl_pk}
+		, WRK_DT=to_char(sysdate, 'yyyymmdd')
+		, WRK_TM= to_char(sysdate, 'hh24miss')
+		, WRK_CL= #{wrk_cl}
+		, tbbs_gb_cd= '040101'
+		, cdb_gb_cd=#{cdb_gb_cd}
+		, CC_APPR_YN=#{cc_appr_yn}
+		, TBBS_TTL=#{tbbs_ttl}
+		, TBBS_CONT_C=Empty_Clob()
+		, ctg_lg_cd=#{intv_lg_cd}
+		, ctg_md_cd= #{intv_md_cd}
+		, ctg_sm_cd=#{intv_sm_cd}
+		, USE_YN=#{use_yn}
+		, cntr_nm=#{cntr_nm}
+		, RSPN_PRSN=#{rspn_prsn}
+		, RSPN_TEL_NO= #{rspn_tel_no}
+		, MOD_DT=to_char(sysdate, 'yyyymmdd')
+		, MOD_TM= to_char(sysdate, 'hh24miss')
+		, MOD_USR_ID= #{sendingUid}
+		WHERE REQ_ID=#{req_id};
+		
+		UPDATE oh013
+		SET TBBS_CONT_C = #{tbbs_cntn, jdbcType = CLOB}
+		WHERE REQ_ID=#{req_id};
+		end
+		}
+
+	</insert>
+</mapper>

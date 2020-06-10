@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="om076">
+
+	<sql id="where">
+		 WHERE  1 = 1
+	</sql>
+	
+	<select id="selectListPwOv" parameterType="map" resultType="map">
+        		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+        SELECT  T1.usr_id
+            , T1.cntr_cd
+            , getCodeNM(T1.cntr_cd, '90002') AS cntr_nm
+            , T1.team_cd
+            , getCodeNM(T1.team_cd, '90003') AS team_nm
+            , T1.dept_cd
+            , getCodeNM(T1.dept_cd, '90004') AS dept_nm
+            , T1.usr_nm
+            , T1.pwd_enc_cont
+            , getCodeNM(T1.USR_GRD_CD, '90006') AS cd_nm
+            , T1.dty_cd
+            , getCodeNM(T1.dty_cd, '90005') AS dty_nm
+            , T1.cti_use_yn
+            , T1.cti_lgn_id
+            , T1.extn_no
+            , T1.at_rcv_yn
+            , T1.AT_RDY_YN AS AT_READY_YN
+            , T1.ent_dt
+            , T1.ret_dt
+            , (CASE WHEN T1.ret_dt is not null THEN '퇴사' ELSE '' END) AS ret_yn
+            , T1.tel_no
+            , T1.cel_no
+            , getFormatPhoneNum(T1.cel_no) as cel_no_format
+            , T1.fax_no
+            , T1.eml_adr
+            , T1.pc_ip
+            , T1.pc_mac
+            , T1.usr_img_pth
+            , T1.crt_dt
+            , T1.crt_tm
+            , T1.crt_usr_id
+            , T1.mod_dt
+            , getFormatDate(T1.mod_dt) AS mod_dt_format
+            , T1.mod_tm
+            , T1.mod_usr_id
+            , T1.use_yn
+            , getFormatDate(T1.pw_mod_dt) AS pw_mod_dt
+        FROM om001 T1
+             LEFT JOIN (SELECT * FROM SM002 WHERE TP_CD = '90003' AND USE_YN = 'Y') T2 ON T1.TEAM_CD = T2.CD
+        WHERE 1 = 1        
+        AND MONTHS_BETWEEN(SYSDATE, T1.pw_mod_dt) >= 3
+        <if test = "!chkRetire">
+          AND (T1.ret_dt is null OR T1.ret_dt = '')
+        </if>        
+        <if test="gradeType != null and !gradeType.equals('all') and !gradeType.equals('')">
+         <choose>
+         <when test="prjctType != null and prjctType.equals('EDU')">
+          /* 제주도청 팀의 팀장은 교육대상자에 포함 */   
+          AND (T1.usr_grd_cd = #{gradeType} OR (T1.usr_grd_cd = '030100' AND team_cd <![CDATA[<>]]> '9000'))
+         </when>
+         <otherwise>
+          AND T1.usr_grd_cd = #{gradeType}
+         </otherwise>   
+         </choose>   
+        </if>
+        <if test="tfSrchVal != null and !tfSrchVal.equals('')">
+          <if test="optSrchType.equals('all')">
+            AND (upper(T1.usr_id) like '%' || upper(#{tfSrchVal}) || '%'
+            OR upper(T1.usr_nm) like '%' || upper(#{tfSrchVal}) || '%')
+          </if>        
+          <if test="optSrchType.equals('usrId')">
+            AND upper(T1.usr_id) like '%' || upper(#{tfSrchVal}) || '%'
+          </if>
+          <if test="optSrchType.equals('usrNm')">
+            AND upper(T1.usr_nm) like '%' || upper(#{tfSrchVal}) || '%'
+          </if> 
+        </if>
+        <if test="tfCallSrchVal != null and !tfCallSrchVal.equals('')">
+            AND (upper(T1.usr_id) like '%' || upper(#{tfCallSrchVal}) || '%'
+            OR upper(T1.usr_nm) like '%' || upper(#{tfCallSrchVal}) || '%')
+        </if>
+        <if test="!notuse">
+          AND T1.use_yn = 'Y'
+        </if>
+        <if test="cntr_cd != null and !cntr_cd.equals('all') and !cntr_cd.equals('')">
+          AND T1.cntr_cd = #{cntr_cd}
+        </if>
+        <if test="team_cd != null and !team_cd.equals('all') and !team_cd.equals('')">
+          AND T1.team_cd = #{team_cd}
+        </if>
+        <if test="dept_cd != null and !dept_cd.equals('all') and !dept_cd.equals('')">
+          AND T1.dept_cd = #{dept_cd}
+        </if>
+        <if test="cmpg_usr_id != null and !cmpg_usr_id.equals('') and !cmpg_usr_id.equals('all')">
+          AND T1.usr_id = #{cmpg_usr_id}
+        </if>
+        <if test="notLowLev != null and notLowLev">
+          <if test="or_cntr_cd != null and !or_cntr_cd.equals('all') and !or_cntr_cd.equals('')">
+            AND T1.cntr_cd = #{or_cntr_cd}
+          </if>
+          <if test="or_team_cd != null and !or_team_cd.equals('all') and !or_team_cd.equals('')">
+            AND T1.team_cd = #{or_team_cd}
+          </if>
+          <if test="or_dept_cd != null and !or_dept_cd.equals('all') and !or_dept_cd.equals('')">
+            AND T1.dept_cd = #{or_dept_cd}
+          </if>
+        </if>
+        <if test="notLowLev != null and !notLowLev">
+          AND T1.cntr_cd = #{or_cntr_cd}
+          AND T1.team_cd = #{or_team_cd}
+          AND T1.dept_cd = #{or_dept_cd}
+        </if>
+        <if test="sidx == null and sord == null">
+        ORDER BY usr_nm
+        </if>
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+        <if test="pwMoStDt != null and !pwMoStDt.equals('') and pwMoEnDt != null and !pwMoEnDt.equals('')">
+          AND T1.pw_mod_dt between ${pwMoStDt} and ${pwMoEnDt}
+        </if>
+	</select>
+	
+	<select id="selectUserChart" parameterType="map" resultType="map">
+     SELECT COUNT(usr_id) as count
+     FROM om001
+     WHERE 1 = 1
+     AND MONTHS_BETWEEN(SYSDATE, pw_mod_dt) >= 3 
+     AND SUBSTR(pw_mod_dt, 1, 4) = ${year}
+	</select>
+	
+</mapper>  

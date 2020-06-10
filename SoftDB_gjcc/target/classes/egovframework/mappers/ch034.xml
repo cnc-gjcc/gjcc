@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ch034">
+
+
+    <select id="selectVocHistory" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+			<!-- 이관민원 이력보기 화면의 작업일시 칼럼에 초까지 나오게 하기 / DB 함수 GETFORMATDATE 주석 수정 -->
+			SELECT  WRK_ID,
+					GETFORMATDATE(WRK_DT) ||' ' || GETFORMATTIME(WRK_TM) AS WRK_DTM, 
+			        SUBSTR(ORG_FUL_NM,9) AS ORG_FUL_NM, 
+			        ORG_USR_NM,
+			        (SELECT OUCODE FROM OM061 WHERE DISPLAYNAME = A.ORG_USR_NM AND ORGFULLNAME = A.ORG_FUL_NM) AS ORG_USR_DEPCODE, 
+			        getCodeNM( CVL_ACT_ST_CD,'90300') AS CVL_ACT_ST_NM, 
+			        TNTR_CONT, 
+			        RTN_RSN, 
+			        CVL_ACT_CONT,
+			        NVL2((SELECT ORGFULLNAME FROM OM061 WHERE UID_ = A.MOD_USR_ID AND ROWNUM = 1), (SELECT SUBSTR(ORGFULLNAME,9) FROM OM061 WHERE UID_ = A.MOD_USR_ID AND ROWNUM = 1), '공주시청컨텍센터') AS MOD_USR_ORGFULNM,
+			        NVL((SELECT DISPLAYNAME FROM OM061 WHERE UID_= A.MOD_USR_ID AND ROWNUM = 1), (SELECT USR_NM FROM OM001 WHERE USR_ID =A.MOD_USR_ID AND ROWNUM = 1) ) AS MOD_USR_NM,
+			        (SELECT OUCODE FROM OM061 WHERE UID_ = A.MOD_USR_ID AND ROWNUM = 1) AS MOD_USR_OUCODE
+			FROM CH034 A
+			WHERE TCKT_ID= #{tckt_id} AND ORD = #{ord}
+			
+		<if test="rows != null and page != null">
+			) A1
+			<if test="sidx != null and !sidx.equals('')">
+			ORDER BY ${sidx} ${sord}
+			</if>			
+		)
+		WHERE PAGENUM = #{page}
+		</if>
+    </select>
+    
+    <select id="countDeptChanged" parameterType="map" resultType="map">
+     	SELECT *
+		FROM (
+		    SELECT
+		        ORG_FUL_NM,
+		        ORG_USR_NM,
+		        (SELECT OUCODE FROM OM061 WHERE DISPLAYNAME = A.ORG_USR_NM AND ORGFULLNAME = A.ORG_FUL_NM) AS ORG_USR_DEPCODE,
+		        (SELECT ORGFULLNAME FROM OM061 WHERE UID_ = A.MOD_USR_ID AND ROWNUM = 1) AS MOD_USR_ORGFULNM,
+		        NVL((SELECT DISPLAYNAME FROM OM061 WHERE UID_ = A.MOD_USR_ID AND ROWNUM = 1), (SELECT USR_NM FROM OM001 WHERE USR_ID = A.MOD_USR_ID AND ROWNUM = 1)) AS MOD_USR_NM,
+		        (SELECT OUCODE FROM OM061 WHERE UID_ = A.MOD_USR_ID AND ROWNUM = 1) AS MOD_USR_OUCODE 
+		    FROM
+		        CH034 A
+		    WHERE
+		        TCKT_ID = #{tckt_id}
+		        AND ORD = #{ord}
+		) B
+		WHERE B.ORG_USR_DEPCODE != B.MOD_USR_OUCODE  
+    </select>
+    
+    <!-- <select id="checkDeptChange" parameterType="map" resultType="map">
+    <if test="tkid!=null and !tkid.equals('')">
+    select (select t1.oucode from om061 t1 where t1.displayname=t3.org_usr_nm and t1.ORGFULLNAME=t3.ORG_FUL_NM) as DEPCODE, t3.org_usr_nm from ch034 t3 where t3.tckt_id = #{tkid}
+    </if>
+	</select> -->
+</mapper>

@@ -1,0 +1,610 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="sm002">
+
+	<sql id="where">
+		 WHERE  1 = 1
+		<if test="srhVal != null">
+			<!-- 조회조건에 따라 칼럼 수정해서 사용하세요 -->
+		</if>
+	</sql>
+
+	<select id="codelist" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				select 0
+					,	cd
+					,	cd_nm
+					,	ext1_cd
+					,	ext2_cd
+					,	ext3_cd
+					,	ext4_cd
+					,	ext5_cd
+					,	ext6_cd
+					,	ext7_cd
+					,	ext8_cd
+					,	ext9_cd
+					,	use_yn
+					,	cd_ord
+					,	crt_dt
+					,	crt_tm
+					,	mod_dt
+					,	mod_tm
+				from sm002
+				where 1 = 1
+				<if test="tp_cd != null">
+					and tp_cd = #{tp_cd}
+				</if>
+				<if test="parnt_cd != null">
+					and parnt_cd = #{parnt_cd}
+				</if>
+				<if test="parnt_tp_cd != null">
+					and parnt_tp_cd = #{parnt_tp_cd}
+				</if>
+				<if test="!notuse">
+					and use_yn = 'Y'
+				</if>
+				<if test="ext1_cd != null and !ext1_cd.equals('')">
+					and (ext1_cd = #{ext1_cd} or ext2_cd = #{ext1_cd} or ext3_cd = #{ext1_cd})
+				</if>
+				<if test="ext6_cd != null and !ext6_cd.equals('')">
+					and ext6_cd = #{ext6_cd}
+				</if>
+				<if test = "tfSrchVal != null">
+					<if test = "!tfSrchVal.equals('')">
+						<if test="optSrchType.equals('authCd')">
+							AND s2.cd_nm like '%' || #{tfSrchVal} || '%'
+						</if>
+						<if	test="optSrchType.equals('authNm')">
+							AND upper(s2.cd) like '%' || upper(#{tfSrchVal}) || '%'
+						</if>
+					</if>
+				</if>
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>
+	
+	<select id="codeManagerlist" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				select 0
+					,	s2.cd
+					,	s2.cd_nm
+					,	s2.ext1_cd
+					,	s2.ext2_cd
+					,	s2.ext3_cd
+					,	s2.ext4_cd
+					,	s2.ext5_cd
+					,	s2.ext6_cd
+					,	s2.ext7_cd
+					,	s2.ext8_cd
+					,	s2.ext9_cd
+					,	s2.use_yn
+					,	s2.cd_ord
+					,	s2.crt_dt
+					,	s2.crt_tm
+					,	s2.mod_dt
+					,	s2.mod_tm
+				from sm001 s1 , sm002 s2
+				where s1.TP_CD = s2.TP_CD
+				<if test="tp_cd != null">
+					and s2.tp_cd = #{tp_cd}
+				</if>
+				<if test="ext9nm">
+					and s1.ext9_nm = #{ext9nm}
+				</if>
+				<if test="parnt_cd != null">
+					and s2.parnt_cd = #{parnt_cd}
+				</if>
+				<if test="parnt_tp_cd != null">
+					and s2.parnt_tp_cd = #{parnt_tp_cd}
+				</if>
+				<if test="!notuse">
+					and s2.use_yn = 'Y'
+				</if>
+				<if test="ext1_cd != null and !ext1_cd.equals('')">
+					and (s2.ext1_cd = #{ext1_cd} or s2.ext2_cd = #{ext1_cd} or s2.ext3_cd = #{ext1_cd})
+				</if>
+				<if test="ext6_cd != null and !ext6_cd.equals('')">
+					and s2.ext6_cd = #{ext6_cd}
+				</if>
+				<if test = "tfSrchVal != null">
+					<if test = "!tfSrchVal.equals('')">
+						<if test="optSrchType.equals('authCd')">
+							AND s2.cd = #{tfSrchVal}
+						</if>
+						<if	test="optSrchType.equals('authNm')">
+							AND upper(s2.cd_nm) like '%' || upper(#{tfSrchVal}) || '%'
+						</if>
+					</if>
+				</if>
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>		
+	
+	<select id="codespec" parameterType="map" resultType="map">
+		SELECT 0
+			,	tp_cd
+			, (select sm001.tp_nm from sm001 where sm001.TP_CD = sm002.TP_CD)tp_nm
+			,	cd
+			,	cd_nm
+			,	ext1_cd
+			,	ext2_cd
+			,	ext3_cd
+			,	ext4_cd
+			,	ext5_cd
+			,	ext6_cd
+			,	ext7_cd
+			,	ext8_cd
+			,	ext9_cd
+			,	parnt_cd
+			,	parnt_tp_cd
+			,	cd_ord
+			,	use_yn
+			,	crt_dt
+			,	crt_tm
+			,	mod_dt
+			,	mod_tm
+		FROM sm002
+		WHERE
+			cd = #{cd}
+		 	<if test="tp_cd != null">
+				and tp_cd = #{tp_cd}
+			</if>
+	</select>
+	
+	<select id="selectList" parameterType="map" resultType="map">
+		<if test="limit != null">
+		SELECT A1.* FROM (
+		</if>
+			SELECT 
+			<if test="sortOrder == null">
+				ROW_NUMBER() OVER (ORDER BY ) ROW_NO
+			</if>
+			<if test="sortOrder != null">
+				ROW_NUMBER() OVER (ORDER BY ${sortOrder}) ROW_NO
+			</if>
+				, t1.tp_cd, t1.cd, t1.cd_nm, t1.ext1_cd, t1.ext2_cd, t1.ext3_cd, t1.ext4_cd, t1.ext5_cd, t1.ext6_cd, t1.ext7_cd, t1.ext8_cd, t1.ext9_cd, t1.parnt_cd, t1.parnt_tp_cd, t1.cd_ord, t1.use_yn, t1.crt_dt, t1.crt_tm, t1.crt_usr_id, t1.mod_dt, t1.mod_tm, t1.mod_usr_id
+			  FROM sm002  t1
+			<include refid="where" />
+		<if test="limit != null">
+			) A1
+		 WHERE ROW_NO BETWEEN #{pos} + 1 AND #{pos} + #{limit}
+		</if>
+	</select>
+
+	<select id="selectListCount" parameterType="map" resultType="int">
+		SELECT COUNT(1) AS ROWS_TOT
+		  FROM sm002  t1
+		<include refid="where" />
+	</select>
+
+	<select id="select" parameterType="map" resultType="map">
+		SELECT ROWNUM AS ROW_NO, t1.tp_cd, t1.cd, t1.cd_nm, t1.ext1_cd, t1.ext2_cd, t1.ext3_cd, t1.ext4_cd, t1.ext5_cd, t1.ext6_cd, t1.ext7_cd, t1.ext8_cd, t1.ext9_cd, t1.parnt_cd, t1.parnt_tp_cd, t1.cd_ord, t1.use_yn, t1.crt_dt, t1.crt_tm, t1.crt_usr_id, t1.mod_dt, t1.mod_tm, t1.mod_usr_id
+		  FROM sm002  t1
+	</select>
+
+	<insert id="insert" parameterType="map">
+		INSERT INTO sm002
+		(
+				tp_cd
+			,	cd
+			,	cd_nm
+			,	ext1_cd
+			,	ext2_cd
+			,	ext3_cd
+			,	ext4_cd
+			,	ext5_cd
+			,	ext6_cd
+			,	ext7_cd
+			,	ext8_cd
+			,	ext9_cd
+			,	parnt_cd
+			,	parnt_tp_cd
+			,	cd_ord
+			,	use_yn
+			,	crt_dt
+			,	crt_tm
+			,	crt_usr_id
+			,	mod_dt
+			,	mod_tm
+			,	mod_usr_id
+		)
+		VALUES
+		(
+				#{tp_cd}
+			,	#{cd}
+			,	#{cd_nm}
+			,	#{ext1_cd}
+			,	#{ext2_cd}
+			,	#{ext3_cd}
+			,	#{ext4_cd}
+			,	#{ext5_cd}
+			,	#{ext6_cd}
+			,	#{ext7_cd}
+			,	#{ext8_cd}
+			,	#{ext9_cd}
+			,	#{parnt_cd}
+			,	#{parnt_tp_cd}
+			<if test="cd_seq != null">
+			,	#{cd_seq}
+			</if>
+			<if test="cd_seq == null">
+			,	1
+			</if>
+			<if test="use_yn != null">
+			,	#{use_yn}
+			</if>
+			<if test="use_yn == null">
+			,	'Y'
+			</if>
+			,	to_char(sysdate, 'yyyymmdd')
+			,	to_char(sysdate, 'hh24miss')
+			,	#{login_usr_id}
+			,	to_char(sysdate, 'yyyymmdd')
+			,	to_char(sysdate, 'hh24miss')
+			,	#{login_usr_id}
+		)
+	</insert>
+	
+	
+	<insert id="insertManager" parameterType="map">
+		INSERT INTO sm002
+		(
+				tp_cd
+			,	cd
+			,	cd_nm
+			,	ext1_cd
+			,	ext2_cd
+			,	ext3_cd
+			,	ext4_cd
+			,	ext5_cd
+			,	ext6_cd
+			,	ext7_cd
+			,	ext8_cd
+			,	ext9_cd
+			,	parnt_cd
+			,	parnt_tp_cd
+			,	cd_ord
+			,	use_yn
+			,	crt_dt
+			,	crt_tm
+			,	crt_usr_id
+			,	mod_dt
+			,	mod_tm
+			,	mod_usr_id
+		)
+		VALUES
+		(
+				#{tp_cd}
+			,	(select nvl(max(to_number(CD)),#{tp_cd})+1 from sm002 where tp_cd =#{tp_cd})
+			,	#{cd_nm}
+			,	#{ext1_cd}
+			,	#{ext2_cd}
+			,	#{ext3_cd}
+			,	#{ext4_cd}
+			,	#{ext5_cd}
+			,	#{ext6_cd}
+			,	#{ext7_cd}
+			,	#{ext8_cd}
+			,	#{ext9_cd}
+			,	#{parnt_cd}
+			,	#{parnt_tp_cd}
+			<if test="cd_seq != null">
+			,	#{cd_seq}
+			</if>
+			<if test="cd_seq == null">
+			,	1
+			</if>
+			<if test="use_yn != null">
+			,	#{use_yn}
+			</if>
+			<if test="use_yn == null">
+			,	'Y'
+			</if>
+			,	to_char(sysdate, 'yyyymmdd')
+			,	to_char(sysdate, 'hh24miss')
+			,	#{login_usr_id}
+			,	to_char(sysdate, 'yyyymmdd')
+			,	to_char(sysdate, 'hh24miss')
+			,	#{login_usr_id}
+		)
+	</insert>
+
+	<update id="update" parameterType="map">
+		UPDATE sm002
+			SET	cd_nm = #{cd_nm}
+				,	ext1_cd = #{ext1_cd}
+				,	ext2_cd = #{ext2_cd}
+				,	ext3_cd = #{ext3_cd}
+				,	ext4_cd = #{ext4_cd}
+				,	ext5_cd = #{ext5_cd}
+				,	ext6_cd = #{ext6_cd}
+				,	ext7_cd = #{ext7_cd}
+				,	ext8_cd = #{ext8_cd}
+				,	ext9_cd = #{ext9_cd}
+				,	parnt_cd = #{parnt_cd}
+				,	parnt_tp_cd = #{parnt_tp_cd}
+				,	mod_dt = to_char(sysdate, 'yyyymmdd')
+				,	mod_tm = to_char(sysdate, 'hh24miss')
+				,	mod_usr_id = #{login_usr_id}
+			<if test="cd_seq != null and !cd_seq.equals('')">
+				,	cd_ord = #{cd_seq}
+			</if>
+			<if test="cd_seq == null">
+				,	cd_ord = 1
+			</if>
+			<if test="use_yn != null">
+				,	use_yn = #{use_yn}
+			</if>
+			<if test="use_yn == null">
+				,	use_yn = 'Y'
+			</if>
+		 WHERE  tp_cd = #{tp_cd} and cd = #{cd}
+	</update>
+
+	<delete id="delete" parameterType="map">
+		DELETE FROM sm002
+		 WHERE 1 = 1
+	</delete>
+	
+	<resultMap id="authMap" type="map">
+		<result property="text" column="TEXT"/>
+		<result property="id" column="ID"/>
+		<result property="parent" column="PARENT"/>
+	</resultMap>
+	
+	<select id="authList" parameterType="map" resultMap="authMap">
+		SELECT	cd as id
+		 , 	case when parnt_cd is null then '#' else parnt_cd end as parent
+		 ,	cd_nm as text
+		FROM
+		(SELECT	cd_nm , cd, parnt_cd FROM sm002 
+		WHERE tp_cd = '90002'AND use_yn ='Y'
+		UNION
+		SELECT cd_nm, cd, parnt_cd FROM sm002 
+		WHERE tp_cd = '90003' AND use_yn ='Y')
+		WHERE 1 = 1 
+		<if test="usr_grd_cd.equals('050100')">
+			AND cd = (SELECT cntr_cd FROM om001 WHERE usr_id = #{login_usr_id})
+			OR parnt_cd = (SELECT cntr_cd FROM om001 WHERE usr_id = #{login_usr_id})
+		</if>
+		START WITH parnt_cd IS NULL 
+		CONNECT BY PRIOR cd = parnt_cd
+	</select>
+
+	<select id="selectAuth" parameterType="map" resultType="map">
+		SELECT * 
+		FROM sm002 
+		WHERE 1 = 1
+		AND tp_cd = '90003' 
+		AND tp_cd <![CDATA[<>]]> '90002'
+		AND cd IN
+		<foreach collection="cds" item="cd" open="(" close=")" separator=", ">
+			#{cd}
+		</foreach>
+	</select>
+	
+	<select id="checkGrdCd" parameterType="map" resultType="map">
+		SELECT cd, cd_nm
+		FROM sm002 
+		WHERE 1 = 1
+		AND tp_cd = '90003' 
+		AND tp_cd <![CDATA[<>]]> '90002'
+		AND cd = (SELECT team_cd FROM om001 WHERE usr_id = #{login_usr_id}) 
+		AND (SELECT usr_grd_cd FROM om001 WHERE usr_id = #{login_usr_id}) NOT IN ('050100', '060100', '090100')
+	</select>
+	
+	<select id="getStatNms" parameterType="map" resultType="map">
+		SELECT cd, cd_nm FROM sm002 WHERE tp_cd = '90008'
+	</select>
+	
+	<select id="selectCounselKnd" parameterType="map" resultType="map">
+		SELECT 	cd
+				, 	cd_nm 
+		FROM sm002 
+		WHERE 1 = 1
+			AND tp_cd = #{tp_cd}
+			<if test="parnt_cd != null and !parnt_cd.equals('')">
+			AND parnt_cd = #{parnt_cd}
+			</if>
+			<if test="ext1_cd != null and !ext1_cd.equals('')">
+				and (ext1_cd = #{ext1_cd} or ext2_cd = #{ext1_cd} or ext3_cd = #{ext1_cd})
+			</if>
+		ORDER BY cd_ord
+	</select>
+	
+	<resultMap id="TreeMap" type="map">
+		<result property="lv" column="LV"/>
+		<result property="text" column="TEXT"/>
+		<result property="id" column="ID"/>
+		<result property="parent" column="PARENT"/>
+		<result property="cntr_cd" column="CNTR_CD"/>
+		<result property="team_cd" column="TEAM_CD"/>
+		<result property="dept_cd" column="DEPT_CD"/>
+	</resultMap>
+	
+	<select id="teamList" parameterType="map" resultMap="TreeMap">
+	SELECT * FROM(
+		SELECT
+				1 as lv
+			,	'1' || cd AS id
+			,	cd_nm AS text
+			,	case when parnt_cd is null then 'kape' else parnt_cd end AS parent
+			,	cd as cntr_cd
+			,	'' as team_cd
+			,	'' as dept_cd
+		FROM sm002 a1
+		WHERE tp_cd = '90002'
+		UNION
+		SELECT
+				2 as lv
+			,	'2' || cd AS id
+			,	cd_nm AS text
+			,	case when parnt_cd is null then 'kape' else '1' || parnt_cd end AS parent
+			,	parnt_cd as cntr_cd
+			,	cd as team_cd
+			,	'' as dept_cd
+		FROM sm002 a2
+		WHERE tp_cd = '90003'
+		UNION
+		SELECT
+				3 as lv
+			,	'3' || cd AS id
+			,	cd_nm AS text
+			,	case when parnt_cd is null then 'kape' else '2' || parnt_cd end AS parent
+			,	(select parnt_cd from sm002 where tp_cd = '90003' and cd = a3.parnt_cd) as cntr_cd
+			,	parnt_cd as team_cd
+			,	cd as dept_cd
+		FROM sm002 a3
+		WHERE tp_cd = '90004'
+	)WHERE cntr_cd = #{g_cntrFlag}
+	</select>
+	
+	<select id="actTypeList" parameterType="map" resultType="map">
+		SELECT cd
+		     , cd_nm
+		     , ext1_cd as disp1_yn
+		     , ext2_cd as proc1_yn
+		     , ext3_cd as disp2_yn
+		     , ext4_cd as proc2_yn
+		  FROM sm002
+		 WHERE tp_cd = '90014'
+		   AND use_yn = 'Y'
+		ORDER BY cd_ord ASC
+	</select>
+	
+	<select id="arsServiceList" parameterType="map" resultType="map">
+		SELECT cd
+		     , cd_nm
+		     , ext1_cd as tel_no
+		     , ext2_cd as trns_method
+		     , ext3_cd as disp_yn
+		  FROM sm002
+		 WHERE tp_cd = '90047'
+		ORDER BY cd_ord ASC
+	</select>
+	
+	<select id="selectCntrCd" parameterType="map" resultType="map">
+		SELECT 	cd
+			 ,	cd_nm
+		FROM sm002
+		WHERE 1 = 1
+		AND tp_cd = '90002'
+	</select>	
+	
+		<select id="codelistForObject" parameterType="map" resultType="map">
+		SELECT 
+		      t1.TP_CD
+		     ,t1.CD
+		     ,t1.CD_NM
+		     ,nvl(t1.EXT1_CD,'') as EXT1_CD
+		     ,nvl(t1.EXT2_CD,'') as EXT2_CD
+		     ,nvl(t1.EXT3_CD,'') as EXT3_CD
+		     ,nvl(t1.EXT4_CD,'') as EXT4_CD
+		     ,t1.USE_YN
+		FROM SM002 t1 
+		WHERE 1=1 
+		  AND ( t1.EXT2_CD != 'RSM' or t1.EXT2_CD is null)
+		  AND USE_YN = 'Y'
+		ORDER BY t1.TP_CD, t1.CD_ORD, t1.CD
+	</select>
+	 <select id="codelistGrt" parameterType="map" resultType="map">
+		select 
+		      tp_cd as gubun
+		      ,cd as cd
+		      ,cd_nm as c_name
+		      ,ext1_cd as prologue
+		      ,case when tp_cd = '90034' then substr(GETFORMATTIME(ext2_cd),0,5) else ext2_cd end as c_remarks
+		      ,case when tp_cd = '90034' then substr(GETFORMATTIME(ext3_cd),0,5) else ext3_cd end  as j_time 
+		from sm002 
+		where 1=1
+		  and tp_cd IN('90034','90035')
+	</select>
+	<select id="eduListSelect" parameterType="map" resultType="map">
+	  select cd as code,
+	         cd_nm as edu_nm
+	         from sm002 where tp_cd like '90085'
+	</select>
+ 
+  <!-- code value 특정문자열 잘라서 세로로 출력하기 -->
+  <select id="selboxSplitCode" parameterType="map" resultType="map">
+    SELECT SUBSTR(SELCODE, 1, INSTR(SELCODE, ':', 1, 1) - 1) AS CD_NM
+         , SUBSTR(SELCODE, INSTR(SELCODE, ':', 1, 1) + 1) AS CD
+      FROM (  
+            SELECT TRIM(REGEXP_SUBSTR(SELCODE, '[^|]+', 1, LEVEL)) AS SELCODE 
+               FROM (
+                    SELECT EXT1_CD 
+                         || '|' || EXT2_CD
+                         || '|' || EXT3_CD
+                         || '|' || EXT4_CD
+                         || '|' || EXT5_CD
+                         || '|' || EXT6_CD
+                         || '|' || EXT7_CD
+                         || '|' || EXT8_CD
+                         || '|' || EXT9_CD AS SELCODE
+                      FROM SM002
+                     WHERE TP_CD = #{tp_cd}
+                       AND CD = #{cd}
+                    )
+               CONNECT BY INSTR(SELCODE, '|', 1, LEVEL - 1) > 0
+           )
+     WHERE SELCODE IS NOT NULL
+     ORDER BY CD DESC
+  </select> 
+
+  <!-- 콜센타담당자 지정 권한 확인 -->
+  <select id="selCCAuth" parameterType="map" resultType="map">
+  	SELECT CASE WHEN COUNT(1)>0 THEN 'Y' ELSE 'N' END AS CC_AUTH FROM SM002  WHERE TP_CD=#{tp_cd} AND  CD_NM=#{orgId} AND USE_YN='Y'
+  </select>
+
+  <select id="selCCAuthInfo" parameterType="map" resultType="map">
+ 		SELECT UID_, DISPLAYNAME, USERFULLNAME, OUCODE, ORGFULLNAME, TELEPHONENUMBER, MOBILE
+		FROM   OM061 
+		WHERE  USE_YN='Y'
+        AND UID_ = (SELECT CD_NM as id FROM SM002 WHERE TP_CD='90909' AND USE_YN='Y' AND CD_NM NOT IN (select usr_id from om001) AND rownum = 1)
+  </select>
+  
+  <select id="selCodeList" parameterType="map" resultType="map">
+		SELECT ROWNUM RN, CD, CD_NM, EXT1_CD, EXT2_CD, EXT3_CD, EXT4_CD, EXT5_CD,EXT7_CD,EXT8_CD,EXT9_CD,CD_ORD
+		FROM SM002  
+		WHERE  USE_YN = 'Y'
+		AND TP_CD = #{tp_cd}
+		ORDER BY CD_ORD
+  </select>
+    
+</mapper>

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="ch003">
+
+	<select id="selectList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+			SELECT *
+			FROM
+			(
+				SELECT A1.*
+					,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+					,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+					,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+				FROM
+				(
+				</if>
+					SELECT
+							a1.wrk_id
+						,	a1.wrk_dt
+						,	a1.wrk_tm
+						, 	getFormatDate(a1.wrk_dt) as wrk_dt_format
+  						, 	getFormatTime(a1.wrk_tm) as wrk_tm_format
+  						,	getFormatDate(a1.wrk_dt) || ' ' || getFormatTime(a1.wrk_tm) as wrk_dtm
+  						,	case when a1.wrk_cl = 'INSERT' then '추가' when a1.wrk_cl = 'UPDATE' then '수정' else '삭제' end as wrk_cl
+  						,	a2.corp_nm
+						,	a2.cust_nm
+						,	case when getCodeNM(a3.team_cd, '90003') is null then getCodeNM(a3.cntr_cd, '90002') else getCodeNM(a3.cntr_cd, '90002') || ' / ' || getCodeNM(a3.team_cd, '90003') end as cntr_nm
+						,	a3.usr_nm
+					FROM ch003 a1
+					JOIN cm003 a2
+					ON a1.cust_id = a2.cust_id
+					JOIN om001 a3
+					ON a1.crt_usr_id = a3.usr_id
+					WHERE 1 = 1
+					<if test="cntr_cd != null and !cntr_cd.equals('') and !cntr_cd.equals('all')">
+						and a3.cntr_cd = #{cntr_cd}
+					</if>
+					<if test="team_cd != null and !team_cd.equals('') and !team_cd.equals('all')">
+						and a3.team_cd = #{team_cd}
+					</if>
+					<if test="dept_cd != null and !dept_cd.equals('') and !dept_cd.equals('all')">
+						and a3.dept_cd = #{dept_cd}
+					</if>
+					<if test="usr_id != null and !usr_id.equals('') and !usr_id.equals('all')">
+						and a3.usr_id = #{usr_id}
+					</if>
+					<if test="cust_id != null and !cust_id.equals('')">
+						and a2.cust_id = #{cust_id}
+					</if>
+					<if test="wrk_cl != null and !wrk_cl.equals('') and !wrk_cl.equals('all')">
+						and a1.wrk_cl = #{wrk_cl}
+					</if>
+			<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+			</if>
+			<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>
+	
+	<select id="selectOne" parameterType="map" resultType="map">
+		SELECT
+				a1.wrk_id
+			,	a1.wrk_dt
+			,	a1.wrk_tm
+			, 	getFormatDate(a1.wrk_dt) as wrk_dt_format
+			, 	getFormatTime(a1.wrk_tm) as wrk_tm_format
+			,	getFormatDate(a1.wrk_dt) || ' ' || getFormatTime(a1.wrk_tm) as wrk_dtm
+			,	case when a1.wrk_cl = 'INSERT' then '추가' when a1.wrk_cl = 'UPDATE' then '수정' else '삭제' end as wrk_cl
+			,	a1.mod_cont
+			,	a2.corp_nm
+			,	a2.cust_nm
+			,	case when getCodeNM(a3.team_cd, '90003') is null then getCodeNM(a3.cntr_cd, '90002') else getCodeNM(a3.cntr_cd, '90002') || ' / ' || getCodeNM(a3.team_cd, '90003') end as cntr_nm
+			,	a3.usr_nm
+		FROM ch003 a1
+		JOIN cm003 a2
+		ON a1.cust_id = a2.cust_id
+		JOIN om001 a3
+		ON a1.crt_usr_id = a3.usr_id
+		WHERE a1.wrk_id = #{wrk_id}
+	</select>
+	
+</mapper>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="oh050">
+
+    
+	<select  id="callOrgBatch" parameterType="map" statementType="CALLABLE">
+		{call JJCC.PR_LDAPDATA( #{jabDate}, #{loginID}) }
+	</select>
+	
+	<select id="jobData" parameterType="map" resultType="map"> 	
+
+		SELECT  WRK_DT, TO_CHAR(TO_DATE(WRK_DT,'YYYYMMDD'),'YYYY-MM-DD') 
+		        WRK_CCL, GETCODENM(WRK_CCL,'95001') AS WRK_CCL_NM, WRK_CL, GETCODENM(WRK_CL,'95002')  AS WRK_CL_NM , WRK_NM, 
+		        TO_CHAR(TO_DATE(STRT_DTM,'YYYYMMDDHH24MISS'),'YYYY-MM-DD HH24:MI:SS') AS STRT_DTM, 
+		        TO_CHAR(TO_DATE(END_DTM,'YYYYMMDDHH24MISS'),'YYYY-MM-DD HH24:MI:SS') AS END_DTM, 
+		        DSTB_TM, PROC_ST_CD, GETCODENM(PROC_ST_CD,'95003') AS PROC_ST_NM, ERR_MSG
+		FROM OH050 
+		WHERE WRK_ID = (
+		  SELECT MAX(TO_NUMBER(WRK_ID)) FROM OH050
+		  WHERE WRK_NM = #{wrk_nm}
+		  <if test="proc_st_cd != null and !proc_st_cd.equals('')">
+		  AND PROC_ST_CD=#{proc_st_cd}
+		  </if>
+		) 
+		
+	</select>
+
+	<select  id="batchCounselingCntDay" parameterType="map" statementType="CALLABLE">
+		{call GPCC.PR_DAILY_COUNSELING( #{jabDate}, #{loginID}) }
+	</select>
+		    
+</mapper>        

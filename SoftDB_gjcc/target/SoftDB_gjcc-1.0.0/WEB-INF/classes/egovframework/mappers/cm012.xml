@@ -1,0 +1,917 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cm012">
+
+	<sql id="where">
+		 WHERE  1 = 1
+		<if test="cmpg_cust_seq != null">
+		   AND  t1.cmpg_cust_id = #{cmpg_cust_seq}
+		</if>
+		<if test="cmpg_id != null">
+		   AND  t1.cmpg_id = #{cmpg_id}
+		</if>
+		<if test="cust_id != null">
+		   AND  t1.cust_id = #{cust_id}
+		</if>
+		<if test="srhText != null">
+			<!-- 조회조건에 따라 칼럼 수정해서 사용하세요 -->
+			<if test="srhType == cmpg_id">
+			   AND  t1.cmpg_id LIKE '%' || #{srhText} || '%'
+			</if>
+		</if>
+	</sql>
+	
+	<select id="excelSelectList" parameterType="map" resultType="map">
+			<if test="page != null">
+		SELECT A2.* FROM (
+			SELECT ROW_NUMBER() OVER(ORDER BY ROWNUM) row_no
+				,  CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) pagenum
+				,  CEIL((COUNT(1) OVER()) / #{rows}) totpagecount
+				,  CEIL(COUNT(1) OVER()) totrowcount
+				,  A1.*
+			FROM (
+		</if>
+			<if test="chkCmpl != null and chkCmpl">
+        SELECT T1.CMPG_CUST_ID AS CMPG_CUST_SEQ
+             , CASE WHEN CORP_NM IS NULL THEN CUST_NM WHEN CUST_NM IS NULL THEN CORP_NM WHEN CORP_NM IS NOT NULL AND CUST_NM IS NOT NULL THEN CORP_NM || ' / ' || CUST_NM ELSE NULL END AS CUST_NM
+             , GETFORMATPHONENUM(T1.TEL_NO2) AS HPTEL_NO
+             , GETFORMATPHONENUM(T1.TEL_NO1) AS TEL_NO             
+             , T1.CALL_TRY_SCNT
+             , GETCODENM(T1.PROC_ST_CD, '90013') PROC_ST
+             , '' AS  PROC_ST_TIME
+             , T1.PROC_ST_CD
+             , T1.NONRSPN_RSN
+             , T1.MEMO
+             , (SELECT GETFORMATDATE(MOD_DT) || ' ' || GETFORMATTIME(MOD_TM) FROM CM015 WHERE CMPG_CUST_ID = T1.CMPG_CUST_ID AND ROWNUM = '1') AS CRT_DT_FORMAT
+        FROM  CM012 T1
+				WHERE  t1.proc_st_cd = '030400'
+					<if test="cmpg_id != null">
+					AND  t1.cmpg_id = #{cmpg_id}
+					</if>
+					<if test="corp_nm != null and !corp_nm.equals('')">
+					AND  t1.corp_nm like '%' || #{ corp_nm } || '%'
+					</if>
+					<if test="cust_nm != null and !cust_nm.equals('')">
+					AND  t1.cust_nm like '%' || #{ cust_nm } || '%'
+					</if>
+					<if test="tel_no != null and !tel_no.equals('')">
+					AND  t1.tel_no2 like '%' ||  #{ tel_no } || '%'
+					</if>
+					<if test="proc_st_cd != null and !proc_st_cd.equals('all')">
+					AND  t1.proc_st_cd = #{ proc_st_cd }
+					</if>
+			</if>
+			<if test="chkNotCmpl != null and chkCmpl != null and chkCmpl and chkNotCmpl"> 
+				UNION ALL
+			</if>
+			<if test="chkNotCmpl != null and chkNotCmpl">
+        SELECT T1.CMPG_CUST_ID AS CMPG_CUST_SEQ
+             , CASE WHEN CORP_NM IS NULL THEN CUST_NM WHEN CUST_NM IS NULL THEN CORP_NM WHEN CORP_NM IS NOT NULL AND CUST_NM IS NOT NULL THEN CORP_NM || ' / ' || CUST_NM ELSE NULL END AS CUST_NM
+             , GETFORMATPHONENUM(T1.TEL_NO2) AS HPTEL_NO
+             , GETFORMATPHONENUM(T1.TEL_NO1) AS TEL_NO    
+             , T1.CALL_TRY_SCNT
+             , GETCODENM(T1.PROC_ST_CD, '90013') PROC_ST
+             , '' AS  PROC_ST_TIME
+             , T1.PROC_ST_CD
+             , T1.NONRSPN_RSN
+             , T1.MEMO
+             , (SELECT GETFORMATDATE(MOD_DT) || ' ' || GETFORMATTIME(MOD_TM) FROM CM015 WHERE CMPG_CUST_ID = T1.CMPG_CUST_ID AND ROWNUM = '1') AS CRT_DT_FORMAT
+        FROM  CM012 T1
+				WHERE t1.proc_st_cd != '030400'
+					<if test="cmpg_id != null">
+					AND  t1.cmpg_id = #{cmpg_id}
+					</if>
+					<if test="corp_nm != null and !corp_nm.equals('')">
+					AND  t1.corp_nm like '%' || #{ corp_nm } || '%'
+					</if>
+					<if test="cust_nm != null and !cust_nm.equals('')">
+					AND  t1.cust_nm like '%' || #{ cust_nm } || '%'
+					</if>
+					<if test="tel_no != null and !tel_no.equals('')">
+					AND  t1.tel_no2 like '%' ||  #{ tel_no } || '%'
+					</if>
+					<if test="proc_st_cd != null and !proc_st_cd.equals('all')">
+					AND  t1.proc_st_cd = #{ proc_st_cd }
+					</if>
+			</if>
+			<if test="sidx != null and sord != null">
+				ORDER  BY ${sidx} ${sord}
+			</if>
+		<if test="page != null">
+				) A1
+			) A2
+		 WHERE pagenum = #{page}
+		</if>
+	
+	<!-- 
+		<if test="page != null">
+		SELECT A2.* FROM (
+			SELECT ROW_NUMBER() OVER(ORDER BY ROWNUM) row_no
+				,  CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) pagenum
+				,  CEIL((COUNT(1) OVER()) / #{rows}) totpagecount
+				,  CEIL(COUNT(1) OVER()) totrowcount
+				,  A1.*
+			FROM (
+		</if>
+			<if test="chkCmpl != null and chkCmpl">
+				SELECT  t1.cmpg_cust_id
+					,   CASE WHEN corp_nm is null THEN cust_nm WHEN cust_nm is null THEN corp_nm WHEN corp_nm is not null and cust_nm is not null THEN corp_nm || ' / ' || cust_nm ELSE null END AS cust_nm
+					,	GETFORMATPHONENUM(t1.tel_no) AS tel_no
+					,	t1.CALL_TRY_SCNT
+					,	getCodeNM(t1.proc_st_cd, '90023') proc_st
+					,	GETFORMATDATE(MOD_DT) || ' ' || GETFORMATTIME(MOD_TM) AS  proc_st_time
+					,	'' AS  proc_st_time
+					,	t1.proc_st_cd
+					,	t1.NONRSPN_RSN
+					,	t1.usr_memo
+					,   (SELECT GETFORMATDATE(ANS_DT) || ' ' || GETFORMATTIME(ANS_TM) FROM cm016 WHERE cmpg_cust_id = t1.cmpg_cust_id AND rownum = '1') AS crt_dt_format
+					,   '' AS crt_dt_format
+				FROM  cm012 t1
+				WHERE  t1.proc_st_cd = '030000'
+					<if test="cmpg_id != null">
+					AND  t1.cmpg_id = #{cmpg_id}
+					</if>
+					<if test="corp_nm != null and !corp_nm.equals('')">
+					AND  t1.corp_nm like '%' || #{ corp_nm } || '%'
+					</if>
+					<if test="cust_nm != null and !cust_nm.equals('')">
+					AND  t1.cust_nm like '%' || #{ cust_nm } || '%'
+					</if>
+					<if test="tel_no != null and !tel_no.equals('')">
+					AND  t1.tel_no like '%' ||  #{ tel_no } || '%'
+					</if>
+					<if test="proc_st_cd != null and !proc_st_cd.equals('all')">
+					AND  t1.proc_st_cd = #{ proc_st_cd }
+					</if>
+			</if>
+			<if test="chkNotCmpl != null and chkCmpl != null and chkCmpl and chkNotCmpl"> 
+				UNION ALL
+			</if>
+			<if test="chkNotCmpl != null and chkNotCmpl">
+				SELECT  t1.cmpg_cust_id
+					,   CASE WHEN corp_nm is null THEN cust_nm WHEN cust_nm is null THEN corp_nm WHEN corp_nm is not null and cust_nm is not null THEN corp_nm || ' / ' || cust_nm ELSE null END AS cust_nm
+					,	GETFORMATPHONENUM(t1.tel_no) AS tel_no
+					,	t1.CALL_TRY_SCNT
+					,	getCodeNM(t1.proc_st_cd, '90023') proc_st
+					,	GETFORMATDATE(MOD_DT) || ' ' || GETFORMATTIME(MOD_TM) AS  proc_st_time
+					,	'' AS  proc_st_time
+					,	t1.proc_st_cd
+					,	t1.NONRSPN_RSN
+					,	t1.usr_memo
+					,   (SELECT GETFORMATDATE(ANS_DT) || ' ' || GETFORMATTIME(ANS_TM) FROM cm016 WHERE cmpg_cust_id = t1.cmpg_cust_id AND rownum = '1') AS crt_dt_format
+					,   '' AS crt_dt_format
+				FROM  cm012 t1
+				WHERE t1.proc_st_cd != '030000'
+					<if test="cmpg_id != null">
+					AND  t1.cmpg_id = #{cmpg_id}
+					</if>
+					<if test="corp_nm != null and !corp_nm.equals('')">
+					AND  t1.corp_nm like '%' || #{ corp_nm } || '%'
+					</if>
+					<if test="cust_nm != null and !cust_nm.equals('')">
+					AND  t1.cust_nm like '%' || #{ cust_nm } || '%'
+					</if>
+					<if test="tel_no != null and !tel_no.equals('')">
+					AND  t1.tel_no like '%' ||  #{ tel_no } || '%'
+					</if>
+					<if test="proc_st_cd != null and !proc_st_cd.equals('all')">
+					AND  t1.proc_st_cd = #{ proc_st_cd }
+					</if>
+			</if>
+			<if test="sidx != null and sord != null">
+				ORDER  BY ${sidx} ${sord}
+			</if>
+		<if test="page != null">
+				) A1
+			) A2
+		 WHERE pagenum = #{page}
+		</if>
+ -->		
+	</select>
+	
+	<select id="selectList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT A2.* FROM (
+		</if>
+			SELECT
+					ROW_NUMBER() OVER(ORDER BY ROWNUM) row_no
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) pagenum
+				,	CEIL((COUNT(1) OVER()) / #{rows}) totpagecount              
+				,	CEIL(COUNT(1) OVER()) totrowcount                           
+				,	A1.*                                                        
+			FROM (    
+				SELECT
+						t1.cmpg_cust_id as cmpg_cust_seq
+					,	t1.cust_nm
+					,	t1.cust_id
+					,	getFormatPhoneNum(t1.tel_no1) as tel 																							/* 일반전화 */
+					,	getFormatPhoneNum(t1.tel_no2) as mobile  																					/* 핸드폰 */
+					,	t1.ext1 AS gndr																																		/* 성별 */
+          ,	(SELECT cd_nm FROM sm002 WHERE tp_cd = '90045' AND cd = t1.ext1) AS gndr_nm    		/* 고객성별명 */
+          ,	t1.ext2 AS cust_gb_cd 																														/* 고객구분 */
+          ,	(SELECT cd_nm FROM sm002 WHERE tp_cd = '90043' AND cd = t1.ext2) AS cust_gb_nm 		/* 고객구분명 */
+					,	t1.CALL_TRY_SCNT
+					,	getCodeNM(t1.proc_st_cd, '90013') proc_st_nm																			/* 진행상태 */
+					,	t1.proc_st_cd 																																		/* 진행상태코드 */
+					,	t1.NONRSPN_RSN 																																	/* 불응답사유 */
+					,	t1.MEMO
+				FROM cm012 t1 
+				WHERE 1 = 1
+						<if test="usr_id != null and  !usr_id.equals('all')">
+	        	AND t1.usr_id  = #{usr_id}
+	        	</if>
+	         	AND t1.cmpg_id = #{cmpg_id}
+	         <if test="procSt != null and  !procSt.equals('all')">
+						<if test="!procSt.equals('030400')"> <!-- 완료외 -->
+							<![CDATA[AND t1.proc_st_cd <> '030400']]>
+						</if>	         
+						<if test="procSt.equals('030400')"> <!-- 완료 -->
+							AND t1.proc_st_cd = '030400'
+						</if>	         
+	         </if>
+				ORDER BY ${sidx} ${sord}
+			) A1
+		<if test="page != null">
+		) A2
+		WHERE pagenum = #{page}
+		</if>
+	</select>
+	
+	<select id="selectListCount" parameterType="map" resultType="int">
+		SELECT COUNT(1) AS rows_tot
+		  FROM cm012  t1
+		<include refid="where" />
+	</select>
+
+	<select id="selectAll" parameterType="map" resultType="map">
+		<if test="page != null">
+		SELECT A2.* FROM (
+		</if>
+			SELECT ROW_NUMBER() OVER(ORDER BY ROWNUM) row_no
+				  ,  CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) pagenum
+				  ,  CEIL((COUNT(1) OVER()) / #{rows}) totpagecount              
+				  ,  CEIL(COUNT(1) OVER()) totrowcount                           
+				  ,  A1.*                                                        
+			 FROM (    
+			 
+			 	   SELECT  t1.cmpg_cust_id as cmpg_cust_seq
+			 	   		,  t1.province
+				        ,  t1.cust_nm
+				        ,  t1.tel_no
+				        ,  t1.htel
+				        ,  t1.corp_nm
+				        ,  t1.addr
+				        ,  t1.CALL_TRY_SCNT
+				        ,  getCodeNM(t1.proc_st_cd, '90023') proc_st
+				        ,  t1.proc_st_cd
+				        ,  t1.NONRSPN_RSN
+				        ,  t1.memo
+					 FROM  cm012 t1 
+			    LEFT JOIN  cm014 t2
+			           ON  t1.cmpg_cust_id = t2.cmpg_cust_id
+			        WHERE  t2.usr_id  = #{login_usr_id}
+			        <if test="cmpg_id != null">
+			          AND  t1.cmpg_id = #{cmpg_id}
+			  		</if>
+					ORDER  BY ${sidx} ${sord}
+				  ) A1
+		<if test="page != null">
+			  ) A2
+		 WHERE pagenum = #{page}
+		</if>
+	</select>
+<!-- 	
+	<select id="selectExcel" parameterType="map" resultType="map">
+		SELECT  t1.cmpg_cust_id
+			,  t1.province
+			,  t1.cust_nm
+			,  getFormatPhonenum(t1.tel_no) as tel_no
+			,  getFormatPhonenum(t1.htel) as htel
+			,  t1.corp_nm
+			,  t1.addr
+			,  to_char(t1.CALL_TRY_SCNT) as call_cnt
+			,  getCodeNM(t1.proc_st_cd, '90023') proc_st
+			,  t1.proc_st_cd
+			,  t1.NONRSPN_RSN
+			,  t1.usr_memo
+		FROM  cm012 t1 
+		WHERE  t1.cmpg_id = #{cmpg_id}
+		ORDER  BY ${sidx} ${sord}
+	</select>
+ -->
+	<select id="cmpgTargetList" parameterType="map" resultType="map">
+		<if test="page != null">
+		SELECT A2.* 
+		FROM (
+		</if>
+			SELECT 
+					ROW_NUMBER() OVER(ORDER BY ROWNUM) row_no
+				,  	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) pagenum
+				,  	CEIL((COUNT(1) OVER()) / #{rows}) totpagecount              
+				,  	CEIL(COUNT(1) OVER()) totrowcount                           
+				,  	A1.*                                                        
+			FROM (    
+            	SELECT
+          						cm12.cmpg_cust_id as cmpg_cust_seq
+          					,	cm12.cmpg_id
+                    ,	cm12.cust_id
+                    ,	cm12.cust_nm
+                    ,	cm12.proc_st_cd
+                    ,	(SELECT cd_nm FROM sm002 WHERE tp_cd = '90023' AND cd = cm12.proc_st_cd) AS proc_st_nm
+                    ,	cm12.CALL_TRY_SCNT
+                    ,	cm12.NONRSPN_RSN
+                    ,	cm12.slct_dt
+                    ,	cm12.slct_tm
+                    ,	cm12.SLCTR_USR_ID
+                    ,	getFormatPhoneNum(cm12.tel_no1) AS tel
+                    ,	getFormatPhoneNum(cm12.tel_no2) AS mobile
+                    ,	cm12.ext1 AS gndr                                                                 /* 성별 */
+                    ,	(SELECT cd_nm FROM sm002 WHERE tp_cd = '90045' AND cd = cm12.ext1) AS gndr_nm     /* 고객성별명 */
+                    ,	cm12.ext2 AS cust_gb_cd                                                           /* 고객구분 */
+                    ,	(SELECT cd_nm FROM sm002 WHERE tp_cd = '90043' AND cd = cm12.ext2) AS cust_gb_nm  /* 고객구분명 */
+                    ,	cm12.ext3
+                    ,	cm12.ext4
+                    ,	cm12.ext5
+                    ,	CASE WHEN cm12.usr_id is null THEN '미배정' ELSE '배정' END AS div_st             /* 배정여부 */
+                    ,	cm12.use_yn
+                    ,	cm12.crt_dt
+                    ,	cm12.crt_tm
+                    ,	cm12.crt_usr_id
+                    ,	cm12.mod_dt
+                    ,	cm12.mod_tm
+                    ,	cm12.mod_usr_id
+                    ,	cm12.usr_id                                                                       /* 배정상담사 아이디 */
+				         FROM cm012 cm12 <!-- left outer join cm014 cm14 on (cm12.cmpg_cust_id = cm14.cmpg_cust_id and cm12.cmpg_id = cm14.cmpg_id) --><!-- cm014삭제 -->
+                WHERE 1 = 1 
+                  AND cm12.cmpg_id = #{cmpg_id}
+        <if test="cust_nm != null and !cust_nm.equals('')">
+   		    	      AND cm12.cust_nm LIKE '%' || #{cust_nm} || '%'
+    		</if> 
+    		<if test="tel_no != null and !tel_no.equals('')">
+    		    	    AND cm12.tel_no1 LIKE '%' || #{tel_no} || '%' 
+    		    	     OR cm12.tel_no2 LIKE '%' || #{tel_no} || '%' 
+    		</if>
+    		<if test="counselor != null and !counselor.equals('all')">
+    				      AND cm12.usr_id = #{counselor}
+    		</if>
+    		<if test="divAct != null and !divAct.equals('all')">
+    			<if test="divAct.equals('div')">
+    				      AND cm12.usr_id is not null
+    			</if>
+    			<if test="divAct.equals('nondiv')">
+    				      AND cm12.usr_id is null
+    			</if>
+    		</if>
+        				ORDER  BY ${sidx} ${sord}
+        			) A1
+		<if test="page != null">
+		) A2
+		 WHERE pagenum = #{page}
+		</if>
+	</select>
+
+	<select id="select" parameterType="map" resultType="map">
+		SELECT  ROWNUM AS row_no
+          , t1.cmpg_cust_id as cmpg_cust_seq
+          , t1.cmpg_id
+          , t1.cust_id
+          , t1.cust_nm
+          , t1.usr_id
+          , t1.MEMO
+          , t1.proc_st_cd
+          , t1.NONRSPN_RSN
+		  FROM  cm012  t1
+		 WHERE  t1.cmpg_cust_id = #{cmpg_cust_seq}
+	</select>
+	
+	<select id="selectCnt" parameterType="map" resultType="map">
+  		SELECT	(SELECT COUNT(1) FROM cm012 WHERE cmpg_id = #{cmpg_id}) tot_cnt																										/* 캠페인 대상 고객 수 */
+	 	  		, 	(SELECT COUNT(1) FROM cm012 WHERE cmpg_id = #{cmpg_id} AND usr_id IS NULL) non_asgn_cnt  													/* 미배정 고객수 */
+	 	  		, 	(SELECT COUNT(1) FROM cm012 WHERE cmpg_id = #{cmpg_id} AND usr_id IS NOT NULL) asgn_cnt  													/* 배정된 상담사 수 */
+					, 	(SELECT COUNT(1) FROM cm012 WHERE usr_id IS NOT NULL AND proc_st_cd = '030000' AND cmpg_id = #{cmpg_id}) cmpl_cnt /* 완료건수 */
+					, 	(SELECT count(1) from cm012 WHERE proc_st_cd != '030000' AND cmpg_id = #{cmpg_id}) ncmpl_cnt 											/* 미완료건수 */
+		FROM dual
+	</select>
+
+	<insert id="insert" parameterType="map">
+	{CALL
+		DECLARE
+	    BEGIN
+		
+		INSERT  INTO cm012 (cmpg_cust_id
+		     ,  cmpg_id
+		     ,	province
+			 ,  cust_nm
+			 ,	corp_nm
+			 ,	addr
+			 ,  tel_no
+			 ,	htel
+			 ,  selt_dt
+			 ,  selt_tm
+			 ,  selt_usr_id
+			 ,  proc_st_cd
+			 ,  NONRSPN_RSN
+			 ,  CALL_TRY_SCNT
+			 ,	ext1
+			 ,	ext2
+			 ,	ext3
+			 ,	ext4
+			 ,	ext5
+			) VALUES (scm012.NEXTVAL
+			 ,  #{cmpg_id}
+			 ,  #{COL1}
+			 ,  #{COL2}
+			 ,  #{COL3}
+			 ,  #{COL4}
+		<if test="COL5 != null">
+			 ,	#{COL5}
+		</if>
+		<if test="COL5 == null">
+			 ,	''
+		</if>
+			 ,  #{COL6}
+			 ,  TO_CHAR(SYSDATE, 'YYYYMMDD')
+			 ,  TO_CHAR(SYSDATE, 'HH24MISS')
+			 ,  #{selt_usr_id}
+			 ,  '010000'
+			 ,  '1001'
+			 ,  0
+			 ,  #{EXT1}
+			 ,  #{EXT2}
+			 ,  #{EXT3}
+			 ,  #{EXT4}
+			 ,  #{EXT5}
+		    );
+		    
+		INSERT  INTO cm014 (usr_id, cmpg_cust_id, cmpg_id, asgn_dt, asgn_tm, asgnr_usr_id, proc_st_cd, ob_cnt)
+                SELECT #{selt_usr_id}
+                     ,  t1.cmpg_cust_id
+                	 , #{cmpg_id}
+                	 ,  TO_CHAR(SYSDATE, 'YYYYMMDD')
+                	 ,  TO_CHAR(SYSDATE, 'HH24MISS')
+                	 , #{selt_usr_id}
+                	 , '010000'
+                	 ,  0
+                  FROM  cm012  t1
+                 WHERE  t1.cmpg_id = #{cmpg_id}
+                   AND  t1.cmpg_cust_id NOT IN  
+                       (
+                        SELECT  cmpg_cust_id 
+                          FROM  cm014 
+                         WHERE  cmpg_id = #{cmpg_id}
+                       )
+                   <!-- AND  #{asgn_cnt} >= ROWNUM  -->
+                ;	 
+                   	
+		INSERT  INTO ch014 (asgn_id, usr_id, cmpg_cust_id, asgn_draw_gb_cd, asgn_dt, asgn_tm, asgnr_usr_id)
+                SELECT  sch014.NEXTVAL
+                     ,  t1.usr_id
+                     ,  t1.cmpg_cust_id
+                	 , '1001'
+                	 ,  TO_CHAR(SYSDATE, 'YYYYMMDD')
+                	 ,  TO_CHAR(SYSDATE, 'HH24MISS')
+                	 , #{login_usr_id}
+                  FROM  cm014  t1
+                 WHERE  t1.cmpg_id = #{cmpg_id}
+                   AND  t1.asgn_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND  5 > (SYSDATE - to_date(asgn_dt||asgn_tm, 'yyyymmddhh24miss')) * 60 * 60 * 24
+                   AND  t1.asgnr_usr_id = #{selt_usr_id} 
+                   <!-- AND #{asgn_cnt} >= ROWNUM  -->
+                ;
+		    
+		UPDATE cm010
+		SET trgt_cust_scnt = (
+			SELECT COUNT(1)
+		    FROM cm012
+		    WHERE cmpg_id = #{cmpg_id}) 
+		WHERE cmpg_id = #{cmpg_id};    
+		    
+		END
+	}	    
+	</insert>
+
+	<insert id="insertXLFile" parameterType="map">
+	    {CALL
+			DECLARE
+		    BEGIN
+		    
+          <!-- 캠페인대상고객기본 삭제 -->
+          DELETE FROM cm012
+           WHERE CMPG_ID = TO_NUMBER(#{cmpg_id})
+             AND CUST_ID IS NULL;
+             
+          <!-- 캠페인대상고객기본 저장 -->
+          	INSERT INTO cm012 (
+              CMPG_CUST_ID
+            , CMPG_ID
+            , CUST_ID
+            , CUST_NM
+            , SLCT_DT
+            , SLCT_TM
+            , SLCTR_USR_ID
+            , EXT1
+            , EXT2
+            , TEL_NO1
+            , TEL_NO2
+            , PROC_ST_CD
+            , NONRSPN_RSN
+            , CALL_TRY_SCNT
+            , USE_YN
+            , CRT_DT
+            , CRT_TM
+            , CRT_USR_ID
+            , MOD_DT
+            , MOD_TM
+            , MOD_USR_ID
+    			)
+    			VALUES
+    			(
+    					replace(#{COL5}, '-', '') 
+    				,	#{cmpg_id}
+    				,	replace(#{COL5}, '-', '') 																			/* cust_id */
+    				,	#{COL5} 																		/* cust_nm */
+    				,	TO_CHAR(SYSDATE, 'YYYYMMDD')
+    				,	TO_CHAR(SYSDATE, 'HH24MISS')
+    				,	#{selt_usr_id}						
+    				,	#{COL3}																				/* ext1 : 남녀구분 (1:남자, 2:여자) */
+    				,	#{COL4}																				/* ext2 : 고객구분 (1:시민, 2:관광객 ) */
+    				<choose>
+    				<when test="COL5.equals('0')">
+    				,	replace(#{COL6}, '-', '')											/* 핸드폰번호 */
+    				,	''												/* 일반 전화번호 */
+    				</when>
+    				<otherwise>
+    				,	replace(#{COL5}, '-', '')											/* 핸드폰번호 */
+    				,	replace(#{COL6}, '-', '')																/* 일반 전화번호 */
+    				</otherwise>
+    				</choose>
+    				,	'010000'																			/* 처리결과타입코드 (010000 :	준비중) */
+    				,	'1001'																				/* 불응답사유 (1001	: 정상답변) */
+    				,	0
+    				, 'Y'
+    				,	TO_CHAR(SYSDATE, 'YYYYMMDD')
+    				,	TO_CHAR(SYSDATE, 'HH24MISS')
+    				,	#{selt_usr_id}
+    				,	TO_CHAR(SYSDATE, 'YYYYMMDD')
+    				,	TO_CHAR(SYSDATE, 'HH24MISS')
+    				,	#{selt_usr_id}				
+    			);		    
+        		
+          <!-- 캠페인기본 -->
+    			UPDATE cm010
+    			SET TRGT_CUST_SCNT = (
+                      					SELECT COUNT(1)
+                      				    FROM cm012
+                      				    WHERE CMPG_ID = #{cmpg_id}
+                               )
+    			WHERE CMPG_ID = #{cmpg_id};
+			    
+			END
+		}
+	</insert>
+	
+	<update id = "merge" parameterType="map">
+		{CALL
+		    DECLARE
+		    BEGIN
+		    	
+			MERGE INTO cm012
+			USING dual
+			ON (cmpg_id = #{cmpg_id} AND cust_id = #{cust_id} AND cust_id IS NOT NULL)
+			WHEN NOT MATCHED THEN
+			INSERT(
+					cmpg_cust_id
+				,	cmpg_id
+				,	cust_id
+				,	cust_nm 
+				,	ext1	<!-- 성별 90045 -->
+				,	ext2	<!-- 고객구분 90043 -->
+				,	tel_no1 <!-- 핸드폰 -->
+				,	tel_no2	<!-- 일반전화 -->
+				,	slct_dt
+				,	slct_tm
+				,	SLCTR_USR_ID
+				,	proc_st_cd
+				,	CALL_TRY_SCNT
+				,	NONRSPN_RSN
+				,	mod_dt
+				,	mod_tm
+				,	mod_usr_id
+				,	crt_dt
+				,	crt_tm
+				,	crt_usr_id
+			) VALUES (
+					scm012.NEXTVAL
+				,	#{cmpg_id}
+				,	#{cust_id}
+				,	#{cust_nm}
+				,	#{gndr}
+				,	#{cust_gb_cd}
+				,	replace(#{mobile}, '-', '')
+				,	replace(#{tel}, '-', '')
+				,	TO_CHAR(SYSDATE, 'YYYYMMDD')
+				,	TO_CHAR(SYSDATE, 'HH24MISS')
+				,	#{login_usr_id}
+				,	'010000'
+				,	'0'
+				,	'1001'
+				,	TO_CHAR(SYSDATE, 'YYYYMMDD')
+				,	TO_CHAR(SYSDATE, 'HH24MISS')
+				,	#{login_usr_id}
+				,	TO_CHAR(SYSDATE, 'YYYYMMDD')
+				,	TO_CHAR(SYSDATE, 'HH24MISS')
+				,	#{login_usr_id}
+			);
+			    
+			UPDATE cm010
+			SET trgt_cust_scnt = (SELECT COUNT(1) FROM cm012 WHERE cmpg_id = #{cmpg_id}) 
+			WHERE cmpg_id = #{cmpg_id};    
+			    
+			END
+		}
+	</update>
+
+	<update id="update" parameterType="map">
+		UPDATE  cm012
+		   SET  selt_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			 ,  selt_tm = TO_CHAR(SYSDATE, 'HH24MISS')
+             ,  selt_usr_id = #{login_usr_id}
+		 WHERE  cmpg_cust_id = #{cmpg_cust_seq}
+	</update>
+	
+	<update id="updateCallCnt" parameterType="map">
+		UPDATE  cm012
+		   SET  CALL_TRY_SCNT = (SELECT NVL(CALL_TRY_SCNT, 0) + 1 FROM cm012 WHERE cmpg_cust_id = #{cmpg_cust_seq})
+		 WHERE  cmpg_cust_id = #{cmpg_cust_seq}
+	</update>
+
+	<delete id="delete" parameterType="map">
+		{CALL
+			DECLARE
+	    	BEGIN
+				DELETE FROM ch014
+				WHERE cmpg_cust_id = #{cmpg_cust_seq};
+				
+				DELETE FROM cm012
+		 		WHERE cmpg_cust_id = #{cmpg_cust_seq};
+		 		
+				UPDATE cm010
+		   		SET trgt_cust_scnt = (
+						SELECT COUNT(1)
+			           	FROM cm012
+			            WHERE cmpg_id = #{cmpg_id}
+		            ) 
+		 		WHERE cmpg_id = #{cmpg_id};
+		 	END
+		 }  
+	</delete>
+
+  <!-- insertXLFile 에 통합... 혹시 몰라 그대로 남겨둠 -->
+	<delete id="deleteXL" parameterType="map">
+		DELETE  FROM cm012
+		 WHERE  cmpg_id = TO_NUMBER(#{cmpg_id})
+		   AND  cust_id IS NULL
+	</delete>
+	
+	<delete id="deleteList" parameterType="map">
+		DELETE  FROM cm012
+		 WHERE  cmpg_id = #{cmpg_id} 
+		   AND  cust_id = #{cust_id} 
+		   AND  cust_id IS NOT NULL
+	</delete>
+
+    <!-- 설문조사 대상자 삭제
+    1. 상담사 배정이력:ch014(회수) 추가
+                   AND  usr_id  = #{usr_id}
+    2. 상담사 배정:cm014 삭제
+                   AND  usr_id  = #{usr_id}
+    3. 설문 대상자:cm012 삭제 
+    -->
+	<delete id="deleteCust" parameterType="map">
+	
+    <if test="acmpg_cust_seq != null and !acmpg_cust_seq.equals('')">
+		{CALL
+	    	DECLARE
+	    	BEGIN
+                INSERT  INTO ch014 (asgn_id, usr_id, cmpg_cust_id, asgn_draw_gb_cd, asgn_dt, asgn_tm, asgnr_usr_id)
+                SELECT  sch014.NEXTVAL
+                      , usr_id
+                     ,  cmpg_cust_id
+                	 , '1002'
+                	 ,  TO_CHAR(SYSDATE, 'YYYYMMDD')
+                	 ,  TO_CHAR(SYSDATE, 'HH24MISS')
+                	 , #{login_usr_id}
+                  FROM  cm014
+                 WHERE  cmpg_id = #{cmpg_id}
+                   AND  proc_st_cd != '030000'
+                   AND  cmpg_cust_id  IN
+               <foreach item="cmpg_cust_seq" index="index" collection="acmpg_cust_seq" open="(" separator="," close=")">
+       	           #{cmpg_cust_seq}
+               </foreach>
+                ;
+	    	
+                DELETE  FROM cm014
+                 WHERE  cmpg_id = #{cmpg_id}
+                   AND  proc_st_cd != '030000'
+                   AND  cmpg_cust_id IN 
+               <foreach item="cmpg_cust_seq" index="index" collection="acmpg_cust_seq"  open="(" separator="," close=")">
+       	           #{cmpg_cust_seq}
+               </foreach>
+                ;                
+	    	
+                DELETE  FROM cm012 t1
+                 WHERE  cmpg_id = #{cmpg_id}
+                   AND  cmpg_cust_id IN
+               <foreach item="cmpg_cust_seq" index="index" collection="acmpg_cust_seq" open="(" separator="," close=")">
+       	           #{cmpg_cust_seq}
+               </foreach>
+                   AND  t1.proc_st_cd != '030000'
+                ;       
+                
+                UPDATE cm010
+		  		   SET trgt_cust_scnt = (
+			    		SELECT COUNT(1)
+		          		FROM cm012
+		         		WHERE cmpg_id = #{cmpg_id}) 
+				 WHERE cmpg_id = #{cmpg_id}
+				 ;           
+			END
+		}
+	                   
+     </if>
+	</delete>
+	
+	<select id="assignCnt" parameterType="map" resultType="map">
+		SELECT COUNT(1) assigncnt
+		  FROM cm012
+		 WHERE cmpg_id = #{cmpg_id} 
+	</select>
+	
+	<update id="updateCust" parameterType="map">
+		{CALL
+			DECLARE
+			BEGIN	
+		
+			UPDATE cm012
+			SET 
+				proc_st_cd = #{proc_st_cd}
+			,	NONRSPN_RSN = #{not_ans_rson}
+			,	memo = #{etc_memo}
+		 	WHERE cmpg_cust_id = #{cmpg_cust_seq};
+		 
+			UPDATE cm003
+			SET
+        tel_yn = #{telyn}
+      , sms_yn = #{smsyn}
+      <!-- , fax_yn = #{faxyn}  -->
+<!-- 		
+    <if test="telyn">
+				tel_yn = 'Y'
+		</if>
+		<if test="!telyn">
+				tel_yn = 'N'
+		</if>
+		<if test="smsyn">
+			,	sms_yn = 'Y'
+		</if>
+		<if test="!smsyn">
+			,	sms_yn = 'N'
+		</if>
+    <if test="faxyn">
+      , fax_yn = 'Y'
+    </if>
+    <if test="faxyn">
+      , fax_yn = 'N'
+    </if> 
+ -->     
+		<if test="gndr != null and !gndr.equals('')">
+			,	gndr = #{gndr}
+		</if>
+		  <!-- , infm_dtm = <![CDATA[(case when (tel_yn <> #{telyn}) or (sms_yn <> #{smsyn}) or (fax_yn <> #{faxyn}) then TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') end)]]> -->
+		  , infm_dtm = <![CDATA[(case when (tel_yn <> #{telyn}) or (sms_yn <> #{smsyn}) then TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') end)]]>
+		  , mod_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+      , mod_tm = TO_CHAR(SYSDATE, 'HH24MISS')
+      , mod_usr_id = #{login_usr_id}
+			WHERE cust_id = #{cust_id};
+		
+		END
+		}			 
+	</update>
+	
+	<select id="selectCounselor" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+		  SELECT t1.usr_nm
+		  		 , t1.usr_id
+		  <if test = "cmpg_id != null and !cmpg_id.equals('')">
+    			 , (SELECT COUNT(*) FROM cm012 WHERE usr_id = t1.usr_id AND cmpg_id = #{cmpg_id}) total_cnt
+    			 , (SELECT COUNT(*) FROM cm012 WHERE usr_id = t1.usr_id AND cmpg_id = #{cmpg_id} AND proc_st_cd = '030400') complete_cnt 			  /* 완료건(030400)(90013 : 처리상태코드) */
+    			 , (SELECT count(*) FROM cm012 WHERE usr_id = t1.usr_id AND cmpg_id = #{cmpg_id} AND proc_st_cd != '030400') non_complete_cnt 	/* 미완료건(완료상태외) */
+    			 , (SELECT count(*) FROM cm012 WHERE usr_id = t1.usr_id AND cmpg_id = #{cmpg_id} AND proc_st_cd = '010000') collectible_cnt 		/* 미진행건만 */
+	    </if>
+			FROM om001 t1
+			WHERE t1.CTI_USE_YN ='Y' and t1.use_yn ='Y' and (t1.ret_dt is null or t1.ret_dt = '')
+			<if test = "cntr_cd != null and !cntr_cd.equals('')">
+				and t1.cntr_cd = #{cntr_cd}
+			</if>
+			<if test="sidx != null and sord != null">
+			ORDER BY ${sidx} ${sord}
+			</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>
+	</select>	
+	
+	<insert id="insertAssign" parameterType="map">
+		{CALL
+			DECLARE
+			BEGIN
+				UPDATE cm012
+				SET
+					asgn_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+				,	asgn_tm = TO_CHAR(SYSDATE, 'HH24MISS')
+				,	asgnr_usr_id = #{login_usr_id}
+				,	usr_id = #{usr_id}
+				WHERE 1 = 1
+				AND cmpg_id = #{cmpg_id}
+				AND usr_id IS NULL
+				AND #{asgn_cnt} >= ROWNUM;
+				
+                INSERT  INTO ch014 (asgn_id, usr_id, cmpg_cust_id, asgn_draw_gb_cd, asgn_dt, asgn_tm, asgnr_usr_id, crt_dt, crt_tm, crt_usr_id, mod_dt, mod_tm, mod_usr_id)
+                SELECT  
+                		sch014.NEXTVAL
+                     ,  t1.usr_id
+                     ,  t1.cmpg_cust_id
+                	 , '1001'
+                	 ,  TO_CHAR(SYSDATE, 'YYYYMMDD')
+                	 ,  TO_CHAR(SYSDATE, 'HH24MISS')
+                	 , #{login_usr_id}
+                	 ,  TO_CHAR(SYSDATE, 'YYYYMMDD')
+                	 ,  TO_CHAR(SYSDATE, 'HH24MISS')
+                	 , #{login_usr_id}
+                	 ,  TO_CHAR(SYSDATE, 'YYYYMMDD')
+                	 ,  TO_CHAR(SYSDATE, 'HH24MISS')
+                	 , #{login_usr_id}
+                  FROM  cm012  t1
+                 WHERE  t1.cmpg_id = #{cmpg_id}
+                   AND  t1.asgn_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   AND  5 > (SYSDATE - to_date(asgn_dt||asgn_tm, 'yyyymmddhh24miss')) * 60 * 60 * 24
+                   AND  t1.asgnr_usr_id = #{login_usr_id} 
+                   AND #{asgn_cnt} >= ROWNUM 
+                ;
+
+			END
+		}
+	</insert>
+	
+	    <!-- 설문조사 대상자 회수 -->
+	<update id="deleteAssign" parameterType="map">
+		{CALL
+	    	DECLARE
+	    	BEGIN
+                INSERT  INTO ch014 (asgn_id, usr_id, cmpg_cust_id, asgn_draw_gb_cd, asgn_dt, asgn_tm, asgnr_usr_id, crt_dt, crt_tm, crt_usr_id, mod_dt, mod_tm, mod_usr_id)
+                SELECT  sch014.NEXTVAL
+                      , usr_id
+                     ,  cmpg_cust_id
+                	 , '1002'
+                	 ,  TO_CHAR(SYSDATE, 'YYYYMMDD')
+                	 ,  TO_CHAR(SYSDATE, 'HH24MISS')
+                	 , #{login_usr_id}
+            	     ,  TO_CHAR(SYSDATE, 'YYYYMMDD')
+                	 ,  TO_CHAR(SYSDATE, 'HH24MISS')
+                	 , #{login_usr_id}
+                	 ,  TO_CHAR(SYSDATE, 'YYYYMMDD')
+                	 ,  TO_CHAR(SYSDATE, 'HH24MISS')
+                	 , #{login_usr_id}
+                  FROM  cm012
+                 WHERE  cmpg_id = #{cmpg_id}
+                   AND  usr_id  = #{usr_id} 
+                   AND  #{asgn_cnt} >= ROWNUM 
+                ;
+	    	
+               UPDATE cm012
+               SET usr_id = ''
+               WHERE cmpg_id = #{cmpg_id}
+               AND usr_id = #{usr_id}
+               AND PROC_ST_CD = '010000' <!-- 미진행 -->
+               AND #{asgn_cnt} >= ROWNUM;
+			END
+		}
+	</update>
+	
+</mapper>

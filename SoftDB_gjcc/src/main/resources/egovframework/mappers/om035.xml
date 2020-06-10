@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="om035">
+
+	<select id="selectList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+			SELECT *
+	    	FROM
+	    		(
+	      			SELECT A1.*
+	        			, CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+	        			, CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+	        			, CEIL(COUNT(1) OVER()) TOTROWCOUNT
+	      			FROM
+	      				(
+		 </if>
+							SELECT 
+								sms_tmplt_id
+								, sms_class
+								, COMMON_YN
+								, GETCODENM(sms_class, '90033') AS CLASS_NM
+								, sms_ttl
+					       		, sms_cont 
+					       		, sms_sz
+					       		, crt_dt 
+					       		, crt_tm 
+					       		, nvl2(crt_dt, GETFORMATDATE(crt_dt) || ' ' || GETFORMATTIME(crt_tm), '') AS CRT_DH
+					       		, crt_usr_id 
+					       		, mod_dt
+					       		, mod_tm 
+					       		, mod_usr_id 
+					       		, use_yn 
+					  		FROM OM035 
+					 		WHERE use_yn = 'Y'
+							<if test = "sms_class != null and !sms_class.equals('all')">
+					  			AND sms_class = #{sms_class}
+							</if>
+							<if test = "usr_id != null and !usr_id.equals('')">
+					  			AND (
+					  			CRT_USR_ID = #{usr_id} AND COMMON_YN = 'N'
+					  			<if test = "chkCommon != null and !chkCommon.equals('')">
+					  			OR COMMON_YN = #{chkCommon}
+								</if>
+								) 
+							</if>
+ 							
+			
+			 				<if test="sidx != null and sord != null">
+	      						ORDER BY ${sidx} ${sord}
+	      					</if>
+		<if test="rows != null and page != null">
+			 			) A1
+			 	)
+	    	WHERE PAGENUM = #{page}
+		 </if>
+	</select>  
+	
+	<select id="selectDetails" parameterType="map" resultType="map">
+		SELECT 
+			sms_tmplt_id
+			, sms_class
+			, COMMON_YN
+			, sms_ttl
+       		, sms_cont 
+       		, sms_sz
+       		, crt_dt 
+       		, crt_tm 
+       		, nvl2(crt_dt, GETFORMATDATE(crt_dt) || ' ' || GETFORMATTIME(crt_tm), '') AS CRT_DH
+       		, crt_usr_id 
+       		, (SELECT usr_nm FROM OM001 WHERE usr_id = om035.crt_usr_id) AS CRT_USR_NM
+       		, mod_dt
+       		, mod_tm 
+       		, nvl2(mod_dt, GETFORMATDATE(crt_dt) || ' ' || GETFORMATTIME(mod_tm), '') AS MOD_DH
+       		, mod_usr_id 
+       		, (SELECT usr_nm FROM OM001 WHERE usr_id = om035.mod_usr_id) AS MOD_USR_NM
+  		FROM OM035 
+  		WHERE
+  			sms_tmplt_id = #{sms_tmplt_id}
+	</select> 
+	
+	<insert id="insertFrqnt" parameterType="map">
+		INSERT 
+			INTO om035 
+			(
+				  sms_tmplt_id
+				<if test = "sms_class != null and !sms_class.equals('')">
+				, sms_class
+				</if>
+				<if test = "common_yn != null and !common_yn.equals('')">
+				, COMMON_YN
+				</if>
+				, sms_ttl
+				, sms_cont
+				, sms_sz
+				, crt_dt
+				, crt_tm
+				, crt_usr_id
+				, mod_dt
+				, mod_tm
+				, mod_usr_id
+			) VALUES (
+				  som035.NEXTVAL
+				<if test = "sms_class != null and !sms_class.equals('')">
+				, #{sms_class}
+				</if>
+				<if test = "common_yn != null and !common_yn.equals('')">
+				, #{common_yn}
+				</if>
+				, #{tfFrqPrfTtl}
+				, #{sms_cont}
+				, #{sms_sz}
+				, TO_CHAR(SYSDATE, 'YYYYMMDD')
+				, TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+				, #{login_usr_id}
+				, TO_CHAR(SYSDATE, 'YYYYMMDD')
+				, TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+				, #{login_usr_id}
+		)
+	</insert>
+	
+	<update id="updateFrqnt" parameterType="map">
+		UPDATE  om035
+		   SET  
+		   		sms_cont = #{sms_cont}
+		   		, sms_ttl = #{tfFrqPrfTtl}
+		   		<if test = "sms_class != null and !sms_class.equals('')">
+		   		, sms_class = #{sms_class}
+		   		</if>
+				<if test = "common_yn != null and !common_yn.equals('')">		   		  
+		   		, COMMON_YN = #{common_yn}
+		   		</if>
+		   		
+		   		, sms_sz = #{sms_sz}
+		   		, mod_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     	, mod_tm = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+		     	, mod_usr_id = #{login_usr_id}
+		 WHERE  sms_tmplt_id = #{sms_tmplt_id}
+	</update>
+	
+	<update id="deleteFrqnt" parameterType="map">
+		UPDATE  om035
+		   SET  use_yn = 'N'
+		 WHERE  sms_tmplt_id = #{sms_tmplt_id}
+	</update>
+</mapper>

@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+    <mapper namespace="od026">
+  
+    <!-- 1차처리율 상담이력 리스트 -->
+    <select id="prcTargetCounsel" parameterType="map" resultType="map">
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+              SELECT T1.CRT_DT AS CRT_DT
+                   , T1.TCKT_ID                                                                                                                                /*ID*/
+                   , T1.RECD_ID                                                                                                                                /*녹취경로*/
+                   , T1.CALL_ID                                                                                                                                /*녹취ID*/
+                   , T2.VLTN_ID
+                   , T2.VLTN_USR_ID
+                   , NVL2(T1.RCV_DT, GETFORMATDATE(T1.RCV_DT) || ' ' || GETFORMATTIME(T1.RCV_TM), ' ') AS RCV_DT_FORMAT                                       /*접수일시*/
+                   , NVL2(T1.SNDR_CNTCT_INFM, GETFORMATPHONENUM(T1.SNDR_CNTCT_INFM), ' ') AS CNTCT_INFM_FORMAT                                                 /*전화번호*/
+                   , T1.ACT_TYPE_CD 
+                   , GETCODENM(T1.ACT_TYPE_CD, '90014') AS ACT_TYPE_NM                                                                                         /*처리유형*/
+                   , T1.ACT_ST_CD 
+                   , NVL((SELECT CD_NM FROM SM002 WHERE TP_CD = '90013' AND CD = T1.ACT_ST_CD), '미완료') ACT_ST_NM                                             /*상담결과*/
+                   , GETSECONDTOTIME(ROUND((TO_DATE(T1.CALL_END_TM, 'HH24MISS') - TO_DATE(T1.CALL_CNNCT_TM, 'HH24MISS')) * 24 * 60 * 60, 0)) AS CALL_TIME        /*통화시간*/
+                   , T1.CALL_GB_CD             
+<!--                    , CASE WHEN T1.CALL_GB_CD = '1' THEN 'IN' WHEN T1.CALL_GB_CD = '2' THEN 'OUT' WHEN T1.CALL_GB_CD = '3' THEN '콜백' END AS CALL_GB_NM_ENG      /*통화구분*/ --> <!-- 원본 -->
+                   , CASE WHEN T1.CALL_GB_CD = '2' THEN 'IN' WHEN T1.CALL_GB_CD = '3' THEN 'OUT' END AS CALL_GB_NM_ENG      /*통화구분*/ <!-- 수정 2020.06.03 -->
+                   , GETCODENM(T1.CALL_GB_CD, '90010') AS CALL_GB_NM
+                   , (SELECT CTG_CD_NM FROM om020 WHERE CTG_CD = T1.CTG_EX_CD AND CTG_LVL = '1') || ' > ' ||     
+                           (SELECT CTG_CD_NM FROM om020 WHERE CTG_CD = T1.CTG_LG_CD AND CTG_LVL = '2') || ' > ' || 
+                               (SELECT CTG_CD_NM FROM om020 WHERE CTG_CD = T1.CTG_MD_CD AND CTG_LVL = '3') || ' > ' || 
+                                 (SELECT CTG_CD_NM FROM om020 WHERE CTG_CD = T1.CTG_SM_CD AND CTG_LVL = '4')  AS INTV_NM                      /*상담유형*/
+                   , T2.VLTN_GB_CD         
+                   , GETCODENM(T2.VLTN_GB_CD, '90011') AS VLTN_GB_NM            /*BESTCALL*/
+                   , T1.QST_CONT 
+                   , T1.ACT_CONT                       
+                   , T2.CRCT
+                   , T2.INCRCT
+                   , T2.WNDGD
+                   , T1.RCV_DT
+                   , T1.RCV_USR_ID
+                   , T2.CRT_USR_ID AS VLTR_ID
+                   , GETUSERNM('CC', T2.CRT_USR_ID) AS VLTR_NM       
+                   , NVL(T1.RDY_SCNT, 0) AS RDY_SCNT             
+              FROM CH001 T1 
+                   JOIN OD026 T2 ON T1.TCKT_ID = T2.TCKT_ID                            
+              WHERE 1 = 1
+              <if test="vltn_Id != null and !vltn_Id.equals('')">
+                AND T2.VLTN_ID = #{vltn_Id}
+              </if>
+              <if test="toDt != vltn_Usr_Id and !vltn_Usr_Id.equals('')">
+                AND T2.VLTN_USR_ID = #{vltn_Usr_Id}  
+              </if>
+           <if test="sidx != null and sord != null">
+               ORDER  BY ${sidx} ${sord}
+           </if>
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+    </select>
+    
+    <!-- 1차처리율 상담이력 저장 -->
+    <insert id="prcCounselList" parameterType="map">
+      MERGE INTO od026
+      USING dual
+      ON (VLTN_ID = #{vltn_Id} 
+        AND VLTN_USR_ID = #{usr_Id}
+        AND TCKT_ID = #{tckt_Id})
+      WHEN MATCHED THEN
+      UPDATE SET
+          mod_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+        , mod_tm = TO_CHAR(SYSDATE, 'HH24MISS')
+        , mod_usr_id = #{login_usr_id}
+      WHEN NOT MATCHED THEN
+      INSERT (
+            VLTN_ID 
+          , VLTN_USR_ID 
+          , TCKT_ID 
+          , USE_YN 
+          , CRT_DT 
+          , CRT_TM 
+          , CRT_USR_ID 
+          , MOD_DT 
+          , MOD_TM 
+          , MOD_USR_ID 
+      ) VALUES (
+            #{vltn_Id} 
+         ,  #{usr_Id}
+         ,  #{tckt_Id}
+         ,  'Y'
+         ,  TO_CHAR(SYSDATE, 'YYYYMMDD')
+         ,  TO_CHAR(SYSDATE, 'HH24MISS')
+         ,  #{login_usr_id}
+         ,  TO_CHAR(SYSDATE, 'YYYYMMDD')
+         ,  TO_CHAR(SYSDATE, 'HH24MISS')
+         ,  #{login_usr_id}   
+      )
+    </insert>         
+    
+    <!-- 1차처리율 상담이력 삭제 -->
+    <delete id="deletePrcCounselList" parameterType="map">
+      <!-- 평가이의제기상세 -->   
+      DELETE FROM od026
+       WHERE  VLTN_ID = #{vltn_Id}
+         AND  VLTN_USR_ID = #{vltn_Usr_Id}
+         AND  TCKT_ID = #{tckt_Id}        
+ 
+    </delete>
+        
+    <!-- 1차처리율 상담이력 수정 -->
+    <update id="updatePrcCounselList" parameterType="map">
+      UPDATE od026
+         SET VLTN_GB_CD = #{vltn_Gb_Cd}
+           , CRCT = #{crct}
+           , INCRCT = #{incrct}
+           , WNDGD = #{wndgd}
+           , MOD_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+           , MOD_TM = TO_CHAR(SYSDATE, 'HH24MISS')
+           , MOD_USR_ID = #{login_usr_id}
+       WHERE VLTN_ID = #{vltn_Id} 
+         AND VLTN_USR_ID = #{vltn_Usr_Id}
+         AND TCKT_ID = #{tckt_Id}
+    </update>    
+     
+        
+</mapper>

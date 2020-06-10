@@ -1,0 +1,770 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="ch020">
+
+	<select id="chSendList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT
+					A2.*
+				,	case when A2.snd_end_dt is not null then getFormatDate(A2.snd_end_dt) || ' ' || getFormatTime(A2.snd_end_tm) else '' end as snd_end_dtm
+				,	getFormatPhoneNum(A2.sndr_cntct_infm) as snd_cntct_infm
+				,	getFormatPhoneNum(A2.cntct_infm) as rcv_cntct_infm
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				SELECT
+						b1.ch_snd_id
+					,	b1.cust_id
+					,	nvl((select cust_nm from cm003 where cust_id = b1.cust_id) ,GETUSERNM('AAD',b1.cust_id)) as cust_nm
+					,	(select corp_nm from cm003 where cust_id = b1.cust_id) as corp_nm
+					,	b1.ch_gb_cd
+					<if test="rows != null and page != null">	
+					,	getFormatPhoneNum(b1.rcvr_cntct_infm) as cntct_infm
+					</if>
+					<if test="rows == null and page == null">
+					,	NVL2(b1.rcvr_cntct_infm,  substr(getFormatPhoneNum(b1.rcvr_cntct_infm),1,length(getFormatPhoneNum(b1.rcvr_cntct_infm))-4) || rpad('*',4,'*'), '')  as cntct_infm
+					</if>
+					,	b1.sndr_cntct_infm 
+					<!-- 
+					,	getFormatPhoneNum(b1.sndr_cntct_infm) as sndr_cntct_infm
+					,	getFormatPhoneNum(b1.rcvr_cntct_infm) as cntct_infm 
+					-->
+					,	b1.snd_ttl
+					,	b1.snd_cont
+					<![CDATA[
+					,	case when (select count(1) from om019 where tbl_nm='ch020' and tbl_pk = b1.ch_snd_id) = 1 THEN 'MMS' when LENGTH(b1.snd_cont) > 80 then 'LMS' else 'SMS' end as sms_type
+					]]>
+					,	b1.snd_req_dt
+					,	b1.snd_req_tm
+					,	b1.snd_resv_dt
+					,	b1.snd_resv_tm
+					,	b1.snd_end_dt
+					,	b1.snd_end_tm
+					,	case when b1.snd_end_dt is not null then getFormatDate(b1.snd_end_dt) || ' ' || getFormatTime(b1.snd_end_tm) else '' end as snd_end_dtm
+					,	b1.snd_rslt_cd
+					,	getCodeNM(b1.snd_rslt_cd, '90057') as snd_rslt_nm
+					,	b1.snd_req_usr_id
+					,	(select usr_nm from om001 where usr_id = b1.snd_req_usr_id) as usr_nm
+					,	b1.use_yn
+					,	b1.crt_dt
+					,	b1.crt_tm
+					,	b1.crt_usr_id
+					,	b1.mod_dt
+					,	b1.mod_tm
+					,	b1.mod_usr_id
+					<!-- ,   GETFORMATDATE(SND_REQ_DT) || ' ' || GETFORMATTIME(SND_REQ_TM) AS SND_SEQ_FORMAT -->
+					,	b1.snd_req_dt || ' ' || b1.snd_req_tm AS SND_SEQ_FORMAT
+				FROM ch020 b1 LEFT OUTER JOIN OM001 e  ON b1.CRT_USR_ID = e.USR_ID
+				WHERE 1 = 1
+					and b1.use_yn = 'Y'
+					<if test="cntr_cd != null and !cntr_cd.equals('')">
+					and e.cntr_cd = #{cntr_cd}
+				</if>
+				<if test="ch_gb_cd != null and !ch_gb_cd.equals('')">
+					and b1.ch_gb_cd = #{ch_gb_cd}
+				</if>
+				<if test="srchType != null and !srchVal.equals('')">
+					<if test="srchType.equals('cust_nm')">
+						and INSTR((select cust_nm from cm003 where cust_id = b1.cust_id), #{srchVal}) > 0
+					</if>
+					<if test="srchType.equals('corp_nm')">
+						and INSTR((select corp_nm from cm003 where cust_id = b1.cust_id), #{srchVal}) > 0
+					</if>
+					<if test="srchType.equals('cntct_infm')">
+						and INSTR(b1.rcvr_cntct_infm, #{srchVal}) > 0
+					</if>
+				</if>
+				<if test="srchUsr != null and !srchUsr.equals('')">
+					and b1.snd_req_usr_id = #{srchUsr}
+				</if>
+				<if test="srchDateType != null and !srchDate.equals('')">
+					<if test="srchDateType.equals('req')">
+						and b1.snd_req_dt between #{srchDate} and #{srchDateEn}
+					</if>
+					<if test="srchDateType.equals('resv')">
+						and b1.snd_resv_dt between #{srchDate} and #{srchDateEn}
+					</if>
+					<if test="srchDateType.equals('send')">
+						and b1.snd_end_dt between #{srchDate} and #{srchDateEn}
+					</if>
+				</if>
+				<if test="srchActstcd != null and !srchActstcd.equals('')">
+					<if test="srchActstcd.equals('req')">
+						and b1.snd_rslt_cd = '-1'
+					</if>
+					<if test="srchActstcd.equals('complete')">
+						and b1.snd_rslt_cd = '0'
+					</if>
+					<if test="srchActstcd.equals('fail')">
+						and b1.snd_rslt_cd NOT IN ('-1', '0')
+					</if>
+				</if>
+				<if test="sidx != null and sord != null">
+					<if test="sidx.equals('SND_END_DTM')">
+						ORDER BY SND_SEQ_FORMAT ${sord}	
+					</if>
+					<if test="!sidx.equals('SND_END_DTM')">
+						ORDER BY ${sidx} ${sord}
+					</if>
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		) A2
+		WHERE A2.PAGENUM = #{page}
+		</if>
+	</select>
+	
+	<select id="chSendSpec" parameterType="map" resultType="map">
+		SELECT
+				b1.ch_snd_id
+			,	b1.cust_id
+			,	nvl((select cust_nm from cm003 where cust_id = b1.cust_id) ,GETUSERNM('AAD',b1.cust_id)) as cust_nm
+			,	(select corp_nm from cm003 where cust_id = b1.cust_id) as corp_nm
+			,	b1.ch_gb_cd
+			,	getFormatPhoneNum(b1.sndr_cntct_infm) as snd_cntct_infm
+			,	b1.rcvr_cntct_infm as rcv_cntct_infm
+			,	getFormatPhoneNum(b1.rcvr_cntct_infm) as cntct_infm
+			,	b1.snd_ttl
+			,	b1.snd_cont
+			<![CDATA[
+			,	case when (select count(1) from om019 where tbl_nm='ch020' and tbl_pk = b1.ch_snd_id) = 1 THEN 'MMS' when LENGTH(b1.snd_cont) > 80 then 'LMS' else 'SMS' end as sms_type
+			]]>
+			,	b1.snd_req_dt
+			,	b1.snd_req_tm
+			,	case when b1.snd_req_dt is not null then getFormatDate(b1.snd_req_dt) || ' ' || getFormatTime(b1.snd_req_tm) else '' end as snd_req_dtm
+			,	b1.snd_resv_dt
+			,	b1.snd_resv_tm
+			,	case when b1.snd_resv_dt is not null then getFormatDate(b1.snd_resv_dt) || ' ' || substr(b1.snd_resv_tm, 1, 2) || ':' || substr(b1.snd_resv_tm, 3, 2) else '' end as snd_resv_dtm
+			,	b1.snd_end_dt
+			,	b1.snd_end_tm
+			,	case when b1.snd_end_dt is not null then getFormatDate(b1.snd_end_dt) || ' ' || getFormatTime(b1.snd_end_tm) else '' end as snd_end_dtm
+			,	b1.snd_rslt_cd
+			,	getCodeNM(b1.snd_rslt_cd, '90057') as snd_rslt_nm
+			,	b1.snd_req_usr_id
+			,	(select usr_nm from om001 where usr_id = b1.snd_req_usr_id) as usr_nm
+			,	b1.use_yn
+			,	b1.crt_dt
+			,	b1.crt_tm
+			,	b1.crt_usr_id
+			,	b1.mod_dt
+			,	b1.mod_tm
+			,	b1.mod_usr_id
+		FROM ch020 b1
+		WHERE b1.ch_snd_id = #{ch_snd_id}
+	</select>
+	
+	<update id="update" parameterType="map">
+		{call
+	    	declare
+	    	begin
+				UPDATE ch020
+					SET
+							mod_dt = to_char(sysdate, 'yyyymmdd')
+						,	mod_tm = to_char(sysdate, 'hh24miss')
+						,	mod_usr_id = #{login_usr_id}
+					<if test="rcv_cntct_infm != null and !rcv_cntct_infm.equals('')">
+						,	rcvr_cntct_infm = #{rcv_cntct_infm}
+					</if>
+					<if test="snd_cont != null and !snd_cont.equals('')">
+						,	snd_cont = #{snd_cont}
+					</if>
+					<if test="snd_resv_dt != null and !snd_resv_dt.equals('')">
+						,	snd_resv_dt = #{snd_resv_dt}
+					</if>
+					<if test="snd_resv_tm != null and !snd_resv_tm.equals('')">
+						,	snd_resv_tm = #{snd_resv_tm}
+					</if>
+					<if test="use_yn != null and !use_yn.equals('')">
+						,	use_yn = #{use_yn}
+					</if>
+				 WHERE ch_snd_id = #{ch_snd_id};
+			end
+		}
+	</update>
+	
+	<select id="getChSndId" parameterType="map" resultType="map">
+		SELECT sch020.nextval as ch_snd_id
+		FROM dual
+	</select>
+	
+	<insert id="sendSms" parameterType="map">
+		{call
+	    	declare
+	    	begin
+	    	
+	    		<selectKey resultType="java.lang.String" keyProperty="sch020" order="BEFORE">
+	    			<if test = "ch_snd_id == null or ch_snd_id.equals('')">
+	    				SELECT sch020.nextval FROM DUAL
+	    			</if>
+	    			<if test = "ch_snd_id != null and !ch_snd_id.equals('')">
+	    				SELECT ${ ch_snd_id } FROM DUAL
+	    			</if>
+		    	</selectKey>
+	    	
+				INSERT INTO ch020
+				(
+						ch_snd_id
+					,	tckt_id
+					,	cust_id
+					,	ch_gb_cd
+					,	sndr_cntct_infm
+					,	rcvr_cntct_infm
+					,	snd_ttl
+					,	snd_cont
+					,	snd_req_dt
+					,	snd_req_tm
+					,	snd_resv_dt
+					,	snd_resv_tm
+					,	snd_end_dt
+					,	snd_end_tm
+					,	snd_rslt_cd
+					,	snd_req_usr_id
+					,	use_yn
+					,	crt_dt
+					,	crt_tm
+					,	crt_usr_id
+					,	mod_dt
+					,	mod_tm
+					,	mod_usr_id
+				)
+				VALUES
+				(
+					#{sch020}
+					,	#{tckt_id}
+					,	#{cust_id}
+					,	#{ch_gb_cd}
+					,	#{callback}
+					,   #{rcv_cntct_infm}
+					,	#{snd_ttl}
+					,	#{snd_cont}
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{snd_resv_dt}
+					,	#{snd_resv_tm}
+					,	#{snd_end_dt}
+					,	#{snd_end_tm}
+					,	#{snd_rslt_cd}
+					,	#{snd_req_usr_id}
+					<if test="use_yn != null">
+					,	#{use_yn}
+					</if>
+					<if test="use_yn == null">
+					,	'Y'
+					</if>
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+				);
+				
+			<if test="send_img.equals('') and cont_length lte 80">
+			<!--
+				INSERT INTO T_SMS_SD
+				(
+					MSG_KEY,
+					CALLEE_NO,
+					CALLBACK_NO,
+					SMS_MSG,
+					SAVE_TIME,
+					SEND_TIME
+				)
+				VALUES
+				(
+					#{sch020}
+					,	#{dest_info}
+					,	#{callback}
+					,	#{snd_cont}
+					<if test="snd_resv_dt != null and !snd_resv_dt.equals('')">
+					,	#{snd_resv_dt} || #{snd_resv_tm}
+					,	#{snd_resv_dt} || #{snd_resv_tm}
+					</if>
+					<if test="snd_resv_dt == null or snd_resv_dt.equals('')">
+					,	to_char(sysdate, 'YYYYMMDDHH24MISS')
+					,	to_char(sysdate, 'YYYYMMDDHH24MISS')
+					</if>
+					
+				);
+				-->
+				INSERT INTO SDK_SMS_SEND
+				(
+						MSG_ID
+					,	USER_ID
+					,	SCHEDULE_TYPE
+					,	SUBJECT
+					,	NOW_DATE
+					,	SEND_DATE
+					,	CALLBACK
+					,	DEST_COUNT
+					,	DEST_INFO
+					,	SMS_MSG
+				)
+				VALUES
+				(
+						SDK_SMS_SEQ.nextval
+					,	#{cro_id}
+					,	#{schedule_type}
+					,	#{subject}
+					<if test="snd_resv_dt != null and !snd_resv_dt.equals('')">
+					,	#{snd_resv_dt} || #{snd_resv_tm}
+					,	#{snd_resv_dt} || #{snd_resv_tm}
+					</if>
+					<if test="snd_resv_dt == null or snd_resv_dt.equals('')">
+					,	to_char(sysdate, 'YYYYMMDDHH24MISS')
+					,	to_char(sysdate, 'YYYYMMDDHH24MISS')
+					</if>
+					,	#{callback}
+					,	1
+					,	#{ sch020 } || '^' || #{dest_info}
+					,	#{snd_cont}
+				);
+				 
+			</if>
+			
+			<if test="send_img.equals('') and cont_length gt 80">
+				<!-- 
+				INSERT INTO T_LMS_SD
+				(
+						MSG_KEY
+					,	CALLEE_NO
+					,	SUBJECT
+					,	CALLBACK_NO
+					,	LMS_MSG
+					,	SAVE_TIME
+					,	SEND_TIME
+				)
+				VALUES
+				(
+						#{sch020}
+					,	#{dest_info}
+					,	#{subject}
+					,	#{callback}
+					,	#{snd_cont}
+					<if test="snd_resv_dt != null and !snd_resv_dt.equals('')">
+					,	#{snd_resv_dt} || #{snd_resv_tm}
+					,	#{snd_resv_dt} || #{snd_resv_tm}
+					</if>
+					<if test="snd_resv_dt == null or snd_resv_dt.equals('')">
+					,	to_char(sysdate, 'YYYYMMDDHH24MISS')
+					,	to_char(sysdate, 'YYYYMMDDHH24MISS')
+					</if>
+				);
+				-->
+				INSERT INTO SDK_MMS_SEND
+				(
+						MSG_ID
+					,	USER_ID
+					,	SCHEDULE_TYPE
+					,	SUBJECT
+					,	NOW_DATE
+					,	SEND_DATE
+					,	CALLBACK
+					,	DEST_COUNT
+					,	DEST_INFO
+					,	MSG_TYPE
+					,	MMS_MSG
+					,	CONTENT_COUNT
+					,	CONTENT_DATA
+				)
+				VALUES
+				(
+						SDK_MMS_SEQ.nextval
+					,	#{cro_id}
+					,	#{schedule_type}
+					,	#{subject}
+					<if test="snd_resv_dt != null and !snd_resv_dt.equals('')">
+					,	#{snd_resv_dt} || #{snd_resv_tm}
+					,	#{snd_resv_dt} || #{snd_resv_tm}
+					</if>
+					<if test="snd_resv_dt == null or snd_resv_dt.equals('')">
+					,	to_char(sysdate, 'YYYYMMDDHH24MISS')
+					,	to_char(sysdate, 'YYYYMMDDHH24MISS')
+					</if>
+					,	#{callback}
+					,	1
+					,	#{ sch020 } || '^' || #{dest_info}
+					,	0
+					,	#{snd_cont}
+					,	0
+					,	''
+				); 
+			</if>
+			end
+		}
+	</insert>
+	<insert id="sendVms" parameterType="map">
+	{call
+	    	declare
+	    	begin
+		<selectKey resultType="java.lang.String" keyProperty="sch020" order="BEFORE">
+	    			<if test = "ch_snd_id == null or ch_snd_id.equals('')">
+	    				SELECT sch020.nextval FROM DUAL
+	    			</if>
+	    			<if test = "ch_snd_id != null and !ch_snd_id.equals('')">
+	    				SELECT ${ ch_snd_id } FROM DUAL
+	    			</if>
+		    	</selectKey>
+		    	<!-- 
+			INSERT INTO T_MMS_SD
+			(
+					MSG_KEY
+				,	CALLEE_NO
+				,	SUBJECT
+				,	CALLBACK_NO
+				,	MMS_MSG
+				,	SAVE_TIME
+				,	SEND_TIME
+				,	IMAGE_PATH_01
+			)
+			VALUES
+			(
+					#{sch020}
+				,	#{dest_info}
+				,	#{subject}
+				,	#{callback}
+				,	#{snd_cont}
+				<if test="snd_resv_dt != null and !snd_resv_dt.equals('')">
+				,	#{snd_resv_dt} || #{snd_resv_tm}
+				,	#{snd_resv_dt} || #{snd_resv_tm}
+				</if>
+				<if test="snd_resv_dt == null or snd_resv_dt.equals('')">
+				,	to_char(sysdate, 'YYYYMMDDHH24MISS')
+				,	to_char(sysdate, 'YYYYMMDDHH24MISS')
+				</if>
+				,	#{cont_data}
+			);
+			-->
+		INSERT INTO SDK_MMS_SEND
+				(
+						MSG_ID
+					,	USER_ID
+					,	SCHEDULE_TYPE
+					,	SUBJECT
+					,	NOW_DATE
+					,	SEND_DATE
+					,	CALLBACK
+					,	DEST_COUNT
+					,	DEST_INFO
+					,	MSG_TYPE
+					,	MMS_MSG
+					,	CONTENT_COUNT
+					,	CONTENT_DATA
+				)
+				VALUES
+				(
+						SDK_MMS_SEQ.nextval
+					,	#{cro_id}
+					,	#{schedule_type}
+					,	#{subject}
+					<if test="snd_resv_dt != null and !snd_resv_dt.equals('')">
+					,	#{snd_resv_dt} || #{snd_resv_tm}
+					,	#{snd_resv_dt} || #{snd_resv_tm}
+					</if>
+					<if test="snd_resv_dt == null or snd_resv_dt.equals('')">
+					,	to_char(sysdate, 'YYYYMMDDHH24MISS')
+					,	to_char(sysdate, 'YYYYMMDDHH24MISS')
+					</if>
+					,	#{callback}
+					,	1
+					,	#{ sch020 } || '^' || #{dest_info}
+					,	0
+					,	#{snd_cont}
+					,	1
+					,	concat(#{cont_data},'^1^0')
+				); 
+				end
+		}
+	</insert>
+	
+	
+	<insert id="sendSmsAuto" parameterType="map">
+		{call
+	    	declare
+	    	begin
+	    	
+				<selectKey resultType="java.lang.String" keyProperty="sch020" order="BEFORE">
+	    				SELECT sch020.nextval FROM DUAL
+		    	</selectKey>	    		
+	    	
+				INSERT INTO ch020
+				(
+						ch_snd_id
+					,	tckt_id
+					,	cust_id
+					,	ch_gb_cd
+					,	sndr_cntct_infm
+					,	rcvr_cntct_infm
+					,	snd_ttl
+					,	snd_cont
+					,	snd_req_dt
+					,	snd_req_tm
+					,	snd_resv_dt
+					,	snd_resv_tm
+					
+					,	snd_rslt_cd
+					,	snd_req_usr_id
+					,	use_yn
+					,	crt_dt
+					,	crt_tm
+					,	crt_usr_id
+					,	mod_dt
+					,	mod_tm
+					,	mod_usr_id
+				)
+				VALUES
+				(
+					#{ sch020 }
+					,	#{tckt_id}
+					,	#{cust_id}
+					,	#{ch_gb_cd}
+					,	#{callback}
+					,   #{rcv_cntct_infm}
+					,	#{snd_ttl}
+					,	#{snd_cont}
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					
+					<if test="send_gb.equals('dayChk')">
+					<![CDATA[
+					,	(
+							SELECT CASE WHEN TO_CHAR(SYSDATE,'HH24') >= 18 THEN MIN(YYYYMMDD) ELSE TO_CHAR(SYSDATE,'YYYYMMDD') END SEND_DT
+							FROM(
+							    SELECT TO_CHAR(DAY + LEVEL,'YYYYMMDD') YYYYMMDD,  TO_CHAR(DAY + LEVEL,'D') D
+							    FROM( SELECT SYSDATE  DAY FROM   DUAL)
+							    CONNECT BY LEVEL <= 10
+							)
+							WHERE (CASE WHEN (SELECT MAX(HDY_NM) FROM OM004 WHERE YYYYMMDD BETWEEN STRT_DT AND END_DT AND USE_YN='Y') IS NULL AND D != 1 AND D !=7 THEN 'O' ELSE 'X' END ) = 'O'
+						)
+					,	(
+							SELECT CASE WHEN TO_CHAR(SYSDATE,'HH24') >= 18 THEN '090000' ELSE TO_CHAR(SYSDATE,'HH24MISS') END SEND_TM FROM DUAL 
+						)
+					]]>	
+					</if>
+					<if test="!send_gb.equals('dayChk')">
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')					
+					</if>
+					
+					,	#{snd_rslt_cd}
+					,	#{snd_req_usr_id}
+					,	'Y'
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{orgUsrId}
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{orgUsrId}
+				);
+				
+			<if test="cont_length lte 80">
+			<!-- 
+				INSERT INTO T_SMS_SD
+				(
+					MSG_KEY,
+					CALLEE_NO,
+					CALLBACK_NO,
+					SMS_MSG,
+					SAVE_TIME,
+					SEND_TIME
+				)
+				VALUES
+				(
+					#{sch020}
+					,	#{dest_info}
+					,	#{callback}
+					,	#{snd_cont}
+					,	to_char(SYSDATE, 'YYYYMMDDHH24MISS')
+					<if test="send_gb.equals('dayChk')">
+					<![CDATA[
+					,	(
+							SELECT CASE WHEN TO_CHAR(SYSDATE,'HH24') >= 18 THEN MIN(YYYYMMDD)||'090000' ELSE TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS') END SEND_DT
+							FROM(
+							    SELECT TO_CHAR(DAY + LEVEL,'YYYYMMDD') YYYYMMDD,  TO_CHAR(DAY + LEVEL,'D') D
+							    FROM( SELECT SYSDATE  DAY FROM   DUAL)
+							    CONNECT BY LEVEL <= 10
+							)
+							WHERE (CASE WHEN (SELECT MAX(HDY_NM) FROM OM004 WHERE YYYYMMDD BETWEEN STRT_DT AND END_DT AND USE_YN='Y') IS NULL AND D != 1 AND D !=7 THEN 'O' ELSE 'X' END ) = 'O'
+						)
+					]]>		
+					</if>
+					<if test="!send_gb.equals('dayChk')">
+					,	to_char(SYSDATE, 'YYYYMMDDHH24MISS')
+					</if>
+				);
+				-->
+				INSERT INTO SDK_SMS_SEND
+				(
+						MSG_ID
+					,	USER_ID
+					,	SCHEDULE_TYPE
+					,	SUBJECT
+					,	NOW_DATE
+					,	SEND_DATE
+					,	CALLBACK
+					,	DEST_COUNT
+					,	DEST_INFO
+					,	SMS_MSG
+				)
+				VALUES
+				(
+						SDK_SMS_SEQ.nextval
+					,	#{cro_id}
+					
+					<if test="send_gb.equals('dayChk')">
+					<![CDATA[
+					,	(
+							SELECT CASE WHEN TO_CHAR(SYSDATE,'HH24') >= 18 THEN 1 ELSE 0 END SEND_TYPE FROM DUAL
+						)
+					]]>	
+					</if>
+					<if test="!send_gb.equals('dayChk')">
+					,	0
+					</if>
+									
+					,	#{subject}
+					
+					,	to_char(SYSDATE, 'YYYYMMDDHH24MISS')
+					
+					<if test="send_gb.equals('dayChk')">
+					<![CDATA[
+					,	(
+							SELECT CASE WHEN TO_CHAR(SYSDATE,'HH24') >= 18 THEN MIN(YYYYMMDD)||'090000' ELSE TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS') END SEND_DT
+							FROM(
+							    SELECT TO_CHAR(DAY + LEVEL,'YYYYMMDD') YYYYMMDD,  TO_CHAR(DAY + LEVEL,'D') D
+							    FROM( SELECT SYSDATE  DAY FROM   DUAL)
+							    CONNECT BY LEVEL <= 10
+							)
+							WHERE (CASE WHEN (SELECT MAX(HDY_NM) FROM OM004 WHERE YYYYMMDD BETWEEN STRT_DT AND END_DT AND USE_YN='Y') IS NULL AND D != 1 AND D !=7 THEN 'O' ELSE 'X' END ) = 'O'
+						)
+					]]>		
+					</if>
+					<if test="!send_gb.equals('dayChk')">
+					,	to_char(SYSDATE, 'YYYYMMDDHH24MISS')
+					</if>
+					
+					,	#{callback}
+					,	1
+					,	#{ sch020 } || '^' || #{dest_info}
+					,	#{snd_cont}
+				); 
+			</if>
+			
+			<if test="cont_length gt 80">
+			<!-- 
+				INSERT INTO T_LMS_SD
+				(
+						MSG_KEY
+					,	CALLEE_NO
+					,	SUBJECT
+					,	CALLBACK_NO
+					,	LMS_MSG
+					,	SAVE_TIME
+					,	SEND_TIME
+				)
+				VALUES
+				(
+						#{sch020}
+					,	#{dest_info}
+					,	#{subject}					
+					,	#{callback}
+					,	#{snd_cont}
+					,	to_char(SYSDATE, 'YYYYMMDDHH24MISS')
+					<if test="send_gb.equals('dayChk')">
+					<![CDATA[
+					,	(
+							SELECT CASE WHEN TO_CHAR(SYSDATE,'HH24') >= 18 THEN MIN(YYYYMMDD)||'090000' ELSE TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS') END SEND_DT
+							FROM(
+							    SELECT TO_CHAR(DAY + LEVEL,'YYYYMMDD') YYYYMMDD,  TO_CHAR(DAY + LEVEL,'D') D
+							    FROM( SELECT SYSDATE  DAY FROM   DUAL)
+							    CONNECT BY LEVEL <= 10
+							)
+							WHERE (CASE WHEN (SELECT MAX(HDY_NM) FROM OM004 WHERE YYYYMMDD BETWEEN STRT_DT AND END_DT AND USE_YN='Y') IS NULL AND D != 1 AND D !=7 THEN 'O' ELSE 'X' END ) = 'O'
+						)
+					]]>		
+					</if>
+					<if test="!send_gb.equals('dayChk')">
+					,	to_char(SYSDATE, 'YYYYMMDDHH24MISS')
+					</if>
+				);
+				-->
+				INSERT INTO SDK_MMS_SEND
+				(
+						MSG_ID
+					,	USER_ID
+					,	SCHEDULE_TYPE
+					,	SUBJECT
+					
+					,	NOW_DATE
+					,	SEND_DATE
+					
+					,	CALLBACK
+					,	DEST_COUNT
+					,	DEST_INFO
+					,	MSG_TYPE
+					,	MMS_MSG
+					,	CONTENT_COUNT
+					,	CONTENT_DATA
+				)
+				VALUES
+				(
+						SDK_MMS_SEQ.nextval
+					,	#{cro_id}
+
+					<if test="send_gb.equals('dayChk')">
+					<![CDATA[
+					,	(
+							SELECT CASE WHEN TO_CHAR(SYSDATE,'HH24') >= 18 THEN 1 ELSE 0 END SEND_TYPE FROM DUAL
+						)
+					]]>	
+					</if>
+					<if test="!send_gb.equals('dayChk')">
+					,	0
+					</if>
+
+					,	#{subject}
+					
+					,	to_char(SYSDATE, 'YYYYMMDDHH24MISS')
+					
+					<if test="send_gb.equals('dayChk')">
+					<![CDATA[
+					,	(
+							SELECT CASE WHEN TO_CHAR(SYSDATE,'HH24') >= 18 THEN MIN(YYYYMMDD)||'090000' ELSE TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS') END SEND_DT
+							FROM(
+							    SELECT TO_CHAR(DAY + LEVEL,'YYYYMMDD') YYYYMMDD,  TO_CHAR(DAY + LEVEL,'D') D
+							    FROM( SELECT SYSDATE  DAY FROM   DUAL)
+							    CONNECT BY LEVEL <= 10
+							)
+							WHERE (CASE WHEN (SELECT MAX(HDY_NM) FROM OM004 WHERE YYYYMMDD BETWEEN STRT_DT AND END_DT AND USE_YN='Y') IS NULL AND D != 1 AND D !=7 THEN 'O' ELSE 'X' END ) = 'O'
+						)
+					]]>		
+					</if>
+					<if test="!send_gb.equals('dayChk')">
+					,	to_char(SYSDATE, 'YYYYMMDDHH24MISS')
+					</if>
+					
+					,	#{callback}
+					,	1
+					,	#{ sch020 } || '^' || #{dest_info}
+					,	0
+					,	#{snd_cont}
+					,	0
+					,	''
+				);
+			</if>
+			end
+		}
+	</insert>
+	
+		
+</mapper>

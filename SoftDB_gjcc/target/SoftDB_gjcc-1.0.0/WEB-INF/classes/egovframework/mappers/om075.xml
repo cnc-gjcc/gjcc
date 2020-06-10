@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="om075">
+	<select id="vcatnList" parameterType="map"  resultType="map">
+	  <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM (
+        </if>
+				SELECT  
+							pnct_id
+						,	getformatdate(app_dt) AS app_dt
+						,	(SELECT  getCodeNM(cntr_cd, '90002')||'/'||getCodeNM(team_cd, '90003')   from om001 where usr_id = A.usr_id) AS cntr_nm
+						,	usr_id
+						,	(SELECT USR_NM from om001 where usr_id = A.usr_id) AS usr_nm
+						,	vact_gb_cd
+						,	(select sm.cd_nm from sm002 sm where sm.tp_cd = '90064' AND sm.cd = A.vact_gb_cd) AS vact_gb_nm
+						,	vact_appr_cd
+						,	(select sm.cd_nm from sm002 sm where sm.tp_cd = '90063' AND sm.cd = A.vact_appr_cd) AS vact_appr_nm
+						,	case when RTN_RSN is null then ' ' else RTN_RSN end as RTN_RSN
+						,	strt_dt
+						,	getformatdate(strt_dt) AS holstart  
+						,	getformatdate(end_dt) AS holend
+						,	getformatdate(strt_dt)||' ~ ' || getformatdate(end_dt) AS vcantn_day
+				FROM om075 A
+				WHERE use_yn = 'Y'
+				AND APP_DT BETWEEN #{startDate} AND #{endDate}
+				<if test="usr_id != null and !usr_id.equals('all') and !usr_id.equals('')">
+                			AND  usr_id = #{usr_id}
+            	</if>
+	            <if test="vactApprCd != null and !vactApprCd.equals('all') and !vactApprCd.equals('')">
+	                and  VACT_APPR_CD = #{vactApprCd}
+	            </if>
+	            <if test="vactGbCd != null and !vactGbCd.equals('all') and !vactGbCd.equals('')">
+	                and  VACT_GB_CD = #{vactGbCd}
+	            </if>
+			   <if test="sidx != null and sord != null">
+                	ORDER BY ${sidx} ${sord}
+               </if>
+		  <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+	</select>
+	
+	<select id="vcatnInfo" parameterType="map" resultType="map">
+		SELECT  
+					pnct_id
+				,	getformatdate(app_dt) AS app_dt
+				,	usr_id
+				,	(SELECT USR_NM from om001 where usr_id = A.usr_id) AS usr_nm
+				,	vact_gb_cd
+				,	(select sm.cd_nm from sm002 sm where sm.tp_cd = '90064' AND sm.cd = A.vact_gb_cd) AS vact_gb_nm
+				,	vact_appr_cd
+				,	(select sm.cd_nm from sm002 sm where sm.tp_cd = '90063' AND sm.cd = A.vact_appr_cd) AS vact_appr_nm
+				,	RTN_RSN
+				,	getFormatDate(crt_dt) AS crt_dt_format 
+				,	getFormatTime(crt_tm)	AS crt_tm_format
+				,   getFormatdate(crt_dt)||' '||getFormatTime(crt_tm) AS crt_dttm
+				, 	DECODE(vact_appr_cd, '200000', getFormatDate(mod_dt),'') AS mod_dt_format 
+				, 	DECODE(vact_appr_cd, '200000', getFormatTime(mod_tm),'') AS mod_tm_format 
+				,	DECODE(vact_appr_cd, '200000', getFormatdate(mod_dt)||' '||getFormatTime(mod_tm),'') AS mod_dttm
+				,	DECODE(vact_appr_cd, '200000', (SELECT USR_NM from om001 where usr_id = A.mod_usr_id),'') AS mod_usr_nm 
+				,	getformatdate(strt_dt) AS holstart  
+				,	getformatdate(end_dt) AS holend
+				,   strt_dt
+				,   end_dt
+		FROM om075 A
+		WHERE 1=1 
+		<if test="pnct_id != null and !pnct_id.equals('')">
+                	AND pnct_id = #{pnct_id}  
+        </if>	
+        <if test="wrk_dt != null and !wrk_dt.equals('')">
+        			AND (STRT_DT BETWEEN #{wrk_dt} ||'01' AND TO_CHAR(LAST_DAY(TO_DATE(#{wrk_dt},'YYYYMM')),'YYYYMMDD')
+        		    OR END_DT BETWEEN #{wrk_dt} ||'01' AND TO_CHAR(LAST_DAY(TO_DATE(#{wrk_dt},'YYYYMM')),'YYYYMMDD'))
+		</if>
+		<if test="appr != null and !appr.equals('')">
+					AND vact_appr_cd = #{appr}
+		</if>
+	</select>
+	
+	<insert id="vcatnSave" parameterType="map">
+		 INSERT INTO om075
+		 	(
+		 			pnct_id
+		 		,	app_dt
+		 		,	usr_id
+		 		,	vact_gb_cd
+				,	vact_appr_cd
+				,	RTN_RSN
+				,	strt_dt
+				,	end_dt
+		 		,   use_yn
+                ,   crt_dt
+                ,   crt_tm
+                ,   crt_usr_id
+                ,   mod_dt
+                ,   mod_tm
+                ,   mod_usr_id
+		 	)
+		 	VALUES
+		 	(
+		 			#{pnct_id}
+		 		,	#{app_dt}
+		 		,	#{usr_id}
+		 		,	#{vact_gb_cd}
+				,	#{vact_appr_cd}
+				,	#{col3}
+				,	#{strt_dt}
+				,	#{end_dt}
+		 		,   'Y'
+                ,   to_char(sysdate, 'yyyymmdd')
+                ,   to_char(sysdate, 'hh24miss')
+                ,   #{login_usr_id}
+                ,   to_char(sysdate, 'yyyymmdd')
+                ,   to_char(sysdate, 'hh24miss')
+                ,   #{login_usr_id}   
+		 	)
+	</insert>
+	
+	<update id="vcatnModfy" parameterType="map">
+		 UPDATE om075
+		 SET
+		 		app_dt			= #{app_dt}
+		 	,	vact_gb_cd		= #{vact_gb_cd}
+		 	,	vact_appr_cd	= #{vact_appr_cd}
+		 	,	RTN_RSN				= #{col3}
+		 	,	strt_dt			= #{strt_dt}
+           	,	end_dt			= #{end_dt}
+		 	,   mod_dt 			= to_char(sysdate, 'yyyymmdd')
+            ,   mod_tm 			= to_char(sysdate, 'hh24miss')
+            ,   mod_usr_id 		= #{login_usr_id}
+		 WHERE 
+		 		pnct_id 	= #{pnct_id}
+	</update>
+	
+	<update id="vcatnDisuse" parameterType="map">
+		 UPDATE om075
+		 SET
+		 		use_yn			= 'N'
+		 WHERE 
+		 		pnct_id 	= #{pnct_id}
+	</update>
+</mapper>        

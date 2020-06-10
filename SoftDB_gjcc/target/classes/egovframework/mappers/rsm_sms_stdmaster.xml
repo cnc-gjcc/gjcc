@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="rsm_sms_stdmaster">
+
+  <!-- RSM SMS 발송 이력 조회 -->
+	<select id="smsStdmasterList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+       SELECT TM.SYSTNAME
+            , TM.SYSROLE
+            , GETCODENM(TM.SYSROLE, '92007') AS SYSROLENM
+            , TM.HOSTNAME
+            , TM.IP_ADDR_1
+            , T1.CPU
+            , T1.MEM
+            , T1.DSK
+            , T1.NET
+            , T1.PING
+            , T1.SENDGUBUN
+            , T1.SYSTEMID
+            , T1.USE_YN
+         FROM RSM_SMS_STDMASTER T1
+              RIGHT JOIN RSM_SYSTEM_MASTER TM ON T1.SYSTEMID = TM.SYSTEMID           
+        WHERE 1 = 1
+          AND TM.SYSTEMID = #{systemId}
+		
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>			
+				
+		<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>
+ 
+  <insert id="insert" parameterType="map">
+    INSERT INTO RSM_SMS_STDMASTER 
+          (
+           SYSTEMID
+         <if test="ping != null and !ping.equals('')">  
+         , PING
+         </if>
+         <if test="cpu != null">
+         , CPU
+         </if>
+         <if test="mem != null">
+         , MEM
+         </if>
+         <if test="dsk != null">
+         , DSK
+         </if>
+         <if test="net != null">
+         , NET
+         </if>
+         <if test="sndGb != null and !sndGb.equals('')">
+         , SENDGUBUN
+         </if>
+         <if test="useYn != null and !useYn.equals('')">
+         , USE_YN
+         </if>
+         )
+    VALUES 
+          (
+           #{systemId}
+         <if test="ping != null and !ping.equals('')">  
+         , #{ping}
+         </if>
+         <if test="cpu != null">
+         , #{cpu}
+         </if>
+         <if test="mem != null">
+         , #{mem}
+         </if>
+         <if test="dsk != null">
+         , #{dsk}
+         </if>
+         <if test="net != null">
+         , #{net}
+         </if>
+         <if test="sndGb != null and !sndGb.equals('')">
+         , #{sndGb}
+         </if>
+         <if test="useYn != null and !useYn.equals('')">
+         , #{useYn}
+         </if>
+         )    
+  </insert>  
+ 
+  <update id="update" parameterType="map">
+    UPDATE RSM_SMS_STDMASTER SET
+           PING = #{ping}
+         <if test="cpu != null">
+         , CPU = #{cpu}
+         </if>
+         <if test="mem != null">
+         , MEM = #{mem}
+         </if>
+         <if test="dsk != null">
+         , DSK = #{dsk}
+         </if>
+         <if test="net != null">
+         , NET = #{net}
+         </if>
+         <if test="sndGb != null and !sndGb.equals('')">
+         , SENDGUBUN = #{sndGb}
+         </if>
+         <if test="useYn != null and !useYn.equals('')">
+         , USE_YN = #{useYn}    
+         </if>
+     WHERE SYSTEMID = #{systemId}
+  </update>  
+ 
+  <delete id="delete" parameterType="map">
+    DELETE FROM RSM_SMS_STDMASTER  
+     WHERE SYSTEMID = #{systemId}
+  </delete> 
+
+</mapper>

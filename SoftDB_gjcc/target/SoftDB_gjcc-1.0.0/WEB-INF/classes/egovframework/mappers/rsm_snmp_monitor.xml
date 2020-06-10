@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+  <mapper namespace="rsm_snmp_monitor">
+
+  <!-- RSM SMS 발송 이력 조회 -->
+  <select id="snmpMonitorList" parameterType="map" resultType="map">
+    <if test="rows != null and page != null">
+    SELECT *
+    FROM
+    (
+      SELECT A1.*
+        , CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+        , CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+        , CEIL(COUNT(1) OVER()) TOTROWCOUNT
+      FROM
+      (
+    </if>
+        SELECT a.SYSTEMID
+              ,b.SYSROLE , GETCODENM(b.SYSROLE, '92007') AS SYSROLE_NM
+              ,b.SYSTNAME
+              ,b.IP_ADDR_1
+              ,b.OS_VER , GETCODENM(b.OS_VER, '92017') AS OS_VER_NM
+              ,b.SNMP_VER , GETCODENM(b.SNMP_VER, '92021') AS SNMP_VER_NM
+              ,a.DSK_TOTAL
+              ,a.DSK_USED
+              ,a.MEM_TOTAL
+              ,a.MEM_USED
+              ,a.CPU_IDLE
+              ,100 - a.CPU_IDLE as CPU_USED
+              ,a.NET_TOTAL
+              ,a.NET_IN
+              ,a.NET_OUT
+              ,a.NET_OCTET
+              ,a.NET_BANDW
+              ,a.NET_CLOCK
+              ,a.PING_REPLY   -- 0보다 크면 정상
+              ,a.SYS_STAT     -- 0이면 정상
+              ,a.SNMP_STAT    -- 0이면 정상
+              ,a.UPTIME
+              ,a.REGDATE
+              ,a.PINGDATE
+              , case when a.DSK_TOTAL = 0 then 0 else cast((DSK_USED  / cast(DSK_TOTAL as numeric)) * 100 as numeric(10,2)) end as DSK_RATE
+              , case when a.MEM_TOTAL = 0 then 0 else cast((MEM_USED  / cast(MEM_TOTAL as numeric)) * 100 as numeric(10,2)) end as MEM_RATE
+              , case when a.CPU_IDLE = 0 then 0 else ( 100- a.CPU_IDLE ) end as CPU_RATE
+              , case when a.NET_BANDW = 0 then 0 else cast((NET_OCTET / cast(NET_BANDW as numeric)) * 100 as numeric(10,2)) end as NET_RATE
+              , c.CPU
+              , c.MEM
+              , c.DSK
+              , c.NET 
+              , c.USE_YN
+          FROM RSM_SNMP_MONITOR a 
+               inner join RSM_SYSTEM_MASTER b on a.SYSTEMID = b.SYSTEMID
+               left join RSM_SMS_STDMASTER c on a.SYSTEMID = c.SYSTEMID 
+         WHERE 1=1              
+   
+        <if test="sysRole != null and !sysRole.equals('all')">     
+           AND b.SYSROLE = #{sysRole}
+        </if>
+        
+        <if test="sidx != null and sord != null">
+        ORDER BY ${sidx} ${sord}
+        </if>     
+        
+    <if test="rows != null and page != null">
+      ) A1
+    )
+    WHERE PAGENUM = #{page}
+    </if>
+  </select>
+
+</mapper>

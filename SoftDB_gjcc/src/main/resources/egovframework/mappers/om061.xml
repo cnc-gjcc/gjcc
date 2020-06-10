@@ -1,0 +1,746 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="om061">
+
+	<select id="getccAffairsYn" parameterType="map" resultType="map">    
+        SELECT NVL(CC_AFFAIRS_YN,'N') AS CC_AFFAIRS_YN from om061 RIGHT OUTER JOIN DUAL ON UID_ = #{uId}
+	</select>
+	<!-- 
+	<select id="getccAffairsYn" parameterType="map" resultType="map">
+		select CC_AFFAIRS_YN from om061 a where a.UID_ = #{uId}
+	</select>
+	 -->
+	 <select id="getSeoMooInfo" parameterType="map" resultType="map">
+	 	SELECT
+		    A.*
+		FROM
+		    (
+		        SELECT
+		            UID_ AS AFFAIR_USR_ID,
+		            DISPLAYNAME AS AFFAIR_USR_NM,
+		            TELEPHONENUMBER AS AFFAIR_TEL_NO,
+		            MOBILE AS AFFAIR_MOBILE
+		        FROM
+		            OM061
+		        WHERE
+		            OUCODE = #{oucode}
+		            AND CC_AFFAIRS_YN = 'Y'
+		        ORDER BY
+		            DBMS_RANDOM.VALUE()
+		    ) A
+		WHERE
+		    ROWNUM = 1
+	 </select>
+	 
+	<select id="selectboxChargerList" parameterType="map" resultType="map">
+		SELECT UID_
+			   , OUCODE
+			   , PARENTOUCODE
+			   , OU
+			   , DISPLAYNAME
+			   , USE_YN
+			   , CC_AFFAIRS_YN
+			   , (DISPLAYNAME ||' '||NVL(TITLEORPOSITION, ''))  as NAMEPOSITION
+			   FROM OM061 
+			   WHERE 1 = 1  
+			  <if test="oucode != null and !oucode.equals('all') and !oucode.equals('')">
+			   AND OUCODE= #{oucode} 
+			   </if>
+			    <!-- and ROWNUM between 1 and 10 -->
+	</select>
+	
+	
+	<select id="jisikRewordHisGrfrsList" parameterType="map" resultType="map">
+		select * from (
+				 SELECT UID_
+			   , OUCODE
+			   , PARENTOUCODE
+			   , USERFULLNAME
+			   , OU
+			   , DISPLAYNAME
+			   , USE_YN
+			   , (DISPLAYNAME ||' '||NVL(TITLEORPOSITION, ''))  as NAMEPOSITION
+            from om061 
+            where USE_YN = 'Y' 
+            and CC_AFFAIRS_YN='Y'
+            UNION
+           	select USR_ID, CNTR_CD, TEAM_CD, ('공주시청컨텍센터 '|| USR_NM) as USERFULLNAME,'공주시청컨텍센터' as OU, USR_NM, USE_YN, DTY_CD 
+           		from om001 where usr_grd_cd >= 030100 and use_yn ='Y' and CNTR_CD != 990000)
+			where 1=1
+   			<if test="userfullname != null and !userfullname.equals('')">
+            and USERFULLNAME LIKE '%' || #{userfullname} || '%'
+            </if>
+
+
+	</select>
+
+		<select id="cnsltDbProcessChargerList" parameterType="map" resultType="map">
+			SELECT UID_
+				   , OUCODE
+				   , PARENTOUCODE
+				   , USERFULLNAME
+				   , OU
+				   , DISPLAYNAME
+				   , USE_YN
+				   , (DISPLAYNAME ||' '||NVL(TITLEORPOSITION, ''))  as NAMEPOSITION
+	            from om061 
+	            where USE_YN = 'Y' 
+	           <!--  and CC_AFFAIRS_YN !='Y' -->
+	            <if test="org_id != null and !org_id.equals('')">
+	            and OUCODE =#{org_id} 
+	            </if>
+	            <if test="userfullname != null and !userfullname.equals('')">
+	            and USERFULLNAME LIKE '%' || #{userfullname} || '%'
+	            </if>
+	            <!-- and ROWNUM between 1 and 10 -->
+	</select> 
+	
+
+	<select id="adminAgencyUserList_old" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				SELECT ORG_USR_ID as USR_ID
+				     , DEPT_ID
+				     , DEPT_NM
+				     , JOB_CLASS_NM
+				     , DTY_NM as JOBPOSITION
+				     , ORG_FUL_NM
+				     , RSPNSB		     
+				     , CC_RSPNSB
+				     , USR_FUL_NM 
+				     , TEL_NO 
+				     , USR_NM as USER_NM
+			       , DECODE(CC_AFFAIRS_YN, 'Y', '서무', '') as AFFAIR_YN
+			     <!-- , (SELECT CD_NM FROM sm002 WHERE TP_CD = '90911' AND CD = a.EMP_TYPE) ISOTHER -->
+		         , ISOTHER
+				  FROM OM061 a
+				 WHERE USE_YN = 'Y'
+				 AND ISOTHER NOT IN ('휴직', '퇴직', '전출')
+	    <if test="affairs">
+                   AND CC_AFFAIRS_YN = 'Y'
+        </if>
+		<if test="srchType == null">
+			<choose>
+				<when test="notLowLev != null and !notLowLev">
+		   		   AND DEPT_ID = #{deptId}
+				</when>
+				<otherwise>
+		           AND DEPT_ID IN (SELECT DEPT_ID
+		                             FROM OM051
+		                           START WITH DEPT_ID = (SELECT DEPT_ID
+		                                                   FROM OM051
+		                                                  WHERE PARNT_DEPT_ID = #{parentCd}
+		                                                 START WITH DEPT_ID = #{deptId}
+		                                                 CONNECT BY PRIOR PARNT_DEPT_ID = DEPT_ID)
+		                           CONNECT BY PRIOR DEPT_ID = PARNT_DEPT_ID 
+		                          )
+				</otherwise>
+			</choose>
+		</if>
+		<if test="srchType != null">
+			<if test="deptId != null and !deptId.equals('')">
+	               AND DEPT_ID IN (SELECT DEPT_ID
+		                             FROM OM051
+		                           START WITH DEPT_ID = (
+		                                                 SELECT DEPT_ID
+		                                                   FROM OM051
+		                                                  WHERE PARNT_DEPT_ID = #{parentCd}
+		                                                 START WITH DEPT_ID = #{deptId}
+		                                                 CONNECT BY PRIOR PARNT_DEPT_ID = DEPT_ID
+		                                                )
+		                           CONNECT BY PRIOR DEPT_ID = PARNT_DEPT_ID 
+			                      )
+			</if>
+			<if test="srchType.equals('JOB')">
+		           AND ( RSPNSB LIKE '%' || #{srchVal} || '%' 
+		               OR ORG_FUL_NM LIKE '%' || #{srchVal} || '%'
+		               OR CC_RSPNSB LIKE '%' || #{srchVal} || '%'
+		               )
+			</if>
+			<if test="srchType.equals('DEPT')">
+		           AND DEPT_NM LIKE '%' || #{srchVal} || '%'
+			</if>
+			<if test="srchType.equals('NAME')">
+		           AND USR_NM LIKE '%' || #{srchVal} || '%'
+			</if>
+			<if test="srchType.equals('TEL')">
+		           AND TEL_NO LIKE '%' || #{srchVal} || '%'
+			</if>
+			 <if test="srchType.equals('ALL')">
+                   AND ( RSPNSB LIKE '%' || #{srchVal} || '%' 
+                       OR ORG_FUL_NM LIKE '%' || #{srchVal} || '%'
+                       OR CC_RSPNSB LIKE '%' || #{srchVal} || '%'
+                       OR DEPT_NM LIKE '%' || #{srchVal} || '%'
+                       OR USR_NM LIKE '%' || #{srchVal} || '%'
+                       OR TEL_NO LIKE '%' || #{srchVal} || '%'
+                       )
+            </if>
+		</if>
+		 ORDER BY ${sidx} ${sord}
+		<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>
+	</select>
+
+
+	<select id="adminAgencyUserList" parameterType="map" resultType="map">
+		WITH ORG AS( 
+		 SELECT LEVEL lv,  T1.*
+		 FROM (
+		   SELECT OUCODE, OU, DECODE(OULEVEL,'2', NVL(nvl(VIRPARENTOUCODE,ISVIRTUAL),PARENTOUCODE), PARENTOUCODE) AS PARENTOUCODE2, OUORDER
+		   FROM OM060
+		   <if test="orgGrupCd !=null and orgGrupCd.equals('do')">
+		  	WHERE OUCODE != 'V000050'
+		  </if>
+		   ORDER BY OULEVEL, OUORDER
+		 ) T1           
+		START WITH PARENTOUCODE2 ='0' CONNECT BY PRIOR OUCODE = PARENTOUCODE2
+		ORDER SIBLINGS BY T1.OUORDER             
+		),
+		ORG2 AS (
+		  SELECT * FROM ORG
+		  WHERE  (OUCODE=#{deptId} OR PARENTOUCODE2 =#{deptId})
+		),
+		ORG3 AS (
+			SELECT * FROM ORG 
+			WHERE OUCODE IN (SELECT OUCODE FROM ORG2)
+			OR PARENTOUCODE2 IN (SELECT OUCODE FROM ORG2)
+		),
+		ORG4 AS (
+			SELECT * FROM ORG 
+			WHERE OUCODE IN (SELECT OUCODE FROM ORG3)
+			OR PARENTOUCODE2 IN (SELECT OUCODE FROM ORG3)
+		),
+		ORG5 AS (
+			SELECT * FROM ORG 
+			WHERE OUCODE IN (SELECT OUCODE FROM ORG4)
+			OR PARENTOUCODE2 IN (SELECT OUCODE FROM ORG4)
+		)
+	
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+		
+		SELECT 
+				UID_ AS USR_ID, OUCODE, OU, 
+				ORGFULLNAME, ORGFULLNAME AS ORGFULLNAME2, 
+				DISPLAYNAME, POSITION, TITLE, TITLEORPOSITION, 
+				REPLACE(TELEPHONENUMBER,'-','') AS TELEPHONENUMBER, REPLACE(FAX,'-','') AS FAX , MAIL, MOBILE,
+				DECODE((SELECT ISSIDOONLY FROM OM060 WHERE OUCODE = OM061.OUCODE),'Y','임시조직','') AS ISSIDOONLY,
+				<!-- ISOTHER, DECODE(ISOTHER, '1','파견','2','동원','3','겸직','')||NVL2(OTHEROU,'('||OTHEROU||')','') AS ISOTHER_NM, -->
+				ISOTHER AS ISOTHER_NM,
+				OTHERPERIOD, OTHEROU, SID,
+				DECODE(CC_AFFAIRS_YN, 'N', ' ', CC_AFFAIRS_YN) AS CC_AFFAIRS_YN, 
+				JOBTITLE, CC_RSPNSB, NID, 
+		        TO_CHAR(TO_DATE(CRT_DT,'YYYYMMDD'),'YYYY-MM-DD') AS CRT_DT,
+		        TO_CHAR(TO_DATE(CRT_TM,'HH24MISS'),'HH24:MI:SS') AS CRT_TM,
+		        TO_CHAR(TO_DATE(MOD_DT,'YYYYMMDD'),'YYYY-MM-DD')||' '||TO_CHAR(TO_DATE(MOD_TM,'HH24MISS'),'HH24:MI:SS') AS MOD_DTM, MOD_USR_ID
+		FROM OM061
+		WHERE USE_YN='Y'
+		<if test="!includeYn">
+			AND ISOTHER NOT IN ('휴직', '퇴직', '전출')
+		</if>
+		<if test="srchVal == null or srchVal.equals('') ">
+			<if test="deptId != null and !deptId.equals('')">
+				<choose>
+					<when test="notLowLev != null and !notLowLev">
+					AND OUCODE = #{deptId}
+					</when>
+					<otherwise>
+					AND OUCODE IN (SELECT OUCODE FROM ORG5)
+					</otherwise>
+				</choose>	               
+	               
+			</if>
+		</if>	
+		
+		 AND OUCODE IN (SELECT OUCODE FROM ORG5)
+		 
+		<if test="srchVal != null and !srchVal.equals('')">			
+				  <!--  AND OUCODE IN (SELECT OUCODE FROM ORG5) -->
+			<if test="srchType.equals('JOB')">
+		           AND (JOBTITLE LIKE '%' || #{srchVal} || '%' OR CC_RSPNSB LIKE '%' || #{srchVal} || '%' ) 
+			</if>
+			<if test="srchType.equals('DEPT')">
+		            AND OU LIKE '%' || #{srchVal} || '%' 
+			</if>
+			<if test="srchType.equals('NAME')">
+		           AND DISPLAYNAME LIKE '%' || #{srchVal} || '%'
+			</if>
+			<if test="srchType.equals('TEL')">
+		           AND TELEPHONENUMBER LIKE '%' || #{srchVal} || '%'
+			</if>
+			 <if test="srchType.equals('ALL')">
+                   AND ( 
+                   	   JOBTITLE LIKE '%' || #{srchVal} || '%' 
+                   	   OR CC_RSPNSB LIKE '%' || #{srchVal} || '%'
+                       OR OU LIKE '%' || #{srchVal} || '%'
+                       OR DISPLAYNAME LIKE '%' || #{srchVal} || '%'
+                       OR TELEPHONENUMBER LIKE '%' || #{srchVal} || '%'
+                       OR ORGFULLNAME LIKE '%'|| #{srchVal} || '%'                      
+                       )
+            </if>
+		</if>		
+		 
+		<if test="srchOrgVal != null and !srchOrgVal.equals('')">			
+				  AND ORGFULLNAME LIKE '%'|| #{srchOrgVal} ||'%'
+		</if>
+		
+		<if test="affairsYn">
+			AND CC_AFFAIRS_YN ='Y'
+		</if>
+		
+		 ORDER BY ${sidx} ${sord}
+		<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>			
+	</select>
+			
+	<select id="selectAdminAgencyUserInfo" parameterType="map" resultType="map">
+		SELECT a.ORG_USR_ID
+		     , a.ORG_ID
+		     , a.DEPT_ID
+		     , a.DEPT_NM
+		     , a.ORG_FUL_NM
+		     , a.USR_NM AS USR_NM
+		     , a.JOB_CLASS_NM
+		     , a.DTY_NM
+		     , (SELECT DECODE(TMP_ORG_YN, 'Y', '임시부서', '') FROM OD051 WHERE DEPT_ID = a.DEPT_ID) TEMP_YN
+		     , a.TEL_NO
+		     , a.FAX_NO
+		     , NVL(CC_AFFAIRS_YN, 'N') as AFFAIR_YN
+		     <!-- , (SELECT CD_NM FROM sm002 WHERE TP_CD = '90911' AND CD = a.EMP_TYPE) ISOTHER -->
+		     , ISOTHER
+		     , RSPNSB
+		     , CC_RSPNSB
+		     , GETFORMATDATE(a.CRT_DT) SYNC_FORMAT_DT
+		     , GETFORMATTIME(a.CRT_TM) SYNC_FORMAT_TM
+		     , NVL((SELECT USR_NM FROM OM001 WHERE USR_ID = a.MOD_USR_ID), 'system') AS MOD_USR_NM 
+		     , GETFORMATDATE(a.MOD_DT) || ' ' ||  GETFORMATTIME(a.MOD_TM) MOD_FORMAT_DTM
+		  FROM OM061 a
+		 WHERE ORG_USR_ID = #{userId}
+		   AND USE_YN = 'Y'
+		   AND ISOTHER NOT IN ('휴직', '퇴직', '전출')	
+      <if test="deptId != null">
+       AND DEPT_ID = #{deptId}
+      </if>
+	</select>
+	<select id="sendingUserInfo" parameterType="map" resultType="map">
+		SELECT a.UID_
+		     , a.OUCODE
+		     , a.DISPLAYNAME
+		     , a.OU
+		     , a.ORGFULLNAME
+		     , a.TELEPHONENUMBER
+		  FROM OM061 a
+		 WHERE UID_ = #{userId}
+		   AND USE_YN = 'Y'
+	</select>
+	
+  <select id="selectCounselDeptUser" parameterType="map" resultType="map">
+    SELECT a.ORG_USR_ID as usr_id
+         , a.USR_NM as usr_nm
+      FROM OM061 a
+     WHERE 1=1
+     AND USE_YN = 'Y'
+      <if test="deptId != null">
+       AND DEPT_ID = #{deptId}
+      </if>
+      <if test="uCheck != null">
+      AND (
+            sso_uid like #{uCheck} or org_usr_id like #{uCheck}
+           )
+      </if>
+  </select> 
+ 
+	<update id="updateAdminAgencyUser" parameterType="map"><!-- 변경 -->
+		UPDATE OM061 
+		   SET CC_RSPNSB = #{ccJobTitle}
+		     , MOD_DT = to_char(sysdate, 'yyyymmdd')
+		     , MOD_TM = to_char(sysdate, 'hh24miss')
+		     , MOD_USR_ID = #{login_usr_id}             
+		 WHERE UID_ = #{userId}	  
+	</update>
+	
+	   <update id="deleteAdminAgencyUser" parameterType="map"><!-- 삭제  -->
+        UPDATE OM061 
+           SET USE_YN = #{useYn}
+             , MOD_DT = to_char(sysdate, 'yyyymmdd')
+             , MOD_TM = to_char(sysdate, 'hh24miss')
+             , MOD_USR_ID = #{login_usr_id}
+         WHERE ORG_USR_ID = #{userId}         
+    </update>
+  <select id="selectUserCheck" parameterType="map" resultType="map">
+    SELECT a.ORG_USR_ID as usr_id
+         , a.USR_NM as usr_nm
+      FROM OM061 a
+     WHERE 1=1
+      <if test="uCheck != null">
+      AND (
+            sso_uid like #{uCheck} or org_usr_id like #{uCheck}
+           )
+      </if>
+  </select>
+    <insert id="insert" parameterType="map">
+    INSERT INTO OM061 ( 
+           ORG_USR_ID,
+           ORG_ID,
+           DEPT_ID,
+           ORG_GB_CD,
+           DEPT_NM,
+           ORG_FUL_NM,
+           SSO_UID,
+           USR_NM,
+           USR_DSC,
+           USR_FUL_NM,
+           DTY_CD,
+           DTY_NM,
+           PSTN_CD,
+           PSTN_NM,
+           JOB_CLASS_NM,
+           TEL_NO,
+           FAX_NO,
+           RSPNSB,
+           ST,
+           EMP_TYPE,
+           NID,
+           CC_AFFAIRS_YN,
+           CC_RSPNSB,
+           USE_YN,
+           CRT_DT,
+           CRT_TM,
+           CRT_USR_ID,
+           MOD_DT,
+           MOD_TM,
+           MOD_USR_ID
+       ) VALUES ( 
+             #{ORG_USR_ID}              
+            , (SELECT ORG_ID FROM om051 where 1=1 and DEPT_NM like #{DEPT_NM} ||'%')
+            , (SELECT DEPT_ID FROM om051 where 1=1 and DEPT_NM like #{DEPT_NM} ||'%')
+            , '110000'
+            , #{DEPT_NM}
+            , #{ORG_FUL_NM}
+            , #{ORG_USR_ID}
+            , #{USR_NM}
+            , #{USR_NM}
+            , #{ORG_FUL_NM} ||' '|| #{USR_NM}
+            , (select cd from sm002 where 1 = 1 and tp_cd like '90005' and CD_NM like #{DTY_CD})
+            , #{DTY_CD}
+            , (select cd from sm002 where 1 = 1 and tp_cd like '90005' and CD_NM like #{DTY_CD})
+            , #{DTY_CD}
+            , #{DTY_CD}
+            , #{TEL_NO}
+            , #{FAX_NO}
+            , #{RSPNSB}
+            , 'Y'
+            , '0'
+            , #{ORG_USR_ID}
+            , 'N'
+            , #{CC_RSPNSB}
+            , 'Y'
+            , to_char(sysdate, 'yyyyMMdd')
+            , to_char(sysdate, 'hh24miss')
+            , #{login_usr_id}
+            , to_char(sysdate, 'yyyyMMdd')
+            , to_char(sysdate, 'hh24miss')
+            , #{login_usr_id} 
+       ) 
+    </insert>
+    
+    <select id="adminAgencyExcelList" parameterType="map" resultType="map">
+		WITH ORG AS( 
+		 SELECT LEVEL lv,  T1.*
+		 FROM (
+		   SELECT OUCODE, OU, DECODE(OULEVEL,'2', NVL(ISVIRTUAL,PARENTOUCODE), PARENTOUCODE) AS PARENTOUCODE2, OUORDER
+		   FROM OM060
+		   ORDER BY OULEVEL, OUORDER
+		 ) T1           
+		START WITH PARENTOUCODE2 ='0' CONNECT BY PRIOR OUCODE = PARENTOUCODE2
+		ORDER SIBLINGS BY T1.OUORDER             
+		),
+		ORG2 AS (
+		  SELECT * FROM ORG
+		  WHERE  (OUCODE=#{deptId} OR PARENTOUCODE2 =#{deptId})
+		  <!-- 
+		 <if test="orgGrupCd.equals('do')">
+		  	AND OUCODE != 'V000050' 
+			AND  PARENTOUCODE2 !='V000050'
+		  </if>
+		   -->		  
+		),
+		ORG3 AS (
+			SELECT * FROM ORG 
+			WHERE OUCODE IN (SELECT OUCODE FROM ORG2)
+			OR PARENTOUCODE2 IN (SELECT OUCODE FROM ORG2)
+		),
+		ORG4 AS (
+			SELECT * FROM ORG 
+			WHERE OUCODE IN (SELECT OUCODE FROM ORG3)
+			OR PARENTOUCODE2 IN (SELECT OUCODE FROM ORG3)
+		),
+		ORG5 AS (
+			SELECT * FROM ORG 
+			WHERE OUCODE IN (SELECT OUCODE FROM ORG4)
+			OR PARENTOUCODE2 IN (SELECT OUCODE FROM ORG4)
+		)
+		    
+            
+		    SELECT         
+		        UID_ AS USR_ID, OUCODE, OU, ORGFULLNAME, DISPLAYNAME, POSITION, TITLE, TITLEORPOSITION, 
+						TELEPHONENUMBER, FAX, 
+						DECODE((SELECT ISSIDOONLY FROM OM060 WHERE OUCODE = OM061.OUCODE),'Y','임시조직','') AS ISSIDOONLY,
+						<!-- DECODE(ISOTHER, '1','파견','2','동원','3','겸직','')||NVL2(OTHEROU,'('||OTHEROU||')','') AS ISOTHER_NM, -->
+						ISOTHER AS ISOTHER_NM,
+						DECODE(CC_AFFAIRS_YN, 'Y','서무','') AS CC_AFFAIRS_YN, JOBTITLE, CC_RSPNSB
+				FROM OM061
+				WHERE USE_YN='Y'
+				<if test="!includeYn">
+					AND ISOTHER NOT IN ('휴직', '퇴직', '전출')
+				</if>		
+		<if test="srchVal == null or srchVal.equals('') ">
+			<if test="deptId != null and !deptId.equals('')">
+				<choose>
+					<when test="notLowLev != null and !notLowLev">
+					AND OUCODE =#{deptId}
+					</when>
+					<otherwise>
+					AND OUCODE IN (SELECT OUCODE FROM ORG5)
+					</otherwise>
+				</choose>	               
+	               
+			</if>
+		</if>	
+		
+		AND OUCODE IN (SELECT OUCODE FROM ORG5)
+		
+		<if test="srchVal != null and !srchVal.equals('')">			
+				   <!-- AND OUCODE IN (SELECT OUCODE FROM ORG5) -->
+			<if test="srchType.equals('JOB')">
+		           AND (JOBTITLE LIKE '%' || #{srchVal} || '%' OR CC_RSPNSB LIKE '%' || #{srchVal} || '%' ) 
+			</if>
+			<if test="srchType.equals('DEPT')">
+		           AND OU LIKE '%' || #{srchVal} || '%'
+			</if>
+			<if test="srchType.equals('NAME')">
+		           AND DISPLAYNAME LIKE '%' || #{srchVal} || '%'
+			</if>
+			<if test="srchType.equals('TEL')">
+		           AND TELEPHONENUMBER LIKE '%' || #{srchVal} || '%'
+			</if>
+			 <if test="srchType.equals('ALL')">
+                   AND ( JOBTITLE LIKE '%' || #{srchVal} || '%' OR CC_RSPNSB LIKE '%' || #{srchVal} || '%'
+                       OR OU LIKE '%' || #{srchVal} || '%'
+                       OR DISPLAYNAME LIKE '%' || #{srchVal} || '%'
+                       OR TELEPHONENUMBER LIKE '%' || #{srchVal} || '%'                      
+                       )
+            </if>
+		</if>
+		
+		<if test="affairsYn">
+			AND CC_AFFAIRS_YN ='Y'
+		</if>
+		
+		 ORDER BY ${sidx} ${sord}
+		
+	</select>
+
+  	<select id="orgDeptUserAuto" parameterType="map" resultType="map">   
+						SELECT 
+					      t1.UID_ 
+					    , t1.SID 
+					    , t1.OUCODE
+					    , t1.PARENTOUCODE
+					    , t1.TOPOUCODE
+					    , t1.USERFULLNAME
+					    , t1.OU
+		                , t1.DISPLAYNAME
+		                , t1.POSITION
+		                , t1.TITLEORPOSITION
+		                , t1.MOBILE
+					    , t1.TELEPHONENUMBER
+					    , t1.FAX
+					    , t1.ORGFULLNAME
+					    , t1.CC_AFFAIRS_YN
+					from OM061 t1
+					where 1=1
+					<if test="cc_affairs_yn != null and !cc_affairs_yn.equals('')">
+					  and t1.CC_AFFAIRS_YN = #{cc_affairs_yn}
+					</if>
+					and ( t1.OU like '%'||#{keyword}||'%'
+					    or t1.USERFULLNAME like '%'||#{keyword}||'%'
+					    or t1.MAIL like '%'||#{keyword}||'%'
+					    or REPLACE(t1.TELEPHONENUMBER,'-','') like '%'||#{keyword}||'%'
+					    or REPLACE(t1.MOBILE,'-','') like '%'||#{keyword}||'%'
+					) 
+  	</select>
+  	
+  	<select id="AffrsInfoByPassportDept" parameterType="map" resultType="map">
+  		SELECT
+		    UID_, 
+			DISPLAYNAME, 
+			USERFULLNAME, 
+			OUCODE, 
+			ORGFULLNAME, 
+			TELEPHONENUMBER, 
+			MOBILE, 
+			CC_AFFAIRS_YN
+		FROM
+		    om061 a, sm002 b
+		WHERE
+		            a.USE_YN = 'Y'
+		    AND     b.USE_YN = 'Y'
+		    AND     a.CC_AFFAIRS_YN = 'Y'
+		    AND     a.UID_ = b.CD_NM
+		    AND     a.USERFULLNAME LIKE '%'||'여권'||'%'
+  	</select> 
+
+  	<select id="cswOrgDeptUser" parameterType="map" resultType="map">   
+		SELECT 
+			UID_, 
+			DISPLAYNAME, 
+			USERFULLNAME, 
+			OUCODE, 
+			ORGFULLNAME, 
+			TELEPHONENUMBER, 
+			MOBILE, 
+			CC_AFFAIRS_YN
+		FROM   OM061 
+		WHERE  USE_YN='Y'
+		<if test="selectid != null and selectid.equals('cstrac_setUserfullname')">
+		AND    CC_AFFAIRS_YN = 'Y'
+		</if>
+		<if test="oucode != null and !oucode.equals('') and sttCheck == false">
+		AND    OUCODE = #{oucode}
+		</if>
+		<if test="oucode != null and !oucode.equals('') and sttCheck == true">
+		AND	   OUCODE NOT IN (#{oucode})
+		</if>
+		AND    USERFULLNAME LIKE '%'||#{keyword}||'%'
+  	</select>
+
+   	<select id="searchUserAuto" parameterType="map" resultType="map">   
+				SELECT
+				   'AA' as CAT 
+					, t1.UID_ 
+					, t1.SID 
+					, t1.OUCODE
+					, t1.PARENTOUCODE
+					, t1.TOPOUCODE
+					, USERFULLNAME
+					, t1.OU
+					, t1.DISPLAYNAME
+					, t1.POSITION
+					, t1.TITLEORPOSITION
+					, t1.MOBILE
+					, t1.TELEPHONENUMBER
+					, t1.FAX
+				from OM061 t1
+				WHERE 1=1
+				<if test='cc_affairs_yn != null and cc_affairs_yn.equals("Y")'>
+				  and t1.CC_AFFAIRS_YN = #{cc_affairs_yn}
+				</if>
+				<if test="detail != null and !detail.equals('')">
+				  and t1.JOBTITLE like '%'||#{detail}||'%'
+				</if>		
+				and ( t1.OU like '%'||#{keyword}||'%'
+						    or t1.USERFULLNAME like '%'||#{keyword}||'%'
+						    or t1.MAIL like '%'||#{keyword}||'%'
+						<if test='searchBehind != null and !searchBehind.equals("")'>
+				  			or REPLACE(t1.TELEPHONENUMBER,'-','') like '%'||#{searchBehind}
+				  			or REPLACE(t1.MOBILE,'-','') like '%'||#{searchBehind}
+						</if>
+						<if test="searchBehind == null or searchBehind.equals('')">
+				  	 		or REPLACE(t1.TELEPHONENUMBER,'-','') like '%'||#{keyword}||'%'
+				  	 		or REPLACE(t1.MOBILE,'-','') like '%'||#{keyword}||'%'
+						</if>
+						)
+			<if test='cc_affairs_yn != null and cc_affairs_yn.equals("N")'>						
+				UNION ALL  
+					select 
+						 'CC' as CAT 
+					  , a.USR_ID as UID_
+						, a.EMP_NO as SID
+						, a.TEAM_CD as OUCODE
+						, a.CNTR_CD as PARENTOUCODE
+						, '6500000' as TOPOUCODE
+						, getCodeNM(a.TEAM_CD, '90003') ||' '||a.USR_NM  as USERFULLNAME 
+						, getCodeNM(a.TEAM_CD, '90003') AS OU
+						, a.USR_NM  as DISPLAYNAME
+						, getCodeNM(USR_GRD_CD, '90006') AS POSITION
+						, getCodeNM(dty_cd, '90005') AS TITLEORPOSITION
+						, a.CEL_NO  as MOBILE
+						, a.EXTN_NO as TELEPHONENUMBER
+						, a.FAX_NO  as FAX
+					from om001 a
+					where 1=1
+					and ( getCodeNM(a.TEAM_CD, '90003') like '%'||#{keyword}||'%'
+							    or a.USR_NM like '%'||#{keyword}||'%'
+							    or REPLACE(a.TEL_NO,'-','') like '%'||#{keyword}||'%' 
+							    or REPLACE(a.EXTN_NO,'-','') like '%'||#{keyword}||'%' 
+							) 
+				UNION ALL
+					select  
+						  'EA' as CAT 
+					  , ta.EXT_AGN_USR_ID as UID_
+						, ta.EXT_AGN_USR_ID as SID
+						, ta.DEPT_NM as OUCODE
+						, ta.EXT_AGN_ID as PARENTOUCODE
+						, ta.EXT_AGN_ID as TOPOUCODE
+						, tb.INST_NM ||' '|| ta.DEPT_NM ||' '|| ta.RSPN_PRSN as USERFULLNAME
+						, ta.DEPT_NM as OU
+						, ta.RSPN_PRSN  as DISPLAYNAME
+						, '' as POSITION
+						, ta.JOB_NM as TITLEORPOSITION
+						, case when ta.CH_GB_CD ='11003' or ta.CH_GB_CD2 ='11003' or ta.CH_GB_CD3 ='11003'  
+						then NVL(ta.CNTCT_INFM, NVL(ta.CNTCT_INFM2, NVL(ta.CNTCT_INFM3,''))) else '' end as MOBILE
+						, case when ta.CH_GB_CD ='11002' or ta.CH_GB_CD2 ='11002' or ta.CH_GB_CD3 ='11002'  
+						then NVL(ta.CNTCT_INFM, NVL(ta.CNTCT_INFM2, NVL(ta.CNTCT_INFM3,''))) else '' end as TELEPHONENUMBER
+						, '' as FAX
+					from od056 ta 
+							  left join om055 tb
+								 on ta.EXT_AGN_ID = tb.EXT_AGN_ID
+					where 1=1
+					and ( tb.INST_NM like '%'||#{keyword}||'%'
+								    or tb.MEMO like '%'||#{keyword}||'%'
+								    or ta.RSPN_PRSN like '%'||#{keyword}||'%'
+								    or ta.DEPT_NM like '%'||#{keyword}||'%'
+								    or REPLACE(ta.CNTCT_INFM,'-','') like '%'||#{keyword}||'%'
+								    or REPLACE(ta.CNTCT_INFM2,'-','') like '%'||#{keyword}||'%'
+								    or REPLACE(ta.CNTCT_INFM3,'-','') like '%'||#{keyword}||'%'
+								    or ta.MEMO like '%'||#{keyword}||'%'
+								) 
+		</if>							
+  	</select>  	
+ 
+ 
+	<update id="updateSetAffairs" parameterType="map"> 
+		UPDATE OM061 SET CC_AFFAIRS_YN = #{setAffairsYN}
+		WHERE UID_= #{setUid}
+	</update>
+ 	
+</mapper>        

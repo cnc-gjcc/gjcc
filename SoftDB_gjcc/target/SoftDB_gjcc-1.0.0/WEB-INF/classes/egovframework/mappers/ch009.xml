@@ -1,0 +1,493 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="ch009">
+	
+		<select id="templist" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				SELECT *
+				FROM
+				(
+						select 
+				        t1.TCKT_ID
+				        ,t1.RCV_DT
+				        ,t1.RCV_TM
+				        ,	NVL2( t1.RCV_DT, getFormatDate(t1.RCV_DT) || ' ' || getFormatTime(t1.RCV_TM), ' ') AS RCV_DT_FORMAT
+				        ,t1.RCV_USR_ID
+				         , (select USR_NM from OM001 where USR_ID =t1.RCV_USR_ID ) as USR_NM
+				        ,t1.CUST_NM as in_CUST_NM
+				        ,NVL((select  CUST_ID from cd004 where cntct_infm = t1.CNTCT_INFM ),'미등록') as db_CUST_ID
+				        , t1.CNTCT_INFM as in_CNTCT_INFM 
+				        ,getFormatPhoneNum(t1.CNTCT_INFM) AS cntct_infm_format
+				        ,(select  getFormatPhoneNum(CNTCT_INFM) from cd004 where cntct_infm = t1.CNTCT_INFM ) as db_CNTCT_INFM 
+				        , case when t1.CALL_GB_CD='1' then 'IN' 
+							   when t1.CALL_GB_CD='2' then 'OUT' else t1.CALL_GB_CD end as CALL_GB_CD
+				        , case when t1.ACT_ST_CD='010000' then '미완료' 
+							   when t1.ACT_ST_CD='030400' then '완료'  else  t1.ACT_ST_CD end as ACT_ST_NM 
+				       , case when t1.ACT_TYPE_CD='010000' then '직접상담' 
+				               when t1.ACT_TYPE_CD='010100' then '착오전화' 
+				               when t1.ACT_TYPE_CD='030100' then '이관민원' 
+				               when t1.ACT_TYPE_CD='030200' then '담당자전환' 
+				               when t1.ACT_TYPE_CD='030300' then '상담후호전환'  else t1.ACT_TYPE_CD end  as ACT_TYPE_NM 
+				        ,t1.CTG_EX_CD
+				        ,t1.CTG_LG_CD
+				        ,t1.CTG_MD_CD
+				        ,t1.CTG_SM_CD
+				        ,   (select CTG_CD_NM from OM020 where CTG_LVL = '1' and CTG_CD = t1.CTG_EX_CD)  as INTV_EX_NM                        
+				        ,   (select CTG_CD_NM from OM020 where CTG_LVL = '2' and PARNT_CD = t1.CTG_EX_CD AND CTG_CD = t1.CTG_LG_CD)  as INTV_LG_NM  
+				        ,   (select CTG_CD_NM from OM020 where CTG_LVL = '3' and PARNT_CD = t1.CTG_LG_CD AND CTG_CD = t1.CTG_MD_CD)  as INTV_MD_NM  
+				        ,   (select CTG_CD_NM from OM020 where CTG_LVL = '4' and PARNT_CD = t1.CTG_MD_CD AND CTG_CD = t1.CTG_SM_CD)  as INTV_SM_NM  
+				        ,t1.CTG_EX_NM
+				        ,t1.CTG_LG_NM
+				        ,t1.CTG_MD_NM
+				        ,t1.CTG_SM_NM
+				        ,t1.QST_CONT
+				        ,t1.ACT_CONT
+				        ,t1.USE_YN
+				        ,t1.CRT_DT
+				        ,t1.CRT_TM
+				        ,t1.CRT_USR_ID
+				        ,t1.MOD_DT
+				        ,t1.MOD_TM
+				        ,t1.MOD_USR_ID
+						from ch009 t1  
+						where 1=1
+					  <!-- 상담이력 반영 여부변경으로 인한 제외  --> 
+					  <!-- and t1.use_yn = 'Y' -->
+        <if test="tcktId != null and !tcktId.equals('')">
+           AND t1.tckt_id= #{tcktId}
+			  </if>
+			  <if test="tcktId == null or tcktId.equals('')">
+			       
+			        <if test="tel_num != null and !tel_num.equals('')">
+			            and t1.cntct_infm like '%' || Regexp_Replace( #{tel_num}, ' |:|/|-', '') || '%'
+			        </if>   
+							<if test="frDt != null and !frDt.equals('') and toDt != null and !toDt.equals('')">
+								<if test="srchDtType == null">
+									and t1.rcv_dt between #{frDt} and #{toDt}
+								</if>
+								<if test="srchDtType != null and srchDtType.equals('rcvDt')"> 
+									and t1.rcv_dt between #{frDt} and #{toDt}
+								</if>
+						
+							</if>
+							<if test="srchtype != null and !srchval.equals('')">
+								<if test="srchtype.equals('all')">
+									and 
+									(
+											upper(t.cust_nm) like '%' || upper(#{srchval}) || '%'							
+										or 	t.cntct_infm like '%' || Regexp_Replace(#{srchval}, ' |:|/|-', '') || '%'
+										or upper(t1.ACT_CONT) like '%' || #{srchval} || '%'
+										or upper(t1.qst_cont) like '%' || #{srchval} || '%'
+									)
+								</if>
+								<if test="srchtype.equals('custNm')">
+									and upper(t1.cust_nm) like '%' || upper(#{srchval}) || '%'
+								</if>
+								<if test="srchtype.equals('srchPhone')">
+									and upper(t1.cntct_infm) like '%' || upper(#{srchval}) || '%'
+								</if>
+								<if test="srchtype.equals('srchContent')">
+									and (upper(t1.ACT_CONT) like '%' || #{srchval} || '%'
+										    or upper(t1.qst_cont) like '%' || #{srchval} || '%')
+								</if>
+							</if>
+							<if test="selUsrId != null and !selUsrId.equals('all')">
+									and t1.RCV_USR_ID = #{selUsrId}
+							</if>
+							<if test="selActTypeCd != null and !selActTypeCd.equals('all')">
+									and t1.ACT_TYPE_CD = #{selActTypeCd}
+							</if>
+							<if test="selActStCd != null and !selActStCd.equals('all')">
+									and t1.ACT_ST_CD = #{selActStCd}
+							</if>
+							<if test="intv_ex_cd != null and !intv_ex_cd.equals('all')">
+								    and t1.CTG_EX_CD = #{intv_ex_cd}
+							</if>
+							<if test="intv_lg_cd != null and !intv_lg_cd.equals('all')">
+									and t1.CTG_LG_CD = #{intv_lg_cd}
+							</if>
+							<if test="intv_md_cd != null and !intv_md_cd.equals('all')">
+									and t1.CTG_MD_CD = #{intv_md_cd}
+							</if>
+							<if test="intv_sm_cd != null and !intv_sm_cd.equals('all')">
+									and t1.CTG_SM_CD = #{intv_sm_cd}
+							</if>
+							<if test="call_gb_cd != null and !call_gb_cd.equals('all')">
+									and t1.CALL_GB_CD = #{call_gb_cd}
+							</if>
+	     </if>      
+				)
+				WHERE 1 = 1
+				 
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>
+	</select>
+	
+	<select id="counselConvlist" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				SELECT *
+				FROM
+				(
+					SELECT
+							t1.TCKT_ID
+						,	t1.recd_id
+						, t1.CALL_ID
+						, t1.RCV_DT
+						, t1.RCV_USR_ID
+						,	NVL2( t1.RCV_DT, getFormatDate(t1.RCV_DT) || ' ' || getFormatTime(t1.RCV_TM), ' ') AS RCV_DT_FORMAT
+						,	t3.CORP_NM
+					<if test="rows != null and page != null">	
+						, t3.CUST_NM
+					</if>
+					<if test="rows == null and page == null">
+						, case when t3.CUST_NM IN ('고객','민원인','테스트') then t3.CUST_NM
+							else substr(t3.CUST_NM,1,1) || lpad('*',length(t3.CUST_NM)-2,'*') || substr(t3.CUST_NM, length(CUST_NM), 1) end as CUST_NM
+					</if>
+						, (select USR_NM from OM001 where USR_ID = t1.RCV_USR_ID) AS RCV_USR_NM
+						, (select CTI_LGN_ID from OM001 where USR_ID = t1.RCV_USR_ID) AS CTI_LGN_ID
+						, getCodeNM(t1.CH_GB_CD, '90009') AS CH_GB_NM
+						, getCodeNM(t1.ACT_TYPE_CD, '90014') AS ACT_TYPE_NM
+						, NVL((select CD_NM from SM002 where TP_CD = '90013' AND CD = t1.ACT_ST_CD), '미완료') ACT_ST_NM
+						, (SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = t1.ctg_ex_cd AND ctg_lvl = '1') ||  	  
+							(SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = t1.ctg_lg_cd AND ctg_lvl = '2') ||
+							(SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = t1.ctg_md_cd AND ctg_lvl = '3') ||  
+							(SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = t1.ctg_sm_cd AND ctg_lvl = '4')  AS intv_nm   
+						, (select CTG_CD_NM from OM020 where CTG_LVL = '1' and CTG_CD = t1.CTG_EX_CD)  as INTV_EX_NM                        
+						, (select CTG_CD_NM from OM020 where CTG_LVL = '2' and PARNT_CD = t1.CTG_EX_CD AND CTG_CD = t1.CTG_LG_CD)  as INTV_LG_NM  
+						, (select CTG_CD_NM from OM020 where CTG_LVL = '3' and PARNT_CD = t1.CTG_LG_CD AND CTG_CD = t1.CTG_MD_CD)  as INTV_MD_NM  
+						, (select CTG_CD_NM from OM020 where CTG_LVL = '4' and PARNT_CD = t1.CTG_MD_CD AND CTG_CD = t1.CTG_SM_CD)  as INTV_SM_NM  
+						, t1.CTG_EX_CD as INTV_EX_CD
+						, t1.CTG_LG_CD as INTV_LG_CD
+						, t1.CTG_MD_CD as INTV_MD_CD
+						, t1.CTG_SM_CD as INTV_SM_CD
+						, getFormatPhoneNum(t1.SNDR_CNTCT_INFM) as CNTCT_INFM_FORMAT
+						, '' AS PPS_NM
+						, replace(replace((case when LENGTH(t1.qst_cont) > 18 then substr(t1.qst_cont, 0, 18) || '...' else t1.qst_cont end), CHR(10), ''), CHR(13), '') as rcv_cont_ttl
+						, t1.act_cont
+						, t1.qst_cont as rcv_cont
+						, (CASE WHEN t2.RESV_DT is null
+							THEN ''
+							ELSE getFormatDate(t2.RESV_DT) || ' ' || getFormatTime(t2.RESV_TM)
+							END
+							) AS RESV_DT_FORMAT
+						, NVL2( t4.rcv_dt, getFormatDate(t4.RCV_DT) || ' ' || getFormatTime(t4.call_strt_tm), ' ') AS SEND_DT_FORMAT
+					  
+						, (SELECT cntr_cd FROM om001 WHERE usr_id = t1.rcv_usr_id) AS cntr_cd
+<!-- 						, case when t1.call_gb_cd = '1' then 'IN' when t1.call_gb_cd = '2' then 'OUT' when t1.call_gb_cd = '3' then '콜백' end as CALL_GB_NM_ENG --> <!-- 원본 -->
+						, case when t1.call_gb_cd = '2' then 'IN' when t1.call_gb_cd = '3' then 'OUT' end as CALL_GB_NM_ENG <!-- 수정 2020.06.03 -->
+						, GETCODENM(T1.CALL_GB_CD, '90010') AS CALL_GB_NM
+						, getsecondtotime(round((to_date(t1.call_end_tm, 'hh24miss') - to_date(t1.CALL_STRT_TM, 'hh24miss')) * 24 * 60 * 60, 0)) as CALL_TIME
+  						, (select USR_NM from OM001 where USR_ID = t1.MOD_USR_ID) AS MOD_USR_NM
+  						, NVL2( t1.MOD_DT, getFormatDate(t1.MOD_DT) || ' ' || getFormatTime(t1.MOD_TM), ' ') AS MOD_DT_FORMAT
+  						, getCodeNM(t3.cust_gb_cd, '90043') AS cst_type_nm
+  						, getCodeNM(t3.cst_comp_cd, '90048') AS CST_COMP_NM
+  						, t3.infm_yn
+  						, t3.loc_yn
+  						, '' AS TRNR_ACT_ST_NM
+						, NVL(T1.RDY_SCNT, 0) AS RDY_SCNT 
+						, t5.EXT1_CD as keywordcd 
+					FROM CH001 t1
+						left join cm005 t2 on t1.tckt_id = t2.resv_reg_tckt_id
+						left join cm003 t3 on t1.cust_id = t3.cust_id
+						left join CH001 t4 on t4.tckt_id = t2.out_tckt_id
+						left join cd001 t5 on t5.TCKT_ID = t1.tckt_id
+					WHERE 1 = 1
+						and t1.use_yn = 'Y'
+	   
+		<if test="tel_num != null and !tel_num.equals('')">
+						and t1.sndr_cntct_infm like '%' || #{tel_num} || '%'
+		</if>
+		<if test="frDt != null and !frDt.equals('') and toDt != null and !toDt.equals('')">
+			<if test="srchDtType == null">
+						and t1.rcv_dt between #{frDt} and #{toDt}
+			</if>
+			<if test="srchDtType != null and srchDtType.equals('rcvDt')"> 
+						and t1.rcv_dt between #{frDt} and #{toDt}
+			</if>
+			<if test="srchDtType != null and srchDtType.equals('resvDt')">
+						and t2.resv_dt between #{frDt} and #{toDt}
+			</if>
+		</if>
+		<if test="srchtype != null and !srchval.equals('')">
+					<if test="srchtype.equals('all')">
+						and 
+						(
+							upper(t3.cust_nm) like '%' || upper(#{srchval}) || '%'
+							or t1.sndr_cntct_infm like '%' || #{srchval} || '%'
+							or t2.resv_cntct_infm like '%' || #{srchval} || '%'
+							or upper(t1.ACT_CONT) like '%' || #{srchval} || '%'
+							or upper(t1.qst_cont) like '%' || #{srchval} || '%'
+						)
+					</if>
+					<if test="srchtype.equals('custNm')">
+						and upper(t3.cust_nm) like '%' || upper(#{srchval}) || '%'
+					</if>
+					<if test="srchtype.equals('srchPhone')">
+						and upper(t1.sndr_cntct_infm) like '%' || upper(#{srchval}) || '%'
+					</if>
+					<if test="srchtype.equals('srchContent')">
+						and (upper(t1.ACT_CONT) like '%' || #{srchval} || '%'
+							    or upper(t1.qst_cont) like '%' || #{srchval} || '%')
+					</if>
+					<if test="srchtype.equals('resvPhone')">
+						and t2.resv_cntct_infm like '%' || #{srchval} || '%' 
+					</if>
+					<if test="srchtype.equals('srchKeyWord')">
+						and t5.EXT1_CD = #{keyWord}
+					</if>
+				</if>
+				<if test="selUsrId != null and !selUsrId.equals('all')">
+						and t1.RCV_USR_ID = #{selUsrId}
+				</if>
+				<if test="selActTypeCd != null and !selActTypeCd.equals('all')">
+						and t1.ACT_TYPE_CD = #{selActTypeCd}
+				</if>
+				<if test="selActStCd != null and !selActStCd.equals('all')">
+						and t1.ACT_ST_CD = #{selActStCd}
+				</if>
+				<if test="intv_ex_cd != null and !intv_ex_cd.equals('all')">
+					  and t1.CTG_EX_CD = #{intv_ex_cd}
+				</if>
+				<if test="intv_lg_cd != null and !intv_lg_cd.equals('all')">
+						and t1.CTG_LG_CD = #{intv_lg_cd}
+				</if>
+				<if test="intv_md_cd != null and !intv_md_cd.equals('all')">
+						and t1.CTG_MD_CD = #{intv_md_cd}
+				</if>
+				<if test="intv_sm_cd != null and !intv_sm_cd.equals('all')">
+						and t1.CTG_SM_CD = #{intv_sm_cd}
+				</if>
+				<if test="call_gb_cd != null and !call_gb_cd.equals('all')">
+						and t1.CALL_GB_CD = #{call_gb_cd}
+				</if>
+				<if test="lang_cd != null and !lang_cd.equals('all')">
+						and t1.LANG_CD = #{lang_cd}
+				</if>
+				<if test="loc_yn != null and !loc_yn.equals('')">
+						and t3.loc_yn = #{loc_yn}
+				</if>
+				<if test="selChGbCd != null and !selChGbCd.equals('all')">
+						and t1.CH_GB_CD = #{selChGbCd}
+				</if>
+        <if test="rdy_Scnt_Frm != null and !rdy_Scnt_Frm.equals('') and rdy_Scnt_To != null and !rdy_Scnt_To.equals('')">
+            and NVL(T1.RDY_SCNT, 0) BETWEEN #{rdy_Scnt_Frm} AND #{rdy_Scnt_To}
+        </if>  
+				)
+				WHERE 1 = 1
+				  AND TCKT_ID like 'x%'
+				<if test="agentid != null and !agentid.equals('') and !agentid.equals('all')">
+						 AND RCV_USR_ID = #{agentid}
+				</if>
+				 
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>
+	</select>	
+		
+	<insert id="counselXls" parameterType="map">
+			MERGE INTO ch009 
+					USING dual
+					ON (TCKT_ID = 'x' || Regexp_Replace(#{COL2}, ' |:|/|-', '') || #{COL10} AND CNTCT_INFM = Regexp_Replace(#{COL3}, ' |:|/|-', ''))
+					WHEN MATCHED THEN
+						UPDATE  
+							SET CUST_NM = #{COL4} 
+								, CALL_GB_CD = case when #{COL7}='IN' then '1' when #{COL7}='OUT' then '2'   else '1' end 
+								, ACT_ST_CD  = case when #{COL9}='미완료' then '010000' 
+									when #{COL9}='완료' then '030400'   else '010000' end 
+								, ACT_TYPE_CD = case when #{COL8}='직접상담' then '010000' 
+										when #{COL8}='착오전화' then '010100' 
+										when #{COL8}='이관민원' then '030100'
+										when #{COL8}='담당자전환' then '030200'
+										when #{COL8}='상담후호전환' then '030300'  else '010000' end 
+								, QST_CONT   = #{COL5}
+								, ACT_CONT   = #{COL6}
+								, mod_dt = to_char(sysdate, 'yyyyMMdd')
+								, mod_tm = to_char(sysdate, 'hh24miss')
+								, mod_usr_id = #{login_usr_id}
+								, USE_YN = 'Y' 
+					WHEN NOT MATCHED THEN 
+						INSERT (
+									TCKT_ID
+								,	RCV_DT
+								,	RCV_TM
+								,	RCV_USR_ID
+								,	CUST_NM
+								,	CNTCT_INFM
+								,	CALL_GB_CD
+								,	ACT_ST_CD
+								,	ACT_TYPE_CD
+								,	CTG_LG_CD
+								,	CTG_MD_CD
+								,	CTG_SM_CD
+								,	CTG_LG_NM
+								,	CTG_MD_NM
+								,	CTG_SM_NM
+								,	QST_CONT
+								,	ACT_CONT
+								,	USE_YN
+								,	CRT_DT
+								,	CRT_TM
+								,	CRT_USR_ID
+								,	MOD_DT
+								,	MOD_TM
+								,	MOD_USR_ID
+						)
+						values
+						(
+							'x' || Regexp_Replace(#{COL2}, ' |:|/|-', '') || #{COL10}
+							, Regexp_Replace(SUBSTR(#{COL2}, 0, INSTR(#{COL2}, ' ', 1, 1)), ' |:|/|-', '')
+							, Regexp_Replace(SUBSTR(#{COL2}, INSTR(#{COL2}, ' ', 1, 1)), ' |:|/|-', '')
+							, #{COL10}
+							, #{COL4}
+							, Regexp_Replace(#{COL3}, ' |:|/|-', '')
+							, case when #{COL7}='IN' then '1' 
+							       when #{COL7}='OUT' then '2'   else '1' end 
+							, case when #{COL9}='미완료' then '010000' 
+							       when #{COL9}='완료' then '030400'   else '010000' end 
+							, case when #{COL8}='직접상담' then '010000' 
+							       when #{COL8}='착오전화' then '010100' 
+							       when #{COL8}='이관민원' then '030100' 
+							       when #{COL8}='담당자전환' then '030200' 
+							       when #{COL8}='상담후호전환' then '030300'  else '010000' end 
+							, ''
+							, ''
+							, ''
+							, ''
+							, ''
+							, ''
+							, #{COL5}
+							, #{COL6}
+							, 'Y'
+							, to_char(sysdate, 'yyyymmdd')
+							, to_char(sysdate, 'hh24miss')
+							, #{login_usr_id}
+							, to_char(sysdate, 'yyyymmdd')
+							, to_char(sysdate, 'hh24miss')
+							, #{login_usr_id}
+						) 
+	</insert>
+
+	<update id="counselconv" parameterType="map">
+		MERGE INTO ch001 t2
+		USING (SELECT t1.*, (select  tt.CUST_ID from cd004 tt where tt.cntct_infm = t1.CNTCT_INFM) AS CUST_ID FROM CH009 t1) t1   
+		ON (t2.TCKT_ID = t1.TCKT_ID AND t2.SNDR_CNTCT_INFM = t1.CNTCT_INFM AND t1.MOD_USR_ID = #{login_usr_id})
+		WHEN MATCHED THEN
+		UPDATE SET t2.RCV_DT = t1.RCV_DT
+			, t2.RCV_TM = t1.RCV_TM
+			, t2.CALL_GB_CD = t1.CALL_GB_CD
+			, t2.ACT_ST_CD = t1.ACT_ST_CD
+			, t2.ACT_TYPE_CD = t1.ACT_TYPE_CD
+			, t2.QST_CONT = t1.QST_CONT
+			, t2.ACT_CONT = t1.ACT_CONT
+			, t2.MOD_DT = to_char(sysdate, 'yyyymmdd')
+			, t2.MOD_TM = to_char(sysdate, 'hh24miss')
+			, t2.MOD_USR_ID = t1.RCV_USR_ID
+			WHEN NOT MATCHED THEN
+		insert 
+		( 
+			TCKT_ID
+			,CUST_ID
+			,RCV_DT
+			,RCV_TM
+			,RCV_USR_ID
+			,CH_GB_CD
+			,SNDR_CNTCT_INFM
+			,CALL_GB_CD
+			,ACT_ST_CD
+			,ACT_TYPE_CD 
+			,CTG_EX_CD
+			,CTG_LG_CD
+			,CTG_MD_CD
+			,CTG_SM_CD
+			,QST_CONT
+			,ACT_CONT
+			,USE_YN
+			,CRT_DT
+			,CRT_TM
+			,CRT_USR_ID
+			,MOD_DT
+			,MOD_TM
+			,MOD_USR_ID 
+		)
+		VALUES 
+		(  
+			t1.TCKT_ID 
+			, t1.CUST_ID
+			, t1.RCV_DT
+			, t1.RCV_TM
+			, t1.RCV_USR_ID
+			, '11000'
+        	, t1.CNTCT_INFM
+        	, t1.CALL_GB_CD
+			, t1.ACT_ST_CD
+			, t1.ACT_TYPE_CD 
+			, t1.CTG_EX_CD
+			, t1.CTG_LG_CD
+			, t1.CTG_MD_CD
+			, t1.CTG_SM_CD
+			, t1.QST_CONT
+			, t1.ACT_CONT
+			,'Y'
+			, to_char(sysdate, 'yyyymmdd')
+			, to_char(sysdate, 'hh24miss')
+			, t1.RCV_USR_ID
+			, to_char(sysdate, 'yyyymmdd')
+			, to_char(sysdate, 'hh24miss')
+			, t1.RCV_USR_ID
+        )
+	</update>
+	
+	<delete id="tempUpdate" parameterType="map">
+		UPDATE CH009 SET USE_YN = 'N' WHERE MOD_USR_ID = #{login_usr_id}
+	</delete>
+	
+	<delete id="tempdelete" parameterType="map">
+		DELETE 
+		  FROM CH009 
+		 WHERE 1=1
+			 AND RCV_USR_ID = #{agentId} 
+	</delete>
+	
+	<select id="getCustId" parameterType="map" resultType="map">
+		SELECT 
+			nvl((select nvl(t.CUST_ID,'' )  from cd004 t where 1=1 and CNTCT_INFM = Regexp_Replace(#{tel_no}, ' |:|/|-', '') ),'new') as NEW_CUST
+			,nvl((select nvl(t.CUST_ID,'' )  from cd004 t where 1=1 and CNTCT_INFM = Regexp_Replace(#{tel_no}, ' |:|/|-', '') ),scm003.nextval) as CUST_ID
+		FROM DUAL
+	</select>
+	
+</mapper>

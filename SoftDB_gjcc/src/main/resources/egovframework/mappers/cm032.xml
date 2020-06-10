@@ -1,0 +1,1020 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="cm032">
+
+	<update id="changestatecharger" parameterType="map">
+	{call
+	    declare	    
+	    begin
+			UPDATE CD033
+			SET 
+        	<if test="r_org_id != null and !r_org_id.equals('')">
+					ORG_ID = #{r_org_id}, 
+					ORG_FUL_NM = #{r_org_ful_nm}, 
+					 <choose>
+ 						   <when test="cvl_act_st_cd != null and cvl_act_st_cd.equals('010200')">
+      				AFFS_ORG_USR_ID = #{r_org_usr_id}, 
+					AFFS_USR_NM = #{r_org_usr_nm}, 
+					AFFS_OFCE_TEL_NO = #{r_ofce_tel_no},    
+					ORG_USR_ID = '', 
+			 		ORG_USR_NM = '', 
+			 		OFCE_TEL_NO = '',
+  							  </when>
+ 						   <when test="cvl_act_st_cd !=null and cvl_act_st_cd.equals('010300')">
+    				AFFS_ORG_USR_ID = (select uid_ from om061 where OUCODE = #{r_org_id} and CC_AFFAIRS_YN = 'Y' and rownum = 1), 
+					AFFS_USR_NM = NVL(NVL((select DISPLAYNAME from om061 where uid_ = (select uid_ from om061 where OUCODE = #{r_org_id} and CC_AFFAIRS_YN = 'Y' and rownum = 1)),(select usr_nm from om001 where usr_id = (select uid_ from om061 where OUCODE = #{r_org_id} and CC_AFFAIRS_YN = 'Y' and rownum = 1))),''),
+					AFFS_OFCE_TEL_NO = (select telephonenumber from om061 where OUCODE = #{r_org_id} and CC_AFFAIRS_YN = 'Y' and rownum = 1),
+					ORG_USR_ID = #{r_org_usr_id},
+					ORG_USR_NM = #{r_org_usr_nm},
+					OFCE_TEL_NO = #{r_ofce_tel_no},
+				</when>
+				<otherwise>
+					AFFS_ORG_USR_ID = '',
+					AFFS_USR_NM = '',
+					AFFS_OFCE_TEL_NO = '',
+					ORG_USR_ID = '',
+					ORG_USR_NM = '',
+					OFCE_TEL_NO = '',
+				</otherwise>
+			</choose>
+		</if>
+
+		<if test="cvl_act_st_cd != null and !cvl_act_st_cd.equals('')">
+			CVL_ACT_ST_CD = #{cvl_act_st_cd},
+		</if>
+		<if test="r_rtn_rsn != null and !r_rtn_rsn.equals('')">
+			RTN_RSN = #{r_rtn_rsn},
+		</if>
+
+		MOD_DT = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		MOD_TM = TO_CHAR(SYSDATE, 'HH24MISS'),
+		MOD_USR_ID = #{orgUsrId}
+		WHERE TNTR_ID = #{tntr_id};
+
+		INSERT INTO CH034 (
+		WRK_ID,
+		TCKT_ID,
+		ORD,
+		WRK_DT,
+		WRK_TM,
+		CVL_ACT_ST_CD,
+		ORG_FUL_NM,
+		ORG_USR_NM,
+		TNTR_CONT,
+		RTN_RSN,
+		USE_YN,
+		CRT_DT,
+		CRT_TM,
+		CRT_USR_ID,
+		MOD_DT,
+		MOD_TM,
+		MOD_USR_ID
+		)
+		VALUES (
+		SCH034.NEXTVAL,
+		#{tckt_id},
+		#{ord},
+		TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		TO_CHAR(SYSDATE, 'HH24MISS'),
+		#{cvl_act_st_cd},
+		#{r_org_ful_nm},
+		#{r_org_usr_nm},
+		#{r_tntr_cont},
+		#{r_rtn_rsn},
+		'Y',
+		TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		TO_CHAR(SYSDATE, 'HH24MISS'),
+		#{orgUsrId},
+		TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		TO_CHAR(SYSDATE, 'HH24MISS'),
+		#{orgUsrId}
+		);
+		end
+		}
+	</update>
+
+	<!-- <select id="selectVocCnt" parameterType="map" resultType="map"> SELECT COUNT(1) AS ORG_VOCCNT, NVL(SUM(CASE WHEN D.AFFS_ORG_USR_ID = #{orgUsrId} THEN 1 ELSE 0 END),0) AS USR_VOCCNT FROM CM032 M, CD033 D WHERE M.TCKT_ID = D.TCKT_ID AND M.USE_YN='Y' AND D.USE_YN='Y' AND D.CVL_ACT_ST_CD NOT IN ('020200') AND D.ORG_ID = #{orgId} </select> -->
+
+	<select id="selectVocCnt" parameterType="map" resultType="map">
+		SELECT
+		COUNT(1) AS vocDeptCnt,
+		COUNT ( CASE WHEN ( 'Y' = #{ccAffairs}) AND D.ORG_USR_ID IS NULL OR D.ORG_USR_ID = #{orgUsrId} THEN 1
+		WHEN ('N' = #{ccAffairs}) AND D.ORG_USR_ID = #{orgUsrId} THEN 1
+		END) AS vocUsrCnt
+		FROM CM032 M, CD033 D
+		WHERE M.TCKT_ID = D.TCKT_ID
+		AND M.USE_YN = 'Y'
+		AND D.USE_YN = 'Y'
+		AND D.CVL_ACT_ST_CD NOT IN ('020200','010100')
+		AND D.ORG_ID = #{orgId}
+	</select>
+
+	<select id="selectVocList" parameterType="map" resultType="map">
+		<!-- selectVocList -->
+		<if test="rows != null and page != null">
+			SELECT *
+			FROM
+			(
+			SELECT A1.*
+			, CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+			, CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+			, CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+			SELECT * FROM (
+		</if>
+		SELECT M.TCKT_ID, D.TNTR_ID, D.ORD,
+		M.TRNR_RQS_DT, M.TRNR_RQS_TM,
+		TO_CHAR(to_date(M.TRNR_RQS_DT,'YYYYMMDD'),'YYYY-MM-DD')||' '||TO_CHAR(to_date(M.TRNR_RQS_TM,'HH24MISS'),'HH24:MI') AS TRNR_RQS_DTM,
+		M.TRNR_RQS_USR_ID, (select usr_nm from om001 where usr_id = M.TRNR_RQS_USR_ID) as RQS_USR_NM,
+		(SELECT CUST_ID FROM CH001 WHERE TCKT_ID = M.TCKT_ID) AS CUST_ID,
+		M.CTZN, GETFORMATPHONENUM(M.CTZN_TEL_NO) AS CTZN_TEL_NO, M.TNTR_CONT,
+		M.CVL_RSLT_RCV_YN,
+		M.CVL_RQS_GB_CD, getCodeNM( M.CVL_RQS_GB_CD,'90016') AS CVL_RQS_GB_NM,
+		D.ORG_ID, D.ORG_FUL_NM, D.AFFS_ORG_USR_ID, D.AFFS_USR_NM, GETFORMATPHONENUM(D.AFFS_OFCE_TEL_NO) AS AFFS_OFCE_TEL_NO,
+		D.ORG_USR_ID, D.ORG_USR_NM, GETFORMATPHONENUM(D.OFCE_TEL_NO) AS OFCE_TEL_NO,
+		D.CVL_ACT_ST_CD, getCodeNM( D.CVL_ACT_ST_CD,'90300') AS CVL_ACT_ST_NM, D.CVL_ACT_CONT, D.RTN_RSN,
+		DECODE(D.AFFS_ORG_USR_ID, #{orgUsrId}, 'Y', (SELECT CC_AFFAIRS_YN FROM OM061 WHERE UID_= #{orgUsrId} )) AS CC_AFFAIRS_YN
+		FROM CM032 M, CD033 D
+		WHERE M.TCKT_ID = D.TCKT_ID
+		AND M.USE_YN='Y' AND D.USE_YN='Y'
+		<if test="passedDay != null and passedDay.equals('all')">
+			AND M.TRNR_RQS_DT BETWEEN #{srcDeptFrDate} AND #{srcDeptToDate}
+		</if>
+
+		<if test="chkUnsetYn != null and chkUnsetYn.equals('Yes')">
+			AND d.ORG_USR_NM IS NULL
+		</if>
+
+		<if test="srcKeyWordType != null and !srcKeyWordType.equals('all')">
+			<if test="srcKeyWordType.equals('affsUsrNm')">
+				AND (nvl(D.AFFS_USR_NM,' ') LIKE '%'|| #{srcKeyWord} ||'%')
+			</if>
+			<if test="srcKeyWordType.equals('orgUsrNm')">
+				AND (nvl(D.ORG_USR_NM,' ') LIKE '%'|| #{srcKeyWord} ||'%')
+			</if>
+			<if test="srcKeyWordType.equals('orgFulNm')">
+				AND (nvl(D.ORG_FUL_NM,' ') LIKE '%'|| #{srcKeyWord} ||'%')
+			</if>
+		</if>
+
+		<if test="srcKeyWordType != null and srcKeyWordType.equals('all')">
+			AND (nvl(D.AFFS_USR_NM,' ') LIKE '%'|| #{srcKeyWord} ||'%' OR nvl(D.ORG_USR_NM,' ') LIKE '%'|| #{srcKeyWord} ||'%' OR nvl(D.ORG_FUL_NM,' ') LIKE '%'|| #{srcKeyWord} ||'%')
+		</if>
+
+		<if test="srcTntrCont != null and !srcTntrCont.equals('')">
+			AND NVL(M.TNTR_CONT,' ') LIKE '%'||#{srcTntrCont}||'%'
+		</if>
+
+		AND D.CVL_ACT_ST_CD IN
+		<foreach item="cvlActStCds" index="index" collection="cvlActStCds" open="(" separator="," close=")">
+			#{cvlActStCds}
+		</foreach>
+
+		<if test="srcDeptRcptType != null and !srcDeptRcptType.equals('all')">
+			AND D.CVL_ACT_ST_CD = #{srcDeptRcptType}
+		</if>
+
+		<if test="chkAllDept == false">
+			AND D.ORG_ID = #{orgId}
+		</if>
+
+		<if test="passedDay != null and !passedDay.equals('all')">
+			AND TO_NUMBER(TO_CHAR(SYSDATE, 'YYYYMMDD')) - TO_NUMBER(m.trnr_rqs_dt) > #{passedDay}
+		</if>
+
+		ORDER BY M.TCKT_ID, D.ORD
+		)
+		<if test="sidx != null and !sidx.equals('')">
+			ORDER BY ${sidx} ${sord}
+		</if>
+		<if test="rows != null and page != null">
+			) A1
+
+			)
+			WHERE PAGENUM = #{page}
+		</if>
+	</select>
+
+	<update id="updateDeptReceipt" parameterType="map">
+		{call
+		declare
+		begin
+
+		UPDATE CD033
+		SET
+		<!-- <if test="cvl_act_st_cd != null and cvl_act_st_cd.equals('010200')"> -->
+		ORG_ID = #{r_org_id},
+		ORG_FUL_NM = #{r_org_ful_nm},
+		AFFS_ORG_USR_ID = #{r_affs_org_usr_id},
+		AFFS_USR_NM = #{r_affs_usr_nm},
+		AFFS_OFCE_TEL_NO = #{r_affs_ofce_tel_no},
+		ORG_USR_ID = #{r_org_usr_id},
+		ORG_USR_NM = #{r_org_usr_nm},
+		OFCE_TEL_NO = #{r_ofce_tel_no},
+		<!-- </if> -->
+
+		<!-- <if test="cvl_act_st_cd != null and cvl_act_st_cd.equals('010300')"> <if test="affairs != null and !affairs"> ORG_USR_ID = #{r_org_usr_id}, ORG_USR_NM = #{r_org_usr_nm}, OFCE_TEL_NO = #{r_ofce_tel_no}, </if> <if test="affairs != null and affairs"> (ORG_ID, ORG_FUL_NM, AFFS_ORG_USR_ID, AFFS_USR_NM, AFFS_OFCE_TEL_NO) = (select OUCODE, OU, UID_, DISPLAYNAME, TELEPHONENUMBER from om061 where OUCODE=#{r_org_id} AND CC_AFFAIRS_YN = 'Y' AND rownum=1), ORG_USR_ID = #{r_org_usr_id}, ORG_USR_NM = #{r_org_usr_nm}, OFCE_TEL_NO = #{r_ofce_tel_no}, </if> </if> -->
+
+		CVL_ACT_ST_CD = #{cvl_act_st_cd},
+		RTN_RSN = #{r_rtn_rsn},
+
+		MOD_DT = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		MOD_TM = TO_CHAR(SYSDATE, 'HH24MISS'),
+		MOD_USR_ID = #{orgUsrId}
+		WHERE TNTR_ID = #{tntr_id};
+
+
+		INSERT INTO CH034 (
+		WRK_ID,
+		TCKT_ID,
+		ORD,
+		WRK_DT,
+		WRK_TM,
+		CVL_ACT_ST_CD,
+		ORG_FUL_NM,
+		ORG_USR_NM,
+		TNTR_CONT,
+		RTN_RSN,
+		USE_YN,
+		CRT_DT,
+		CRT_TM,
+		CRT_USR_ID,
+		MOD_DT,
+		MOD_TM,
+		MOD_USR_ID
+		)
+		VALUES (
+		SCH034.NEXTVAL,
+		#{tckt_id},
+		#{ord},
+		TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		TO_CHAR(SYSDATE, 'HH24MISS'),
+		#{cvl_act_st_cd},
+		#{r_org_ful_nm},
+		#{r_org_usr_nm_insrt},
+		#{r_tntr_cont},
+		#{r_rtn_rsn},
+		'Y',
+		TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		TO_CHAR(SYSDATE, 'HH24MISS'),
+		#{orgUsrId},
+		TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		TO_CHAR(SYSDATE, 'HH24MISS'),
+		#{orgUsrId}
+		);
+		end
+		}
+	</update>
+
+
+
+
+	<select id="selectTransferInfoList" parameterType="map" resultType="map">
+		SELECT a.TCKT_ID
+		, NVL(a.CVL_RQS_GB_CD,'') as RQS_GB
+		, NVL(a.CTZN,'') as CTZN
+		, NVL(a.CTZN_TEL_NO,'') as CTZN_TEL_NO
+		, nvl(a.TNTR_CONT,'') as TNTR_CONT
+		, a.USE_YN
+		, TO_CHAR(TO_DATE(b.MOD_DT || b.MOD_TM, 'yyyymmddhh24miss'), 'yyyy-mm-dd hh24:mi:ss') AS MOD_DTM_FORMAT
+		, b.MOD_USR_ID
+		, NVL(b.ORD,'') as ORD
+		, a.CVL_RSLT_RCV_YN
+		, NVL(b.CVL_ACT_ST_CD,'') as CVL_ACT_ST_CD
+		, NVL((SELECT CD_NM FROM SM002 WHERE TP_CD = '90300' AND CD = b.CVL_ACT_ST_CD),'') AS CVL_ACT_ST_NM
+		, NVL(b.ORG_ID,'') as ORG_ID
+		, NVL(SUBSTR(b.ORG_FUL_NM, INSTR(b.ORG_FUL_NM, '|', 1, 1) + 1), '') as DEPT_NM
+		, NVL(b.AFFS_ORG_USR_ID,'') as AFFS_ORG_USR_ID
+		, NVL(b.AFFS_OFCE_TEL_NO,'') as AFFS_OFCE_TEL_NO
+		, NVL((select MOBILE from om061 WHERE UID_= b.AFFS_ORG_USR_ID),'') as AFFS_ORG_MOBILE
+		, NVL((select CC_AFFAIRS_YN from om061 WHERE UID_= b.AFFS_ORG_USR_ID),'') as CC_AFFAIRS_YN
+		, NVL(b.AFFS_USR_NM,'') as AFFS_USR_NM
+		, NVL(b.ORG_USR_ID,'') as ORG_USR_ID
+		, NVL(b.ORG_USR_NM,'') as USR_NM
+		, NVL(b.OFCE_TEL_NO,'') as TEL_NO
+		, NVL((select MOBILE from om061 WHERE UID_= b.ORG_USR_ID),'') as ORG_USR_MOBILE
+		, nvl(b.CVL_ACT_CONT,'') as CVL_ACT_CONT
+		, nvl(b.RTN_RSN,'') as RTN_RSN
+		, NVL(b.ORG_FUL_NM,'') as ORG_FUL_NM
+		FROM CM032 a left Join CD033 b ON a.TCKT_Id = b.TCKT_ID
+		WHERE a.TCKT_ID = #{tcktId}
+	</select>
+
+	<update id="updateTransferInfo" parameterType="map">
+		{call
+		declare
+		begin
+		MERGE INTO CM032_ENC
+		USING DUAL
+		ON (TCKT_ID = #{tcktId})
+		WHEN MATCHED THEN
+		UPDATE SET
+		CVL_RQS_GB_CD = #{rqsGb}
+		, CTZN = magicdb.enc('POLICY001',#{custNm})
+		, CTZN_TEL_NO = magicdb.enc('POLICY001',#{custTelNo})
+		, CVL_RSLT_RCV_YN = #{resultRcv}
+		, TNTR_CONT = magicdb.enc('POLICY001',#{trnrCont})
+		, USE_YN = 'Y'
+		, MOD_DT = TO_CHAR(SYSDATE, 'yyyymmdd')
+		, MOD_TM = TO_CHAR(SYSDATE, 'hh24miss')
+		, MOD_USR_ID = #{login_usr_id}
+		WHEN NOT MATCHED THEN
+		INSERT (
+		TCKT_ID /*티켓번호*/
+		, TRNR_RQS_DT /*이관요청일자*/
+		, TRNR_RQS_TM /*이관요청시간*/
+		, TRNR_RQS_CNTR_CD /*이관요청센터코드*/
+		, TRNR_RQS_TEAM_CD /*이관요청팀코드*/
+		, TRNR_RQS_DEPT_CD /*이관요청부서코드*/
+		, TRNR_RQS_USR_ID /*이관요청사용자ID*/
+		, CVL_RQS_GB_CD /*이관요청구분 긴급,7일이내*/
+		, CTZN /*민원인명*/
+		, CTZN_TEL_NO /*민원인 전화번호*/
+		, CVL_RSLT_RCV_YN /*민원결과수신여부*/
+		, TNTR_CONT /*이관내용*/
+		, USE_YN /*사용여부*/
+		, CRT_DT /*생성일자*/
+		, CRT_TM /*생성시간*/
+		, CRT_USR_ID /*생성자*/
+		, MOD_DT /*수정일자*/
+		, MOD_TM /*수정시간*/
+		, MOD_USR_ID /*수정자*/
+		) VALUES (
+		#{tcktId}
+		, TO_CHAR(SYSDATE, 'yyyymmdd')
+		, TO_CHAR(SYSDATE, 'hh24miss')
+		, #{cntrCd}
+		, #{teamCd}
+		, #{deptCd}
+		, #{login_usr_id}
+		, #{rqsGb}
+		, magicdb.enc('POLICY001',#{custNm})
+		, magicdb.enc('POLICY001',#{custTelNo})
+		, #{resultRcv}
+		, magicdb.enc('POLICY001',#{trnrCont})
+		, 'Y'
+		, TO_CHAR(SYSDATE, 'yyyymmdd')
+		, TO_CHAR(SYSDATE, 'hh24miss')
+		, #{login_usr_id}
+		, TO_CHAR(SYSDATE, 'yyyymmdd')
+		, TO_CHAR(SYSDATE, 'hh24miss')
+		, #{login_usr_id}
+		);
+		<if test="mainTeamCd != null and !mainTeamCd.equals('')">
+			MERGE INTO CD033
+			USING DUAL
+			ON (TCKT_ID = #{tcktId} AND ORD = 1)
+			WHEN MATCHED THEN
+			UPDATE SET
+			ORG_ID = #{mainTeamCd}
+			, ORG_FUL_NM = GETUSERNM('AAO',#{mainAffsUsrId})
+
+			<if test="actMainProcSt != '010300'">
+				, AFFS_ORG_USR_ID = #{mainAffsUsrId}
+				, AFFS_USR_NM = #{mainAffsUsrNm}
+				, AFFS_OFCE_TEL_NO = #{mainAffsTelNo}
+			</if>
+
+			<if test="actMainProcSt == '010300'">
+				, AFFS_ORG_USR_ID = #{seoMooUsrId}
+				, AFFS_USR_NM = #{seoMooUsrNm}
+				, AFFS_OFCE_TEL_NO = #{seoMooTelNo}
+			</if>
+
+			, CVL_ACT_ST_CD = #{actMainProcSt}
+			, CVL_ACT_CONT = #{cnslMainProcCont}
+			, RTN_RSN = #{cnslMainRtnRsn}
+			, USE_YN = 'Y'
+			, MOD_DT = TO_CHAR(SYSDATE, 'yyyymmdd')
+			, MOD_TM = TO_CHAR(SYSDATE, 'hh24miss')
+			, MOD_USR_ID = #{login_usr_id}
+
+			<if test="actMainProcSt == '010300'">
+				, ORG_USR_ID = #{mainAffsUsrId}
+				, ORG_USR_NM = #{mainAffsUsrNm}
+				, OFCE_TEL_NO = #{ofceTelNo}
+			</if>
+			WHEN NOT MATCHED THEN
+			INSERT (
+			TNTR_ID
+			, TCKT_ID
+			, ORD
+			, ORG_ID
+			, ORG_FUL_NM
+			, AFFS_ORG_USR_ID
+			, AFFS_USR_NM
+			, AFFS_OFCE_TEL_NO
+			, CVL_ACT_ST_CD
+			, USE_YN
+			, CRT_DT
+			, CRT_TM
+			, CRT_USR_ID
+			, MOD_DT
+			, MOD_TM
+			, MOD_USR_ID
+			, ORG_USR_ID
+			, ORG_USR_NM
+			, OFCE_TEL_NO
+			) VALUES (
+			'' || SCD033.nextval
+			, #{tcktId}
+			, 1
+			, #{mainTeamCd}
+			, GETUSERNM('AAO',#{mainAffsUsrId})
+			<if test="actMainProcSt != '010300'">
+				, #{mainAffsUsrId}
+				, #{mainAffsUsrNm}
+				, #{mainAffsTelNo}
+			</if>
+			<if test="actMainProcSt == '010300'">
+				, #{seoMooUsrId}
+				, #{seoMooUsrNm}
+				, #{seoMooTelNo}
+			</if>
+			, #{actMainProcSt}
+			, 'Y'
+			, TO_CHAR(SYSDATE, 'yyyymmdd')
+			, TO_CHAR(SYSDATE, 'hh24miss')
+			, #{login_usr_id}
+			, TO_CHAR(SYSDATE, 'yyyymmdd')
+			, TO_CHAR(SYSDATE, 'hh24miss')
+			, #{login_usr_id}
+			<if test="actMainProcSt != '010300'">
+				, ''
+				, ''
+				, ''
+			</if>
+			<if test="actMainProcSt == '010300'">
+				, #{mainAffsUsrId}
+				, #{mainAffsUsrNm}
+				, #{ofceTelNo}
+			</if>
+			);
+
+			<if test="mainChange != null and !mainChange.equals('')">
+				<!-- 이관 히스토리 -->
+				INSERT INTO CH034(
+				WRK_ID
+				, TCKT_ID
+				, ORD
+				, WRK_DT
+				, WRK_TM
+				, CVL_ACT_ST_CD
+				, ORG_FUL_NM
+				, ORG_USR_NM
+				, TNTR_CONT
+				, CVL_ACT_CONT
+				, RTN_RSN
+				, USE_YN
+				, CRT_DT
+				, CRT_TM
+				, CRT_USR_ID
+				, MOD_DT
+				, MOD_TM
+				, MOD_USR_ID
+				) VALUES (
+				'' || SCH034.nextval
+				, #{tcktId}
+				, 1
+				, TO_CHAR(SYSDATE, 'yyyymmdd')
+				, TO_CHAR(SYSDATE, 'hh24miss')
+				, #{actMainProcSt}
+				, GETUSERNM('AAO',#{mainAffsUsrId})
+				, #{mainAffsUsrNm}
+				, #{trnrCont}
+				, #{cnslMainProcCont}
+				, #{cnslMainRtnRsn}
+				, 'Y'
+				, TO_CHAR(SYSDATE, 'yyyymmdd')
+				, TO_CHAR(SYSDATE, 'hh24miss')
+				, #{login_usr_id}
+				, TO_CHAR(SYSDATE, 'yyyymmdd')
+				, TO_CHAR(SYSDATE, 'hh24miss')
+				, #{login_usr_id}
+				);
+			</if>
+		</if>
+		<if test="subTeamCd != null and !subTeamCd.equals('')">
+			MERGE INTO CD033
+			USING DUAL
+			ON (TCKT_ID = #{tcktId} AND ORD = 2)
+			WHEN MATCHED THEN
+			UPDATE SET
+			ORG_ID = #{subTeamCd}
+			, ORG_FUL_NM = GETUSERNM('AAO',#{subAffsUsrId})
+			, AFFS_ORG_USR_ID = #{subAffsUsrId}
+			, AFFS_USR_NM = #{subAffsUsrNm}
+			, AFFS_OFCE_TEL_NO = #{subAffsTelNo}
+			, CVL_ACT_ST_CD = #{actSubProcSt}
+			, CVL_ACT_CONT = #{cnslSubProcCont}
+			, RTN_RSN = #{cnslSubRtnRsn}
+			, USE_YN = 'Y'
+			, MOD_DT = TO_CHAR(SYSDATE, 'yyyymmdd')
+			, MOD_TM = TO_CHAR(SYSDATE, 'hh24miss')
+			, MOD_USR_ID = #{login_usr_id}
+			WHEN NOT MATCHED THEN
+			INSERT (
+			TNTR_ID
+			, TCKT_ID
+			, ORD
+			, ORG_ID
+			, ORG_FUL_NM
+			, AFFS_ORG_USR_ID
+			, AFFS_USR_NM
+			, AFFS_OFCE_TEL_NO
+			, CVL_ACT_ST_CD
+			, CVL_ACT_CONT
+			, RTN_RSN
+			, USE_YN
+			, CRT_DT
+			, CRT_TM
+			, CRT_USR_ID
+			, MOD_DT
+			, MOD_TM
+			, MOD_USR_ID
+			) VALUES (
+			'' || SCD033.nextval
+			, #{tcktId}
+			, 2
+			, #{subTeamCd}
+			, GETUSERNM('AAO',#{subAffsUsrId})
+			, #{subAffsUsrId}
+			, #{subAffsUsrNm}
+			, #{subAffsTelNo}
+			, #{actSubProcSt}
+			, #{cnslSubProcCont}
+			, #{cnslSubRtnRsn}
+			, 'Y'
+			, TO_CHAR(SYSDATE, 'yyyymmdd')
+			, TO_CHAR(SYSDATE, 'hh24miss')
+			, #{login_usr_id}
+			, TO_CHAR(SYSDATE, 'yyyymmdd')
+			, TO_CHAR(SYSDATE, 'hh24miss')
+			, #{login_usr_id}
+			);
+			<if test="subChange != null and !subChange.equals('')">
+				<!-- 이관 히스토리 -->
+				INSERT INTO CH034(
+				WRK_ID
+				, TCKT_ID
+				, ORD
+				, WRK_DT
+				, WRK_TM
+				, CVL_ACT_ST_CD
+				, ORG_FUL_NM
+				, ORG_USR_NM
+				, TNTR_CONT
+				, CVL_ACT_CONT
+				, RTN_RSN
+				, USE_YN
+				, CRT_DT
+				, CRT_TM
+				, CRT_USR_ID
+				, MOD_DT
+				, MOD_TM
+				, MOD_USR_ID
+				) VALUES (
+				'' || SCH034.nextval
+				, #{tcktId}
+				, 2
+				, TO_CHAR(SYSDATE, 'yyyymmdd')
+				, TO_CHAR(SYSDATE, 'hh24miss')
+				, #{actSubProcSt}
+				, GETUSERNM('AAO',#{subAffsUsrId})
+				, #{subAffsUsrNm}
+				, #{trnrCont}
+				, #{cnslSubProcCont}
+				, #{cnslSubRtnRsn}
+				, 'Y'
+				, TO_CHAR(SYSDATE, 'yyyymmdd')
+				, TO_CHAR(SYSDATE, 'hh24miss')
+				, #{login_usr_id}
+				, TO_CHAR(SYSDATE, 'yyyymmdd')
+				, TO_CHAR(SYSDATE, 'hh24miss')
+				, #{login_usr_id}
+				);
+			</if>
+		</if>
+		end
+		}
+	</update>
+
+	<select id="selectVocChargerListExcel" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+			SELECT *
+			FROM
+			(
+			SELECT A1.*
+			, CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+			, CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+			, CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM (
+		</if>
+		SELECT
+		TO_CHAR(to_date(M.TRNR_RQS_DT,'YYYYMMDD'),'YYYY-MM-DD') ||' ' ||TO_CHAR(to_date(M.TRNR_RQS_TM,'HH24MISS'),'HH24:MI') AS TRNR_RQS_DTM,
+		M.CTZN,
+		GETFORMATPHONENUM(M.CTZN_TEL_NO) AS CTZN_TEL_NO,
+		M.CVL_RSLT_RCV_YN,
+		getCodeNM( M.CVL_RQS_GB_CD,'90016') AS CVL_RQS_GB_NM,
+		D.AFFS_USR_NM,
+		D.ORG_USR_NM,
+		D.ORG_FUL_NM,
+		getCodeNM( D.CVL_ACT_ST_CD,'90300') AS CVL_ACT_ST_NM
+		FROM CM032 M, CD033 D
+		WHERE M.TCKT_ID = D.TCKT_ID
+		AND M.USE_YN ='Y'
+		AND D.USE_YN ='Y'
+		<!-- AND ( D.ORG_USR_ID = #{orgUsrId} OR D.ORG_ID IN (SELECT OUCODE FROM OM061 WHERE UID_ = #{orgUsrId} AND CC_AFFAIRS_YN = 'Y')) -->
+		AND D.ORG_USR_ID = #{orgUsrId}
+		AND M.TRNR_RQS_DT BETWEEN #{srcChargerFrDate} AND #{srcChargerToDate}
+
+		<if test="srcChargerCvlActStCd != null and !srcChargerCvlActStCd.equals('all')">
+			AND D.CVL_ACT_ST_CD = #{srcChargerCvlActStCd}
+		</if>
+
+		<if test="selChargerSrchtype != null and selChargerSrchtype.equals('srchAll')">
+			AND (M.CTZN LIKE '%'||#{srcChargerText}||'%' OR M.CTZN_TEL_NO LIKE '%'||#{srcChargerText}||'%' OR M.TNTR_CONT LIKE '%'||#{srcChargerText}||'%')
+		</if>
+		<if test="selChargerSrchtype != null and selChargerSrchtype.equals('srchNm')">
+			AND M.CTZN LIKE '%'||#{srcChargerText}||'%'
+		</if>
+
+		<if test="selChargerSrchtype != null and selChargerSrchtype.equals('srchTel')">
+			AND M.CTZN_TEL_NO LIKE '%'||#{srcChargerText}||'%'
+		</if>
+
+		<if test="selChargerSrchtype != null and selChargerSrchtype.equals('srchMsg')">
+			AND M.TNTR_CONT LIKE '%'||#{srcChargerText}||'%'
+		</if>
+
+		<if test="chkFinishYn != null and chkFinishYn.equals('Yes')">
+			AND D.CVL_ACT_ST_CD IN ('010300','020100')
+		</if>
+
+		AND D.CVL_ACT_ST_CD IN
+
+		<foreach item="cvlActStCds" index="index" collection="cvlActStCds" open="(" separator="," close=")">
+			#{cvlActStCds}
+		</foreach>
+
+		ORDER BY M.TCKT_ID, D.ORD
+		<if test="rows != null and page != null">
+			) A1
+			<if test="sidx != null and !sidx.equals('')">
+				ORDER BY ${sidx} ${sord}
+			</if>
+			)
+			WHERE PAGENUM = #{page}
+		</if>
+	</select>
+
+	<select id="selectVocChargerList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+			SELECT *
+			FROM
+			(
+			SELECT A1.*
+			, CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+			, CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+			, CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM (
+			SELECT * FROM (
+		</if>
+		SELECT M.TCKT_ID,
+		D.TNTR_ID,
+		D.ORD,
+		M.TRNR_RQS_DT,
+		M.TRNR_RQS_TM,
+		TO_CHAR(to_date(M.TRNR_RQS_DT,'YYYYMMDD'),'YYYY-MM-DD') ||' ' ||TO_CHAR(to_date(M.TRNR_RQS_TM,'HH24MISS'),'HH24:MI') AS TRNR_RQS_DTM,
+		M.TRNR_RQS_USR_ID,
+		( select usr_nm from om001 where usr_id = M.TRNR_RQS_USR_ID ) as RQS_USR_NM,
+		M.CTZN,
+		GETFORMATPHONENUM(M.CTZN_TEL_NO) AS CTZN_TEL_NO,
+		M.TNTR_CONT,
+		M.CVL_RSLT_RCV_YN,
+		M.CVL_RQS_GB_CD,
+		getCodeNM( M.CVL_RQS_GB_CD,'90016') AS CVL_RQS_GB_NM,
+		D.ORG_ID,
+		D.ORG_FUL_NM,
+		D.AFFS_ORG_USR_ID,
+		D.AFFS_USR_NM,
+		GETFORMATPHONENUM(D.AFFS_OFCE_TEL_NO) AS AFFS_OFCE_TEL_NO,
+		D.ORG_USR_ID,
+		D.ORG_USR_NM,
+		GETFORMATPHONENUM(D.OFCE_TEL_NO) AS OFCE_TEL_NO,
+		D.CVL_ACT_ST_CD,
+		getCodeNM( D.CVL_ACT_ST_CD,'90300') AS CVL_ACT_ST_NM,
+		D.CVL_ACT_CONT,
+		DECODE(D.ORG_USR_ID, #{orgUsrId}, 'Y','N') AS CHARGER_YN
+		FROM CM032 M, CD033 D
+		WHERE M.TCKT_ID = D.TCKT_ID
+		AND M.USE_YN ='Y'
+		AND D.USE_YN ='Y'
+		<!-- AND ( D.ORG_USR_ID = #{orgUsrId} OR D.ORG_ID IN (SELECT OUCODE FROM OM061 WHERE UID_ = #{orgUsrId} AND CC_AFFAIRS_YN = 'Y')) -->
+		<if test="chkAllDept == false">
+			AND D.ORG_USR_ID = #{orgUsrId}
+		</if>
+
+		<if test="passedDay != null and passedDay.equals('all')">
+			AND M.TRNR_RQS_DT BETWEEN #{srcChargerFrDate} AND #{srcChargerToDate}
+		</if>
+
+		<if test="srcChargerCvlActStCd != null and !srcChargerCvlActStCd.equals('all')">
+			AND D.CVL_ACT_ST_CD = #{srcChargerCvlActStCd}
+		</if>
+
+		<if test="selChargerSrchtype != null and selChargerSrchtype.equals('srchAll')">
+			AND (M.CTZN LIKE '%'||#{srcChargerText}||'%' OR M.CTZN_TEL_NO LIKE '%'||#{srcChargerText}||'%' OR M.TNTR_CONT LIKE '%'||#{srcChargerText}||'%')
+		</if>
+
+		<if test="selChargerSrchtype != null and selChargerSrchtype.equals('srchNm')">
+			AND M.CTZN LIKE '%'||#{srcChargerText}||'%'
+		</if>
+
+		<if test="selChargerSrchtype != null and selChargerSrchtype.equals('srchTel')">
+			AND M.CTZN_TEL_NO LIKE '%'||#{srcChargerText}||'%'
+		</if>
+
+		<if test="selChargerSrchtype != null and selChargerSrchtype.equals('srchMsg')">
+			AND M.TNTR_CONT LIKE '%'||#{srcChargerText}||'%'
+		</if>
+
+		<if test="chkFinishYn != null and chkFinishYn.equals('Yes')">
+			AND D.CVL_ACT_ST_CD IN ('010300','020100')
+		</if>
+
+		<if test="chkFinishYn != null and chkFinishYn.equals('No')">
+			AND D.CVL_ACT_ST_CD IN
+			<foreach item="cvlActStCds" index="index" collection="cvlActStCds" open="(" separator="," close=")">
+				#{cvlActStCds}
+			</foreach>
+		</if>
+
+		<if test="passedDay != null and !passedDay.equals('all')">
+			AND TO_NUMBER(TO_CHAR(SYSDATE, 'YYYYMMDD')) - TO_NUMBER(m.trnr_rqs_dt) > #{passedDay}
+		</if>
+
+		ORDER BY M.TCKT_ID, D.ORD
+		)
+		<if test="sidx != null and !sidx.equals('')">
+			ORDER BY ${sidx} ${sord}
+		</if>
+
+		<if test="rows != null and page != null">
+			) A1
+
+			)
+			WHERE PAGENUM = #{page}
+		</if>
+	</select>
+
+
+
+
+	<update id="updateChrgerProcess" parameterType="map">
+		{call
+		declare
+		begin
+
+		UPDATE CD033
+		SET
+		<if test="cvl_act_st_cd != null and cvl_act_st_cd.equals('010200')">
+			AFFS_ORG_USR_ID = #{affs_org_usr_id},
+			AFFS_USR_NM = #{affs_usr_nm},
+			AFFS_OFCE_TEL_NO = #{affs_ofce_tel_no},
+			ORG_USR_ID = '',
+			ORG_USR_NM = '',
+			OFCE_TEL_NO = '',
+		</if>
+		<if test="cvl_act_st_cd != null and cvl_act_st_cd.equals('010300')">
+			<if test="chkDeptCode != null and chkDeptCode == false">
+				AFFS_ORG_USR_ID = #{affs_org_usr_id},
+				AFFS_USR_NM = #{affs_usr_nm},
+				AFFS_OFCE_TEL_NO = #{affs_ofce_tel_no},
+			</if>
+			ORG_USR_ID = #{r_org_usr_id},
+			ORG_USR_NM = #{r_org_usr_nm},
+			OFCE_TEL_NO = #{r_ofce_tel_no},
+		</if>
+		ORG_ID = #{orgId},
+		ORG_FUL_NM = #{orgFulNm},
+		CVL_ACT_ST_CD = #{cvl_act_st_cd},
+		CVL_ACT_CONT = #{cvl_act_cont},
+		RTN_RSN = #{r_rtn_rsn},
+		MOD_DT = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		MOD_TM = TO_CHAR(SYSDATE, 'HH24MISS'),
+		MOD_USR_ID = #{orgUsrId}
+		WHERE TNTR_ID = #{tntr_id};
+
+
+		INSERT INTO CH034 (
+		WRK_ID,
+		TCKT_ID,
+		ORD,
+		WRK_DT,
+		WRK_TM,
+		CVL_ACT_ST_CD,
+		ORG_FUL_NM,
+		ORG_USR_NM,
+		TNTR_CONT,
+		CVL_ACT_CONT,
+		RTN_RSN,
+		USE_YN,
+		CRT_DT,
+		CRT_TM,
+		CRT_USR_ID,
+		MOD_DT,
+		MOD_TM,
+		MOD_USR_ID )
+		VALUES
+		(
+		SCH034.NEXTVAL,
+		#{tckt_id},
+		#{ord},
+		TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		TO_CHAR(SYSDATE, 'HH24MISS'),
+		#{cvl_act_st_cd},
+		#{orgFulNm},
+		#{r_org_usr_nm},
+		#{r_tntr_cont},
+		#{cvl_act_cont},
+		#{r_rtn_rsn},
+		'Y',
+		TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		TO_CHAR(SYSDATE, 'HH24MISS'),
+		#{orgUsrId},
+		TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		TO_CHAR(SYSDATE, 'HH24MISS'),
+		#{orgUsrId}
+		);
+
+		end
+		}
+	</update>
+
+	<select id="selectVocListExcel" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+			SELECT *
+			FROM
+			(
+			SELECT A1.*
+			, CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+			, CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+			, CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+		SELECT
+		TO_CHAR(to_date(M.TRNR_RQS_DT,'YYYYMMDD'),'YYYY-MM-DD')||' '||TO_CHAR(to_date(M.TRNR_RQS_TM,'HH24MISS'),'HH24:MI') AS TRNR_RQS_DTM,
+		M.TRNR_RQS_USR_ID,
+		(select usr_nm from om001 where usr_id = M.TRNR_RQS_USR_ID) as RQS_USR_NM,
+		GETFORMATPHONENUM(M.CTZN_TEL_NO) AS CTZN_TEL_NO,
+		getCodeNM( M.CVL_RQS_GB_CD,'90016') AS CVL_RQS_GB_NM,
+		M.CVL_RSLT_RCV_YN,
+		D.AFFS_USR_NM,
+		D.ORG_USR_NM,
+		D.ORG_FUL_NM,
+		getCodeNM( D.CVL_ACT_ST_CD,'90300') AS CVL_ACT_ST_NM,
+		D.RTN_RSN
+		FROM CM032 M, CD033 D
+		WHERE M.TCKT_ID = D.TCKT_ID
+		AND M.USE_YN='Y' AND D.USE_YN='Y'
+
+		<if test="passedDay != null and passedDay.equals('all')">
+			AND M.TRNR_RQS_DT BETWEEN #{srcDeptFrDate} AND #{srcDeptToDate}
+		</if>
+
+		<if test="chkUnsetYn != null and chkUnsetYn.equals('Yes')">
+			AND d.ORG_USR_NM IS NULL
+		</if>
+
+		<if test="srcKeyWordType != null and !srcKeyWordType.equals('all')">
+			<if test="srcKeyWordType.equals('affsUsrNm')">
+				AND (nvl(D.AFFS_USR_NM,' ') LIKE '%'|| #{srcKeyWord} ||'%')
+			</if>
+			<if test="srcKeyWordType.equals('orgUsrNm')">
+				AND (nvl(D.ORG_USR_NM,' ') LIKE '%'|| #{srcKeyWord} ||'%')
+			</if>
+			<if test="srcKeyWordType.equals('orgFulNm')">
+				AND (nvl(D.ORG_FUL_NM,' ') LIKE '%'|| #{srcKeyWord} ||'%')
+			</if>
+		</if>
+
+		<if test="srcKeyWordType != null and srcKeyWordType.equals('all')">
+			AND (nvl(D.AFFS_USR_NM,' ') LIKE '%'|| #{srcKeyWord} ||'%' OR nvl(D.ORG_USR_NM,' ') LIKE '%'|| #{srcKeyWord} ||'%' OR nvl(D.ORG_FUL_NM,' ') LIKE '%'|| #{srcKeyWord} ||'%')
+		</if>
+
+		<if test="srcTntrCont != null and !srcTntrCont.equals('')">
+			AND NVL(M.TNTR_CONT,' ') LIKE '%'||#{srcTntrCont}||'%'
+		</if>
+
+		AND D.CVL_ACT_ST_CD IN
+		<foreach item="cvlActStCds" index="index" collection="cvlActStCds" open="(" separator="," close=")">
+			#{cvlActStCds}
+		</foreach>
+
+		<if test="srcDeptRcptType != null and !srcDeptRcptType.equals('all')">
+			AND D.CVL_ACT_ST_CD = #{srcDeptRcptType}
+		</if>
+
+		<if test="!chkAllDept">
+			AND D.ORG_ID = #{orgId}
+		</if>
+
+		<if test="passedDay != null and !passedDay.equals('all')">
+			AND TO_NUMBER(TO_CHAR(SYSDATE, 'YYYYMMDD')) - TO_NUMBER(m.trnr_rqs_dt) > #{passedDay}
+		</if>
+		<if test="rows != null and page != null">
+			) A1
+			<if test="sidx != null and !sidx.equals('')">
+				ORDER BY ${sidx} ${sord}
+			</if>
+			)
+			WHERE PAGENUM = #{page}
+		</if>
+	</select>
+
+	<select id="selectVocStatistics" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+			SELECT *
+			FROM
+			(
+			SELECT A1.*
+			, CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+			, CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+			, CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+		SELECT D.ORG_ID AS ORG_ID,
+		MAX(D.ORG_FUL_NM) AS ORG_FUL_NM,
+		<if test="checkboxYN != null and checkboxYN == false">
+			NVL(D.ORG_USR_ID, D.AFFS_ORG_USR_ID) AS ORG_USR_ID,
+			NVL(D.ORG_USR_NM, D.AFFS_USR_NM) AS ORG_USR_NM,
+		</if>
+		COUNT(D.CVL_ACT_ST_CD) AS TOT_CNT,
+		SUM(DECODE(D.CVL_ACT_ST_CD,'010200',1,'030100',1, '030200',1, 0)) AS CNT_010200,
+		SUM(DECODE(D.CVL_ACT_ST_CD,'010300',1,0)) AS CNT_010300,
+		SUM(DECODE(D.CVL_ACT_ST_CD,'020100',1,0)) AS CNT_020100,
+		SUM(DECODE(D.CVL_ACT_ST_CD,'020200',1,0)) AS CNT_020200
+		FROM CM032 M, CD033 D
+		WHERE M.TCKT_ID = D.TCKT_ID
+		AND M.USE_YN ='Y'
+		AND D.USE_YN ='Y'
+		AND M.TRNR_RQS_DT BETWEEN #{srcStatsFrDate} AND #{srcStatsToDate}
+		AND D.CVL_ACT_ST_CD != '010100'
+
+		<if test="ccAuth == false">
+			AND D.ORG_ID = #{orgId}
+		</if>
+
+		<if test="orgFulNm != null and !orgFulNm.equals('')">
+			AND D.ORG_FUL_NM LIKE '%' || #{orgFulNm} || '%'
+		</if>
+
+		GROUP BY D.ORG_ID
+		<if test="checkboxYN != null and checkboxYN == false">
+			, NVL(D.ORG_USR_ID, D.AFFS_ORG_USR_ID)
+			, NVL(D.ORG_USR_NM, D.AFFS_USR_NM)
+		</if>
+		ORDER BY
+		TOT_CNT DESC
+		<if test="rows != null and page != null">
+			) A1
+			<!-- <if test="sidx != null and !sidx.equals('')">
+				ORDER BY
+				${sidx}
+				<if test="checkboxYN != null and checkboxYN == false">
+				<if test="checkboxYN != null">
+					${sord}
+				</if>
+			</if> -->
+			)
+			WHERE PAGENUM = #{page}
+		</if>
+	</select>
+
+	<select id="selectVocDetail" parameterType="map" resultType="map">
+		SELECT M.TCKT_ID, D.TNTR_ID, D.ORD,
+		M.TRNR_RQS_DT, M.TRNR_RQS_TM,
+		TO_CHAR(to_date(M.TRNR_RQS_DT,'YYYYMMDD'),'YYYY-MM-DD')||' '||TO_CHAR(to_date(M.TRNR_RQS_TM,'HH24MISS'),'HH24:MI') AS TRNR_RQS_DTM,
+		M.TRNR_RQS_USR_ID, (select usr_nm from om001 where usr_id = M.TRNR_RQS_USR_ID) as RQS_USR_NM,
+		M.CTZN, GETFORMATPHONENUM(M.CTZN_TEL_NO) AS CTZN_TEL_NO, M.TNTR_CONT,
+		M.CVL_RSLT_RCV_YN,
+		M.CVL_RQS_GB_CD, getCodeNM( M.CVL_RQS_GB_CD,'90016') AS CVL_RQS_GB_NM,
+		D.ORG_ID, D.ORG_FUL_NM, D.AFFS_ORG_USR_ID, D.AFFS_USR_NM, GETFORMATPHONENUM(D.AFFS_OFCE_TEL_NO) AS AFFS_OFCE_TEL_NO,
+		D.ORG_USR_ID, D.ORG_USR_NM, GETFORMATPHONENUM(D.OFCE_TEL_NO) AS OFCE_TEL_NO,
+		D.CVL_ACT_ST_CD, getCodeNM( D.CVL_ACT_ST_CD,'90300') AS CVL_ACT_ST_NM, D.CVL_ACT_CONT, D.RTN_RSN
+		FROM CM032 M, CD033 D
+		WHERE M.TCKT_ID = D.TCKT_ID
+		AND M.USE_YN='Y' AND D.USE_YN='Y'
+		AND M.TCKT_ID = #{tckt_id}
+		AND D.ORD = #{ord}
+	</select>
+
+</mapper>

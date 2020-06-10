@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+    <mapper namespace="om055">
+    
+    <select id="selectExternAgentList" parameterType="map" resultType="map">
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+            SELECT EXT_AGN_ID as ext_agn_id
+                 , INST_GB as INST_GB
+                 , INST_NM as INST_NM
+                 , URL as URL_NM
+                 , POST_NO as POST_NO
+                 , RD_NM_ADDR1 as RD_NM_ADDR1
+                 , RD_NM_ADDR2 as RD_NM_ADDR2
+                 , MEMO as MEMO
+                 , GETCODENM(a.USE_YN,90030) AS USE_YN
+                 , to_char(to_date(CRT_DT || CRT_TM, 'yyyymmddhh24miss'), 'yyyy-mm-dd hh24:mi:ss') as crt_dt
+                 , (SELECT USR_NM FROM OM001 WHERE USR_ID = a.CRT_USR_ID) as crt_usr_id
+                 , to_char(to_date(MOD_DT || MOD_TM, 'yyyymmddhh24miss'), 'yyyy-mm-dd hh24:mi:ss') as mod_dt
+                 , (SELECT USR_NM FROM OM001 WHERE USR_ID = a.MOD_USR_ID) as mod_usr_id
+                 , USE_YN as useyn
+              FROM OM055 a
+             WHERE 1 = 1
+             <!-- 
+             <if test="inst_gb.equals('')">
+             AND INST_GB IS NULL
+            </if>
+            -->
+            <if test="inst_gb.equals('')">
+           <!--  <if test="!inst_gb.equals('')"> -->
+             AND INST_GB LIKE '150000'
+              <!-- AND INST_GB LIKE (select cd from sm002 where 1 = 1 and tp_cd like '90905' and cd_nm like #{inst_gb}) -->
+            </if>
+            <if test="useYn!= null and !useYn.equals('all') and !useYn.equals('')">
+                 AND USE_YN = #{useYn}
+            </if>
+             <if test="!srchExternVal.equals('') and srchExternVal != null">
+                <if test="srchExternType.equals('INST_NM')">
+                    AND INST_NM LIKE '%' || #{srchExternVal} || '%'
+                </if>
+                <if test="srchExternType.equals('RSPN_PRSN')">
+                    AND EXT_AGN_ID IN (SELECT EXT_AGN_ID FROM OD056 WHERE RSPN_PRSN LIKE '%' || #{srchExternVal} || '%' )
+                </if>
+            </if>
+            <if test="sidx != null and sord != null">
+                ORDER BY ${sidx} ${sord}
+            </if>
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>       
+    </select>
+    
+    <select id="selectExternAgentInfo" parameterType="map" resultType="map">
+        SELECT EXT_AGN_ID
+                 , DEPT_NM
+                 , RSPN_PRSN
+                 , JOB_NM
+                 , CH_GB_CD
+                 , (SELECT CD_NM FROM SM002 WHERE TP_CD = '90007' AND CD = USE_YN) USE_YN
+                 , CNTCT_INFM
+                 , MEMO
+                 , to_char(to_date(CRT_DT || CRT_TM, 'yyyymmddhh24miss'), 'yyyy-mm-dd hh24:mi:ss') as crt_dt
+                 , (SELECT USR_NM FROM OM001 WHERE USR_ID = a.CRT_USR_ID) as crt_usr_id
+                 , to_char(to_date(MOD_DT || MOD_TM, 'yyyymmddhh24miss'), 'yyyy-mm-dd hh24:mi:ss') as mod_dt
+                 , (SELECT USR_NM FROM OM001 WHERE USR_ID = a.CRT_USR_ID) as mod_usr_id
+                  , USE_YN as useyn
+              FROM OD056 A
+              WHERE EXT_AGN_ID = #{extAgentId}
+    </select>
+    
+    <insert id="insertExternAgentInfo" parameterType="map">
+        INSERT INTO OM055 
+        (
+              EXT_AGN_ID
+            , INST_NM
+            , URL
+            , RD_NM_ADDR1
+            , RD_NM_ADDR2
+            , MEMO
+            , USE_YN            
+            , CRT_DT
+            , CRT_TM
+            , CRT_USR_ID
+            , MOD_DT
+            , MOD_TM
+            , MOD_USR_ID
+            , INST_GB
+            , POST_NO
+        )
+        VALUES
+        (
+              '' || SOM055.NEXTVAL
+            , #{corpNm}
+            , #{corpUrl}
+            , #{jobNm}
+            , #{agentNm}
+            , #{desc}
+            , #{useYn}
+            , to_char(sysdate, 'yyyyMMdd')
+            , to_char(sysdate, 'hh24miss')
+            , #{login_usr_id}
+            , to_char(sysdate, 'yyyyMMdd')
+            , to_char(sysdate, 'hh24miss')
+            , #{login_usr_id}
+            , (select cd from sm002 where tp_cd = '90905' AND cd_nm = #{inst_gb})
+            , #{post_no}
+        )
+    </insert>
+    
+    <update id="updateExternAgentInfo" parameterType="map">
+        UPDATE OM055
+           SET INST_NM = #{corpNm}
+             , URL = #{corpUrl}
+             , RD_NM_ADDR1 = #{addr}
+             , RD_NM_ADDR2 = #{addrDt}
+             , MEMO = #{memo}
+             , MOD_USR_ID = #{login_usr_id}
+             , MOD_DT = to_char(sysdate, 'yyyymmdd')
+             , MOD_TM = to_char(sysdate, 'hh24miss')
+             , USE_YN = #{useYn}
+             , POST_NO = #{post_no}
+         WHERE EXT_AGN_ID = #{extAgentId}
+    </update>
+    
+     <insert id="insertUsrAgentInfo" parameterType="map">
+ INSERT INTO
+        OD056
+        (
+        EXT_AGN_USR_ID
+        , EXT_AGN_ID
+        , DEPT_NM
+        , RSPN_PRSN
+        , JOB_NM
+        , CH_GB_CD
+        , CNTCT_INFM
+        , MEMO
+        , USE_YN
+        , CRT_DT
+        , CRT_TM
+        , CRT_USR_ID
+        , MOD_DT
+        , MOD_TM
+        , MOD_USR_ID
+        , CH_GB_CD2
+        , CNTCT_INFM2
+        , CH_GB_CD3
+        , CNTCT_INFM3
+        
+        , FAX_NO
+        , EML_ADR
+        )
+        VALUES
+        (
+        '' || SOD056.NEXTVAL
+        , (SELECT EXT_AGN_ID FROM OM055 WHERE 1=1 AND EXT_AGN_ID LIKE #{EXT_AGN_ID})
+        , #{DEPT_NM}
+        , #{RSPN_PRSN}
+        , #{JOB_NM}
+        , #{CH_GB_CD}
+        , #{CNTCT_INFM}
+        , #{MEMO}
+        , #{USE_YN}
+        , to_char(sysdate, 'yyyyMMdd')
+        , to_char(sysdate, 'hh24miss')
+        , #{CRT_USR_ID}
+        , to_char(sysdate, 'yyyyMMdd')
+        , to_char(sysdate, 'hh24miss')
+        , #{MOD_USR_ID}
+        ,  #{CH_GB_CD2}
+        , #{CNTCT_INFM2}
+        , #{CH_GB_CD3} 
+        , #{CNTCT_INFM3}
+        , #{FAX_NO}
+        , #{EML_ADR}
+        )
+    </insert> 
+    <select id="selectUsrList" parameterType="map" resultType="map">
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+            SELECT 
+            	EXT_AGN_USR_ID
+            	 , EXT_AGN_ID
+                 , DEPT_NM
+                 , RSPN_PRSN
+                 , JOB_NM
+                 , CH_GB_CD
+                 , CNTCT_INFM
+                 , CH_GB_CD2
+                 , CNTCT_INFM2
+                 , CH_GB_CD3
+                 , CNTCT_INFM3
+                 , (SELECT CD_NM FROM SM002 WHERE TP_CD = '90007' AND CD = USE_YN) USE_YN
+                 , MEMO
+                 , FAX_NO
+                 , EML_ADR
+                 , to_char(to_date(CRT_DT || CRT_TM, 'yyyymmddhh24miss'), 'yyyy-mm-dd hh24:mi:ss') as crt_dt
+                 , (SELECT USR_NM FROM OM001 WHERE USR_ID = a.CRT_USR_ID) as crt_usr_id
+                 , to_char(to_date(MOD_DT || MOD_TM, 'yyyymmddhh24miss'), 'yyyy-mm-dd hh24:mi:ss') as mod_dt
+                 , (SELECT USR_NM FROM OM001 WHERE USR_ID = a.CRT_USR_ID) as mod_usr_id
+                  , USE_YN as useyn
+              FROM OD056 A
+             WHERE 1 = 1
+             
+            <if test="extAgentId != null and !extAgentId.equals('')">
+             AND EXT_AGN_ID = #{extAgentId}
+             </if>
+             
+             <if test="extAgentId.equals('')">
+             AND EXT_AGN_ID is null
+             </if>
+             
+              <if test="!srchExternVal.equals('') and srchExternVal != null">
+                <if test="srchExternType.equals('RSPN_PRSN')">
+                    AND ${srchExternType} LIKE '%' || #{srchExternVal} || '%'
+                </if>
+                <if test="srchExternType.equals('INST_NM')">
+                    AND EXT_AGN_ID IN (SELECT EXT_AGN_ID FROM OM055 WHERE INST_NM LIKE '%' || #{srchExternVal} || '%' )
+                </if>
+            </if>
+            <if test="useYn!= null and !useYn.equals('all') and !useYn.equals('')">
+                 AND USE_YN = #{useYn}
+            </if>
+
+        <if test="sidx != null and sord != null">
+             ORDER BY ${sidx} ${sord}
+        </if> 
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>       
+    </select>
+     <update id="updateUsrAgentUpdate" parameterType="map">
+    UPDATE OD056
+           SET RSPN_PRSN = #{RSPN_PRSN}
+             , JOB_NM = #{JOB_NM}
+             , MEMO = #{MEMO}
+             , CH_GB_CD = #{CH_GB_CD}
+             , CNTCT_INFM = #{CNTCT_INFM}
+             , USE_YN = #{USE_YN}
+             , MOD_USR_ID = #{MOD_USR_ID}
+             , MOD_DT = to_char(sysdate, 'yyyymmdd')
+             , MOD_TM = to_char(sysdate, 'hh24miss')
+             , DEPT_NM = #{DEPT_NM}
+          <!-- <if test="!CH_GB_CD2.equals('') and CH_GB_CD2 != null"> -->
+             , CH_GB_CD2 = #{CH_GB_CD2}
+          <!-- </if> -->
+          <!-- <if test="!CNTCT_INFM2.equals('') and CNTCT_INFM2 != null"> -->
+             , CNTCT_INFM2 = #{CNTCT_INFM2}
+          <!-- </if> -->   
+          <!-- <if test="!CH_GB_CD3.equals('') and CH_GB_CD3 != null"> -->
+             , CH_GB_CD3 = #{CH_GB_CD3}
+          <!-- </if>   
+          <if test="!CNTCT_INFM3.equals('') and CNTCT_INFM3 != null"> -->
+             , CNTCT_INFM3  = #{CNTCT_INFM3}
+         <!-- </if> -->    
+             , FAX_NO  = #{FAX_NO}
+             , EML_ADR  = #{EML_ADR}
+         WHERE EXT_AGN_ID = #{EXT_AGN_ID}
+         AND EXT_AGN_USR_ID = #{EXT_AGN_USR_ID}
+         
+    </update> 
+    <select id="externAgencyList" parameterType="map" resultType="map">
+   		<if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+         SELECT
+           Z.INST_NM as inst_nm
+           , Z.url as url_nm
+           , Z.RD_NM_ADDR1 as rd_nm_addr1
+           , Z.RD_NM_ADDR2 as rd_nm_addr2
+           , Z.MEMO as etc
+           , A.DEPT_NM as DEPT_NM
+           , A.RSPN_PRSN as RSPN_PRSN
+           , A.JOB_NM as JOB_NM
+           , (select cd_nm from sm002 where 1 = 1 and tp_cd like '90009' and cd like A.CH_GB_CD) as CH_GB_CD
+           <!-- ,  REGEXP_REPLACE(getFormatPhoneNum(A.CNTCT_INFM),substr(getFormatPhoneNum(A.CNTCT_INFM),4,length(A.CNTCT_INFM)-5),'-****-') as CNTCT_INFM -->
+           , REPLACE(getFormatPhoneNum(A.CNTCT_INFM),substr(getFormatPhoneNum(A.CNTCT_INFM),4,length(A.CNTCT_INFM)-5),'-****-') as CNTCT_INFM
+           , A.MEMO as memo
+           , (select cd_nm from sm002 where 1 = 1 and tp_cd like '90009' and cd like A.CH_GB_CD2) as CH_GB_CD2
+           , A.CNTCT_INFM2 as CNTCT_INFM2
+           , (select cd_nm from sm002 where 1 = 1 and tp_cd like '90009' and cd like A.CH_GB_CD3) as CH_GB_CD3
+           , A.CNTCT_INFM3 as CNTCT_INFM3
+           , A.FAX_NO as FAX_NO
+           , A.EML_ADR as EML_ADR
+           from OM055 Z 
+           LEFT JOIN OD056 A
+           ON Z.EXT_AGN_ID = A.EXT_AGN_ID
+           WHERE 1 = 1
+            <if test="!inst_gb.equals('')">
+            AND Z.INST_GB LIKE (select cd from sm002 where 1 = 1 and tp_cd like '90905' and cd_nm like #{inst_gb})
+            </if> 
+            <if test="!srchVal.equals('')">
+                 AND ${srchType} LIKE '%' || #{srchVal} || '%'
+            </if>
+            <if test="sidx != null and sord != null">
+                ORDER BY ${sidx} ${sord}
+            </if>
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>       
+    </select>
+    <!-- 채널구분 코드  -->
+        <select id="chGbcdList" parameterType="map" resultType="map">
+            select 
+            CD as cd 
+            , CD_NM as cd_nm 
+            from sm002 
+            where 1 = 1 
+            and tp_cd like '90009'
+            ORDER BY cd asc
+    </select>
+    
+    
+    
+    <select id="selectUsrListSearch" parameterType="map" resultType="map">
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+            SELECT 
+            	EXT_AGN_USR_ID
+            	 , EXT_AGN_ID
+                 , DEPT_NM
+                 , RSPN_PRSN
+                 , JOB_NM
+                 , CH_GB_CD
+                 , CNTCT_INFM
+                 , CH_GB_CD2
+                 , CNTCT_INFM2
+                 , CH_GB_CD3
+                 , CNTCT_INFM3
+                 , (SELECT CD_NM FROM SM002 WHERE TP_CD = '90007' AND CD = USE_YN) USE_YN
+                 , MEMO
+                 , FAX_NO
+                 , EML_ADR
+                 , to_char(to_date(CRT_DT || CRT_TM, 'yyyymmddhh24miss'), 'yyyy-mm-dd hh24:mi:ss') as crt_dt
+                 , (SELECT USR_NM FROM OM001 WHERE USR_ID = a.CRT_USR_ID) as crt_usr_id
+                 , to_char(to_date(MOD_DT || MOD_TM, 'yyyymmddhh24miss'), 'yyyy-mm-dd hh24:mi:ss') as mod_dt
+                 , (SELECT USR_NM FROM OM001 WHERE USR_ID = a.CRT_USR_ID) as mod_usr_id
+                  , USE_YN as useyn
+              FROM OD056 A
+             WHERE 1 = 1
+            <if test="!srchExternVal.equals('') and srchExternVal != null">
+                <if test="srchExternType.equals('RSPN_PRSN')">
+                    AND ${srchExternType} LIKE '%' || #{srchExternVal} || '%'
+                </if>
+                <if test="srchExternType.equals('INST_NM')">
+                    AND EXT_AGN_ID IN (SELECT EXT_AGN_ID FROM OM055 WHERE INST_NM LIKE '%' || #{srchExternVal} || '%' )
+                </if>
+            </if>
+            <if test="useYn!= null and !useYn.equals('all') and !useYn.equals('')">
+                 AND USE_YN = #{useYn}
+            </if>
+
+        <if test="sidx != null and sord != null">
+             ORDER BY ${sidx} ${sord}
+        </if> 
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>       
+    </select>
+</mapper>

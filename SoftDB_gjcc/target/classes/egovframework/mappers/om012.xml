@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="om012">
+
+<!-- 	<insert id="civilInsert" parameterType="map">
+		INSERT INTO om012
+		(
+				tbbs_id
+			,	cntr_cd
+			,	team_cd
+			,	use_yn
+			,	crt_dt
+			,	crt_tm
+			,	crt_usr_id
+			,	mod_dt
+			,	mod_tm
+			,	mod_usr_id
+		)
+		VALUES
+		(
+				#{tbbs_id}
+			,	(SELECT parnt_cd FROM sm002 WHERE tp_cd = '90003' AND cd = #{team_cd})
+			,	#{team_cd}
+			,	'Y'
+			,	to_char(sysdate, 'yyyymmdd')
+			,	to_char(sysdate, 'hh24miss')
+			,	#{login_usr_id}
+			,	to_char(sysdate, 'yyyymmdd')
+			,	to_char(sysdate, 'hh24miss')
+			,	#{login_usr_id}
+		)
+	</insert> -->
+
+
+	<insert id="insert" parameterType="map">
+		INSERT INTO om012
+		(
+				tbbs_id
+			,	cntr_cd
+			,	team_cd
+			,	use_yn
+			,	crt_dt
+			,	crt_tm
+			,	crt_usr_id
+			,	mod_dt
+			,	mod_tm
+			,	mod_usr_id
+		)
+		VALUES
+		(
+				#{tbbs_id}
+			,	(SELECT parnt_cd FROM sm002 WHERE tp_cd = '90003' AND cd = #{team_cd})
+			,	#{team_cd}
+			,	'Y'
+			,	to_char(sysdate, 'yyyymmdd')
+			,	to_char(sysdate, 'hh24miss')
+			,	#{login_usr_id}
+			,	to_char(sysdate, 'yyyymmdd')
+			,	to_char(sysdate, 'hh24miss')
+			,	#{login_usr_id}
+		)
+	</insert>
+	
+	<select id="selectList" parameterType="map" resultType="map">
+		SELECT 	A.tbbs_id
+				,	A.cntr_cd
+				,	A.team_cd
+				,	A.use_yn
+				,	A.crt_dt
+				,	A.crt_tm
+				,	A.crt_usr_id
+				,	A.mod_dt
+				,	A.mod_tm
+				,	A.mod_usr_id
+				,	B.cd_nm
+		FROM 	om012 A, sm002 B
+		WHERE 	tbbs_id = #{tbbs_id}
+		AND A.team_cd = B.cd
+		AND B.tp_cd = '90003'
+	</select>
+	
+	<delete id="delete" parameterType="map" >
+		DELETE FROM om012
+		WHERE tbbs_id = #{tbbs_id}
+	</delete>
+
+</mapper>

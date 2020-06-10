@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="oh020">
+	
+	<select id="loginInfoList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				SELECT
+						t1.LGN_ID AS LGN_ID
+					,	getFormatDate(t1.LGN_DT) AS LGN_DT
+    				,	t2.USR_NM AS USR_NM
+  					,	getFormatTime(t1.LGN_TM) AS LGN_TM
+  					,	case when t1.LGT_TM is not null then getFormatTime(t1.LGT_TM) else '' end as LGT_TM
+  					, 	t1.EXTN_NO AS EXTN_NO
+  					, 	t1.LGN_PC_IP AS LGN_PC_IP
+				FROM oh020 t1 left join om001 t2 on t1.USR_ID = t2.USR_ID
+				WHERE 1 = 1
+					AND t1.USE_YN = 'Y'
+					<if test = "usr_id != null and !usr_id.equals('')">
+					   AND t1.USR_ID = #{usr_id}
+					</if>
+					<if test = "cntr_cd != null and !cntr_cd.equals('')">
+					   AND t2.CNTR_CD = #{cntr_cd}
+					</if>
+				<if test = "idSrchVal != null and !idSrchVal.equals('')">
+					<if	test="optSrchType.equals('all')">
+						AND	((upper(t2.USR_NM) like '%' || upper(#{idSrchVal}) || '%') 
+						OR	(upper(t1.EXTN_NO) like '%' || upper(#{idSrchVal}) || '%'))
+					</if>
+					<if	test="optSrchType.equals('loginId')">
+						AND upper(t2.USR_NM) like '%' || upper(#{idSrchVal}) || '%'
+					</if>
+					<if	test="optSrchType.equals('innerNum')">
+						AND upper(t1.EXTN_NO) like '%' || upper(#{idSrchVal}) || '%'
+					</if>
+				</if>
+					<if test="frDt != null and !frDt.equals('') and toDt != null and !toDt.equals('')">
+						AND t1.LGN_DT between #{frDt} and #{toDt}
+					</if>
+				<if test="sidx != null and sord != null">
+					ORDER BY ${sidx} ${sord}, t2.USR_NM, t1.LGN_TM
+				</if>
+			<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>
+	</select>
+
+	<insert id="insert" parameterType="map">
+		INSERT INTO oh020
+		(
+				lgn_id
+			,	lgn_dt
+			,	usr_id
+			,	lgn_tm
+			,	lgt_tm
+			,	extn_no
+			,	lgn_pc_ip
+			,	cti_lgn_id
+			,	use_yn
+			,	crt_dt
+			,	crt_tm
+			,	crt_usr_id
+			,	mod_dt
+			,	mod_tm
+			,	mod_usr_id
+		)
+		VALUES
+		(
+				soh020.nextval
+			,	to_char(sysdate, 'yyyymmdd')
+			,	#{usr_id}
+			,	#{lgn_tm}
+			<if test="lgt_tm != null">
+			,	#{lgt_tm}
+			</if>
+			<if test="lgt_tm == null">
+			,	''
+			</if>
+			,	#{extn_no}
+			,	#{lgn_pc_ip}
+			,	#{cti_lgn_id}
+			<if test="use_yn != null">
+			,	#{use_yn}
+			</if>
+			<if test="use_yn == null">
+			,	'Y'
+			</if>
+			,	to_char(sysdate, 'yyyymmdd')
+			,	to_char(sysdate, 'hh24miss')
+			,	#{login_usr_id}
+			,	to_char(sysdate, 'yyyymmdd')
+			,	to_char(sysdate, 'hh24miss')
+			,	#{login_usr_id}
+		)
+	</insert>
+	
+	<update id="updateLogoutTm" parameterType="map">
+		UPDATE oh020
+		SET 	lgt_tm = #{lgt_tm}
+			,	mod_dt = to_char(sysdate, 'yyyymmdd')
+			,	mod_tm = to_char(sysdate, 'hh24miss')
+			,	mod_usr_id = #{login_usr_id}
+		WHERE lgn_id = (select lgn_id from (select lgn_id from oh020 where usr_id = #{usr_id} order by lgn_dt desc, lgn_tm desc) where rownum = 1)
+	</update>
+</mapper>

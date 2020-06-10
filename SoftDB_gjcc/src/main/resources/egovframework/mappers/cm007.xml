@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="cm007">
+	<select id="transferlist" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				select
+						t1.tckt_id
+					,	getFormatDate(t1.trnr_rqs_dt) ||' '|| getFormatTime(t1.trnr_rqs_tm) AS trnr_rqs_dt_format
+					, 	t3.corp_nm
+					, 	t3.cust_nm
+					, 	(select USR_NM from OM001 where USR_ID = t1.trnr_rqs_usr_id) AS rqs_usr_nm
+					<!-- , 	NVL2(t1.trnr_rcvn_usr_id, (select USR_NM from OM001 where USR_ID = t1.trnr_rcvn_usr_id), ' ') AS rcvn_usr_nm /* cm007 관련 처리 오류*/  -->
+					, 	NVL2(t1.TNTR_RCV_RSPN_PRSN , t1.TNTR_RCV_RSPN_PRSN,(select USR_NM from OM001 where USR_ID = t1.trnr_rcv_usr_id)  ) AS rcvn_usr_nm
+					, 	getCodeNM(t2.CH_GB_CD, '90009') AS CH_GB_NM
+					,		getCodeNM(t1.ACT_TYPE_CD, '90014') AS ACT_TYPE_NM
+					, 	(
+					   	NVL2(t2.ctg_lg_cd, getCodeNM(t2.ctg_lg_cd, '90027'), ' ')||' '||
+					   	NVL2(t2.ctg_md_cd, '> '||getCodeNM(t2.ctg_md_cd, '90028'), ' ')||' '||
+					   	NVL2(t2.ctg_sm_cd, '> '||getCodeNM(t2.ctg_sm_cd, '90029'), ' ')) AS intv_cd
+					,	getCodeNM(t2.ACT_ST_CD, '90013') AS ACT_ST_NM
+				<!-- from cm007 t1 left join ch001 t2 on t1.tckt_id = t2.tckt_id /* cm007 테이블 없음 cm031로 변경 */ -->
+				from cm031 t1 left join ch001 t2 on t1.tckt_id = t2.tckt_id
+				              left join cm003 t3 on t2.cust_id = t3.cust_id
+				where 1=1
+				  and t1.use_yn = 'Y'
+				 <if test="frDt != null and !frDt.equals('') and toDt != null and !toDt.equals('')">
+					<if test="srchDtType.equals('dt')">
+						and t1.trnr_rqs_dt between #{frDt} and #{toDt}
+					</if>					
+					<if test="srchDtType.equals('sucDt')">
+						and t2.tckt_end_dt between #{frDt} and #{toDt}
+					</if>
+				</if>
+				<if test="srchtype != null and !srchval.equals('')">
+					<if test="srchtype.equals('all')">
+						and (upper(t3.cust_nm) like '%' || upper(#{srchval}) || '%' or upper(t3.corp_nm like) '%' || upper(#{srchval}) || '%')
+					</if>
+					<if test="srchtype.equals('custNm')">
+						and upper(t3.cust_nm) like '%' || upper(#{srchval}) || '%'
+					</if>
+					<if test="srchtype.equals('corpNm')">
+						and upper(t3.corp_nm) like '%' || upper(#{srchval}) || '%'
+					</if>
+				</if>
+				<if test="selUsrId != null and !selUsrId.equals('all')">
+					and t1.trnr_rqs_usr_id = #{selUsrId}
+				</if>
+				<if test="selChGbCd != null and !selChGbCd.equals('all')">
+					and t2.CH_GB_CD = #{selChGbCd}
+				</if>
+				<if test="selActTypeCd != null and !selActTypeCd.equals('all')">
+					and t2.ACT_TYPE_CD = #{selActTypeCd}
+				</if>
+				<if test="selActStCd != null and !selActStCd.equals('all')">
+					and t2.ACT_ST_CD = #{selActStCd}
+				</if>
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>
+	</select>
+</mapper>

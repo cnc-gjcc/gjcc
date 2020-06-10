@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+	
+	<mapper namespace="non_tax">
+	
+	<select id="arrTaxselectList" parameterType="map" resultType="java.util.HashMap">
+		<if test="rows != null and page != null">
+			SELECT *
+			FROM
+			(
+				SELECT A1.*
+					,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+					,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+					,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+				FROM
+				(
+				</if>
+					SELECT  
+           		 		LVY_KEY, 
+                        LVY_NO,
+                        ERC_NO, 
+                        SEMOK_NM, 
+                        (CASE WHEN LVY_GBN = '1' THEN '정기' ELSE '수시' END) LVY_NM , 
+                        PER_NM, 
+                        PER_TEL, 
+                        PER_CELL,
+                        PAY_GBN,
+                        ATT_GBN,
+                        PER_ADDR, 
+                        TO_CHAR(to_date(LVY_YMD,'YYYYMMDD'),'YYYY-MM-DD') AS LVY_YMD, 
+                        TO_CHAR(FST_AMT, '999,999,999,999') ||'원' AS FST_AMT, 
+                        TO_CHAR(LST_ADD_AMT, '999,999,999,999') ||'원' AS LST_ADD_AMT, 
+                        TO_CHAR(FST_AMT + LST_ADD_AMT, '999,999,999,999') ||'원' AS PAT_AMT,
+                        TO_CHAR(to_date(FST_NAP_YMD,'YYYYMMDD'),'YYYY-MM-DD') AS FST_NAP_YMD,
+                        TO_CHAR(to_date(LST_NAP_YMD,'YYYYMMDD'),'YYYY-MM-DD') AS LST_NAP_YMD, 
+                        BANK_NM,
+                        ACCOUNT_NO 
+                    FROM   V_NAPBU_BC1@NONTAX
+               		WHERE 1=1 
+                    AND	PER_PID = ENIS.FN_SDB_ENC@NONTAX(#{perId})
+                    <if test="perNm != null and !perNm.equals('')">
+                    	AND PER_NM = #{perNm}
+                    </if>
+                    
+                    <if test="telNumbLength == 10"> <!-- 일반전화번호 (ex:031-xxx-xxxx) -->
+	                    AND REPLACE(PER_TEL, '-') IN
+	                    <foreach item="telNumb" index="index" collection="telNumb" open="(" separator="," close=")">
+	                    	#{telNumb}
+	                    </foreach>
+                    </if>
+                    
+                    <if test="telNumbLength == 8"> <!-- 일반전화번호 (ex:1644-1644) -->
+	                    AND REPLACE(PER_TEL, '-') IN
+	                    <foreach item="telNumb" index="index" collection="telNumb" open="(" separator="," close=")">
+	                    	#{telNumb}
+	                    </foreach>
+                    </if>
+                     
+                    <if test="telNumbLength == 11"> <!-- 휴대폰번호 -->
+	                    AND REPLACE(PER_CELL, '-') IN
+	                    <foreach item="telNumb" index="index" collection="telNumb" open="(" separator="," close=")">
+	                    	#{telNumb}
+	                    </foreach>
+                    </if>
+			<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+			</if>
+			<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>
+	
+	
+	<select id="ovrPYselectList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+			SELECT *
+			FROM
+			(
+				SELECT A1.*
+					,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+					,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+					,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+				FROM
+				(
+				</if>
+					SELECT  
+	           		 	   LVY_KEY,
+					       SEMOK_NM,
+					       LVY_NO,
+					       PER_NM,
+					       PER_CELL,
+					       TO_CHAR(FST_AMT, '999,999,999,999') ||'원' AS FST_AMT,
+					       TO_CHAR(LST_AMT, '999,999,999,999') ||'원' AS LST_AMT,
+					       TO_CHAR(OVR_AMT, '999,999,999,999') ||'원' AS OVR_AMT,
+					       TO_CHAR(to_date(LVY_YMD,'YYYYMMDD'),'YYYY-MM-DD') AS OVR_YMD,
+					       TO_CHAR(to_date(LVY_YMD,'YYYYMMDD'),'YYYY-MM-DD') AS RTN_YMD,
+					       CODE_CTN 
+                    FROM   V_NAPBU_OV1@NONTAX
+                    WHERE
+                    1 = 1  
+                    AND	PER_PID = ENIS.FN_SDB_ENC@NONTAX(#{perId})
+                    <if test="perNm != null and !perNm.equals('')">
+                    	AND PER_NM = #{perNm}
+                    </if>
+                    
+                    <if test="telNumb != null and !telNumb.equals('')">
+	                    OR PER_CELL IN
+	                    <foreach item="telNumb" index="index" collection="telNumb" open="(" separator="," close=")">
+	                    	#{telNumb}
+	                    </foreach>
+                    </if>
+			<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+			</if>
+			<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>
+	
+	</mapper>

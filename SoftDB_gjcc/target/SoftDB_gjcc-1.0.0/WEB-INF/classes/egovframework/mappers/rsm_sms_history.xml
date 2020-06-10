@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="rsm_sms_history">
+
+  <!-- RSM SMS 발송 이력 조회 -->
+	<select id="smsHistoryList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+        SELECT TO_CHAR(T1.SEND_DATE, 'YYYY-MM-DD') AS SENDDATE 
+             , T1.SYSTEMID, T2.SYSTNAME, T2.IP_ADDR_1
+             , TO_CHAR(T1.SEND_DATE, 'HH24:MI:SS') AS SENDTIME 
+             , T1.SMS_KIND, GETCODENM(T1.SMS_KIND, '92019') AS SMS_KIND_NM
+             , T1.GROUPID, GETCODENM(T1.GROUPID, '92010') AS GROUPNM             
+             , T1.SEND_GUBUN, GETCODENM(T1.SEND_GUBUN, '92020') AS SEND_GUBUN_NM
+             , T1.SMS_TEXT
+          FROM RSM_SMS_HISTORY T1
+             , RSM_SYSTEM_MASTER T2
+         WHERE T1.SYSTEMID = T2.SYSTEMID
+           AND TO_CHAR(T1.SEND_DATE, 'YYYYMMDD') BETWEEN #{sendFrDt} AND #{sendToDt}
+        <if test="smsKind != null and !smsKind.equals('all')">     
+           AND T1.SEND_GUBUN = #{sendGb}
+        </if>
+        <if test="smsKind != null and !smsKind.equals('all')">       
+           AND T1.SMS_KIND = #{smsKind}
+        </if>				 
+				
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>			
+				
+		<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>
+
+</mapper>

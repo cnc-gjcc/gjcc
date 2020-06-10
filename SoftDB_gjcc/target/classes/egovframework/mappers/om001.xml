@@ -1,0 +1,1107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="om001">
+
+	<sql id="where">
+		 WHERE  1 = 1
+	</sql>
+
+	<select id="selectTabOrder" parameterType="map" resultType="map">
+	<![CDATA[
+		SELECT T2.cd, T2.cd_nm, T2.ext1_cd, T2.ext2_cd
+		FROM(
+			SELECT TRIM(REGEXP_SUBSTR(ORG_DATA, '[^,]+', 1, LEVEL)) AS SPLIT_DATA
+			FROM        
+				(SELECT 
+					(SELECT NVL(tab_order, 'JS0004,CM0002,CM0016,CM0017,CM0101,CM0202,OM0017')
+					FROM om001
+					WHERE usr_id = #{usr_id})
+				AS ORG_DATA FROM DUAL)
+			CONNECT BY INSTR(ORG_DATA, ',', 1, LEVEL - 1) > 0) T1,
+			(SELECT	tp_cd 
+					,cd 
+					,cd_nm
+					,ext1_cd
+					,ext2_cd
+			FROM sm002
+			WHERE tp_cd = '90101'
+			AND use_yn = 'Y') T2
+		WHERE T1.SPLIT_DATA = T2.cd
+	]]>
+	</select>
+	
+	<update id="updateTabOrder" parameterType="map">
+	<![CDATA[
+	UPDATE om001 T3
+	SET T3.tab_order = 
+	(SELECT   LISTAGG(t2.cd,',') WITHIN GROUP(
+                ORDER BY rownum                   
+            )
+		FROM(
+			SELECT TRIM(REGEXP_SUBSTR(ORG_DATA, '[^,]+', 1, LEVEL)) AS SPLIT_DATA
+			FROM        
+				(SELECT #{tab_order}
+				AS ORG_DATA FROM DUAL)
+			CONNECT BY INSTR(ORG_DATA, ',', 1, LEVEL - 1) > 0) T1,
+			(SELECT	tp_cd 
+					,cd 
+					,cd_nm
+					,ext1_cd
+					,ext2_cd
+			FROM sm002
+			WHERE tp_cd = '90101') T2
+		WHERE T1.SPLIT_DATA = T2.ext2_cd)
+       where T3.USR_ID = #{usr_id}  
+	]]>      
+	</update>
+	
+	<select id="selectList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+        SELECT  T1.usr_id
+            , T1.cntr_cd
+            , getCodeNM(T1.cntr_cd, '90002') AS cntr_nm
+            , T1.team_cd
+            , getCodeNM(T1.team_cd, '90003') AS team_nm
+            , T1.dept_cd
+            , getCodeNM(T1.dept_cd, '90004') AS dept_nm
+            , T1.usr_nm
+            , T1.pwd_enc_cont
+            , getCodeNM(T1.USR_GRD_CD, '90006') AS cd_nm
+            , T1.dty_cd
+            , getCodeNM(T1.dty_cd, '90005') AS dty_nm
+            , T1.cti_use_yn
+            , T1.cti_lgn_id
+            , T1.extn_no
+            , T1.at_rcv_yn
+            , T1.AT_RDY_YN AS AT_READY_YN
+            , T1.ent_dt
+            , T1.ret_dt
+            , (CASE WHEN T1.ret_dt is not null THEN '퇴사' ELSE '' END) AS ret_yn
+            , dec_aes(T1.tel_no) as tel_no
+            , dec_aes(T1.cel_no) as cel_no
+            , getFormatPhoneNum(T1.cel_no) as cel_no_format
+            , T1.fax_no
+            , dec_aes(T1.eml_adr) as eml_adr
+            , T1.pc_ip
+            , T1.pc_mac
+            , T1.usr_img_pth
+            , T1.crt_dt
+            , T1.crt_tm
+            , T1.crt_usr_id
+            , T1.mod_dt
+            , getFormatDate(T1.mod_dt) AS mod_dt_format
+            , T1.mod_tm
+            , T1.mod_usr_id
+            , T1.use_yn
+            , getFormatDate(T1.pw_mod_dt) AS pw_mod_dt_format
+        FROM om001 T1
+             LEFT JOIN (SELECT * FROM SM002 WHERE TP_CD = '90003' AND USE_YN = 'Y') T2 ON T1.TEAM_CD = T2.CD
+        WHERE 1 = 1
+        <if test = "!chkRetire">
+          AND (T1.ret_dt is null OR T1.ret_dt = '')
+        </if>        
+        <if test="gradeType != null and !gradeType.equals('all') and !gradeType.equals('')">
+         <choose>
+         <when test="prjctType != null and prjctType.equals('EDU')">
+          /* 제주도청 팀의 팀장은 교육대상자에 포함 */   
+          AND (T1.usr_grd_cd = #{gradeType} OR (T1.usr_grd_cd = '030100' AND team_cd <![CDATA[<>]]> '9000'))
+         </when>
+         <otherwise>
+          AND T1.usr_grd_cd = #{gradeType}
+         </otherwise>   
+         </choose>   
+        </if>
+        <if test="tfSrchVal != null and !tfSrchVal.equals('')">
+          <if test="optSrchType.equals('all')">
+            AND (upper(T1.usr_id) like '%' || upper(#{tfSrchVal}) || '%'
+            OR upper(T1.usr_nm) like '%' || upper(#{tfSrchVal}) || '%')
+          </if>        
+          <if test="optSrchType.equals('usrId')">
+            AND upper(T1.usr_id) like '%' || upper(#{tfSrchVal}) || '%'
+          </if>
+          <if test="optSrchType.equals('usrNm')">
+            AND upper(T1.usr_nm) like '%' || upper(#{tfSrchVal}) || '%'
+          </if> 
+        </if>
+        <if test="tfCallSrchVal != null and !tfCallSrchVal.equals('')">
+            AND (upper(T1.usr_id) like '%' || upper(#{tfCallSrchVal}) || '%'
+            OR upper(T1.usr_nm) like '%' || upper(#{tfCallSrchVal}) || '%')
+        </if>
+        <if test="!notuse">
+          AND T1.use_yn = 'Y'
+        </if>
+        <if test="cntr_cd != null and !cntr_cd.equals('all') and !cntr_cd.equals('')">
+          AND T1.cntr_cd = #{cntr_cd}
+        </if>
+        <if test="team_cd != null and !team_cd.equals('all') and !team_cd.equals('')">
+          AND T1.team_cd = #{team_cd}
+        </if>
+        <if test="dept_cd != null and !dept_cd.equals('all') and !dept_cd.equals('')">
+          AND T1.dept_cd = #{dept_cd}
+        </if>
+        <if test="cmpg_usr_id != null and !cmpg_usr_id.equals('') and !cmpg_usr_id.equals('all')">
+          AND T1.usr_id = #{cmpg_usr_id}
+        </if>
+        <if test="notLowLev != null and notLowLev">
+          <if test="or_cntr_cd != null and !or_cntr_cd.equals('all') and !or_cntr_cd.equals('')">
+            AND T1.cntr_cd = #{or_cntr_cd}
+          </if>
+          <if test="or_team_cd != null and !or_team_cd.equals('all') and !or_team_cd.equals('')">
+            AND T1.team_cd = #{or_team_cd}
+          </if>
+          <if test="or_dept_cd != null and !or_dept_cd.equals('all') and !or_dept_cd.equals('')">
+            AND T1.dept_cd = #{or_dept_cd}
+          </if>
+        </if>
+        <if test="notLowLev != null and !notLowLev">
+          AND T1.cntr_cd = #{or_cntr_cd}
+          AND T1.team_cd = #{or_team_cd}
+          AND T1.dept_cd = #{or_dept_cd}
+        </if>
+        <if test="sidx == null and sord == null">
+        ORDER BY usr_nm
+        </if>
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>
+	
+	<!-- 조직도 사용 -->
+	<select id="selectAgentList" parameterType="map" resultType="map">
+	 WITH TEMP AS (
+		 SELECT USR_ID , GETUSERNM('CC',USR_ID) as USRNM ,USR_ST_CD, GETCODENM(USR_ST_CD,'90008') as  ST_NM
+                FROM (
+                      SELECT USR_ID, MOD_TM, USR_ST_CD 
+                           , ROW_NUMBER() OVER(PARTITION BY USR_ID ORDER BY ST_STRT_TM DESC) as rowseq
+                        FROM oh022
+                       WHERE ST_ALT_DT = TO_CHAR(SYSDATE, 'yyyymmdd')
+                      ) a
+               WHERE 1=1
+                 AND rowseq = 1  
+		)   
+	    
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				SELECT  a.USR_ID AS USR_ID
+				      , TEAM_CD AS
+				     , (SELECT CD_NM FROM sm002 WHERE TP_CD = '90003' AND CD = a.TEAM_CD) AS TEAM_NM
+				     , (SELECT CD_NM FROM sm002 WHERE TP_CD = '90006' AND CD = a.USR_GRD_CD) AS USR_GRD_NM
+				     , (SELECT CD_NM FROM sm002 WHERE TP_CD = '90005' AND CD = a.DTY_CD) AS DTY_NM
+				     , (SELECT CD_NM FROM sm002 WHERE TP_CD = '90007' AND CD = a.cti_use_yn) AS CTI_USE_YN
+				     , USR_NM
+				     , CTI_LGN_ID AS CTI_LGN_ID
+				     , EXTN_NO AS EXTN_NO
+				    , t1.ST_NM as STATUS
+            , t1.USR_ST_CD as USR_ST_CD 
+				  FROM OM001 a 
+               LEFT JOIN TEMP t1 
+                      ON a.USR_ID = t1.USR_ID 
+				  WHERE 1 = 1
+				  and a.team_cd !='all'
+				   <![CDATA[
+				   AND (RET_DT IS NULL OR RET_DT > TO_CHAR(SYSDATE, 'YYYYMMDD'))
+				   ]]>
+			<if test="srchcc_val != null and !srchcc_val.equals('')">	   
+				<if test="srchcc_type.equals('EXTNAME')">
+					    AND USR_NM LIKE '%' || #{srchcc_val} || '%'
+				</if>
+				<if test="srchcc_type.equals('EXTNO')">
+					    AND EXTN_NO = #{srchcc_val}
+				</if>
+			</if>
+			<if test="cntr_cd != null and !cntr_cd.equals('')">
+				    AND CNTR_CD = #{cntr_cd}
+			</if>
+			<if test="!notuse">
+					AND use_yn = 'Y'
+			</if>
+			 <if test="sidx != null and sord != null">
+	                ORDER BY ${sidx} ${sord}
+	         </if>
+			<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>
+	
+	<select id="select" parameterType="map" resultType="map">
+		WITH TEMP AS (
+			 SELECT USR_ID , GETUSERNM('CC',USR_ID) as USRNM ,USR_ST_CD, GETCODENM(USR_ST_CD,'90008') as  ST_NM
+                FROM (
+                      SELECT USR_ID, MOD_TM, USR_ST_CD 
+                           , ROW_NUMBER() OVER(PARTITION BY USR_ID ORDER BY ST_STRT_TM DESC) as rowseq
+                        FROM oh022
+                       WHERE ST_ALT_DT = TO_CHAR(SYSDATE, 'yyyymmdd')
+                      ) a
+               WHERE 1=1
+                 AND rowseq = 1  
+		)   
+		SELECT	0
+				,	t1.usr_id
+				,	NVL(t1.cntr_cd, 'all') AS cntr_cd
+				,	NVL(t1.team_cd, 'all') AS team_cd
+				,	NVL(t1.dept_cd, 'all') AS dept_cd
+				,   getCodeNM(t1.team_cd,'90003') team_nm
+				,	t1.usr_nm
+				,	t1.pwd_enc_cont
+				,	NVL(t1.usr_grd_cd, 'all') AS usr_grd_cd
+				,   getCodeNM(t1.usr_grd_cd, '90006') usr_grd_nm
+				,	NVL(t1.dty_cd, 'all') AS dty_cd
+				,   getCodeNM(t1.dty_cd, '90005') DTY_NM
+				,	t1.cti_use_yn as CTI_USE_YN
+				,	t1.cti_lgn_id
+				,	t1.extn_no
+				,	t1.at_rcv_yn
+				,	t1.AT_RDY_YN AS AT_READY_YN
+				,	t1.ent_dt
+				,	getFormatDate(t1.ent_dt) AS ent_dt_format
+				,	t1.ret_dt
+				,	getFormatDate(t1.ret_dt) AS ret_dt_format
+				,	dec_aes(t1.tel_no) as tel_no
+				,	dec_aes(t1.cel_no) as cel_no
+				,	t1.fax_no
+				,	dec_aes(t1.eml_adr) as eml_adr
+				,	t1.pc_ip
+				,	t1.pc_mac
+				,	t1.usr_img_pth
+				,	t1.crt_dt
+				,	t1.crt_tm
+				,	t1.crt_usr_id
+				,   t1.emp_no
+				,	(select USR_NM from OM001 where USR_ID = t1.crt_usr_id) AS crt_usr_nm
+				,	t1.mod_dt
+				,	t1.mod_tm
+				,	getFormatDate(t1.mod_dt) AS mod_dt_format
+				,	getFormatTime(t1.mod_tm) AS mod_tm_format
+				,	t1.mod_usr_id
+				,	(select USR_NM from OM001 where USR_ID = t1.mod_usr_id) AS mod_usr_nm
+				,	t2.SVR_SV_PTH AS SVRFL_PTH
+				,   case when t1.RET_RSN is null then 'all' else t1.RET_RSN end as ret_rsn
+			  , t3.ST_NM as USR_ST_NM
+        , t3.USR_ST_CD as USR_ST_CD 
+		FROM om001 t1 
+						left join om019 t2 
+						       on t1.usr_id = t2.tbl_pk
+					  LEFT JOIN TEMP t3
+                   ON t1.USR_ID = t3.USR_ID 
+		WHERE t1.usr_id = #{usr_id}
+	</select>
+
+	<insert id="insert" parameterType="map">
+		INSERT INTO om001
+		(
+				usr_id
+			,	cntr_cd
+			,	team_cd
+			,	dept_cd
+			,	usr_nm
+			,	pwd_enc_cont
+			,	usr_grd_cd
+			,	dty_cd
+			,	cti_use_yn
+			,	cti_lgn_id
+			,	extn_no
+			,	at_rcv_yn
+			,	AT_RDY_YN
+			,	ent_dt
+			,	ret_dt
+			,	tel_no
+			,	cel_no
+			<!-- ,	fax_no -->
+			,	eml_adr
+			,	pc_ip
+			<!-- ,	pc_mac -->
+			,	use_yn
+			,	crt_dt
+			,	crt_tm
+			,	crt_usr_id
+			,	mod_dt
+			,	mod_tm
+			,	mod_usr_id
+		)
+		VALUES
+		(
+				#{usr_id}
+			,	#{cntr_cd}
+			,	#{team_cd}
+			,	#{dept_cd}
+			,	enc_aes(#{usr_nm})
+			,	#{pwd_no_enc_cntn}
+			,	#{usr_grd_cd}
+			,	#{dty_cd}			
+			,	#{cti_use_yn}
+			,	#{cti_lgn_id}
+			,	#{extn_no}
+			,	'N'
+			,	'N'
+			,	#{ent_dt}
+			,	#{ret_dt}
+			,	enc_aes(#{tel_no})
+			,	enc_aes(#{cel_no})
+			<!-- ,	#{fax_no} -->
+			,	enc_aes(#{eml_adr})
+			,	#{pc_ip}
+			<!-- ,	#{pc_mac} -->
+			,	'Y'
+			,	to_char(sysdate, 'yyyymmdd')
+			,	to_char(sysdate, 'hh24miss')
+			,	#{login_usr_id}
+			,	to_char(sysdate, 'yyyymmdd')
+			,	to_char(sysdate, 'hh24miss')
+			,	#{login_usr_id}
+		)
+	</insert>
+
+	<update id="update" parameterType="map">
+		UPDATE om001
+		SET 	usr_nm = enc_aes(#{usr_nm})
+			,	cntr_cd = #{cntr_cd}
+			,	team_cd = #{team_cd}
+			,	dept_cd = #{dept_cd}
+			<if test="!pwdMod.equalsIgnoreCase('N')">
+			,	pwd_enc_cont = #{pwd_no_enc_cntn}
+			</if>
+			,	usr_grd_cd = #{usr_grd_cd}
+			,	dty_cd = #{dty_cd}			
+			,	cti_use_yn = #{cti_use_yn}
+			,	cti_lgn_id = #{cti_lgn_id}
+			,	extn_no = #{extn_no}			
+			,	ent_dt = #{ent_dt}
+			,	ret_dt = #{ret_dt}
+			,	tel_no = enc_aes(#{tel_no})
+			,	cel_no = enc_aes(#{cel_no})
+			<!-- ,	fax_no = #{fax_no} -->
+			,	eml_adr = enc_aes(#{eml_adr})
+			,	pc_ip = #{pc_ip}
+			<!-- ,	pc_mac = #{pc_mac} -->
+			,	mod_dt = to_char(sysdate, 'yyyymmdd')
+			,	mod_tm = to_char(sysdate, 'hh24miss')
+			,	mod_usr_id = #{login_usr_id}
+			,   ret_rsn = #{ret_rsn}<!-- 퇴사사유  -->
+		WHERE usr_id = #{usr_id}
+	</update>
+
+	<update id="updateExt" parameterType="map">
+		UPDATE om001
+		SET	extn_no = #{extn_no}			
+			,	mod_dt = to_char(sysdate, 'yyyymmdd')
+			,	mod_tm = to_char(sysdate, 'hh24miss')
+			,	mod_usr_id = #{login_usr_id}
+		WHERE usr_id = #{login_usr_id}
+	</update>
+	
+	<update id="updatePwd" parameterType="map">
+		UPDATE om001
+		SET	pwd_enc_cont = #{pwd_no_enc_cntn}			
+			,	mod_dt = to_char(sysdate, 'yyyymmdd')
+			,	mod_tm = to_char(sysdate, 'hh24miss')
+			,	pw_mod_dt = to_char(sysdate, 'yyyymmdd')
+			,	mod_usr_id = #{login_usr_id}
+		WHERE usr_id = #{login_usr_id}
+	</update>
+	
+	<update id="updatePwdAdminMod" parameterType="map">
+		UPDATE om001
+		SET	pwd_enc_cont = #{pwd_no_enc_cntn}			
+			,	mod_dt = to_char(sysdate, 'yyyymmdd')
+			,	mod_tm = to_char(sysdate, 'hh24miss')
+			,	pw_mod_dt = to_char(sysdate, 'yyyymmdd')
+			,	mod_usr_id = #{usr_Id}
+		WHERE usr_id = #{usr_Id}
+	</update>
+	
+
+	<delete id="delete" parameterType="map">
+		DELETE FROM om001
+		WHERE usr_id = #{usr_id}
+	</delete>
+
+
+	<select id="login" parameterType="map" resultType="map">
+SELECT '200' as login_code
+			,	'정상 로그인 됨' as login_desc
+			,	usr_id
+			,	usr_nm
+			,	extn_no
+			,	cti_use_yn
+			,	cti_lgn_id
+			,	cntr_cd
+			,	team_cd
+			,	dept_cd
+			,	getCodeNM(team_cd, '90003') AS team_nm
+			,	usr_grd_cd
+		FROM om001
+		WHERE usr_id = #{usr_id}
+			AND pwd_enc_cont = #{pwd_no_enc_cntn} and ret_dt is null
+			<!--AND pwd_enc_cont = call.pkg_member.get_encryptionpasswd_fn(#{pwd_no_enc_cntn})-->
+		UNION  ALL
+		SELECT '404' as login_code
+			,	'아이디 또는 비밀번호가  맞지 않습니다' as login_desc
+			,	'' as usr_id
+			,	'' as usr_nm
+			,	'' as extn_no
+			,	'' as cti_use_yn
+			,	'' as cti_lgn_id
+			,	'' as cntr_cd
+			,	'' as team_cd
+			,	'' as dept_cd
+			,	'' as team_nm
+			,	'' as usr_grd_cd
+		FROM dual
+		WHERE NOT EXISTS (SELECT 1 FROM om001 WHERE usr_id = #{usr_id}) and rownum = 1
+		UNION  ALL 
+		SELECT '405' as login_code
+			,	'아이디 또는 비밀번호가  맞지 않습니다' as login_desc
+			,	'' as usr_id
+			,	'' as usr_nm
+			,	'' as extn_no
+			,	'' as cti_use_yn
+			,	'' as cti_lgn_id
+			,	'' as cntr_cd
+			,	'' as team_cd
+			,	'' as dept_cd
+			,	'' as team_nm
+			,	'' as usr_grd_cd
+		FROM om001 
+		WHERE usr_id = #{usr_id}
+			AND NOT EXISTS (SELECT 1 FROM om001 WHERE usr_id = #{usr_id} AND pwd_enc_cont = #{pwd_no_enc_cntn})
+			<!--AND NOT EXISTS (SELECT 1 FROM om001 WHERE usr_id = #{usr_id} AND pwd_enc_cont = call.pkg_member.get_encryptionpasswd_fn(#{pwd_no_enc_cntn}))-->
+		UNION  ALL 
+	    SELECT '406' as login_code
+	        ,	'퇴사한 상담사 입니다.' as login_desc
+	        ,	'' as usr_id
+	        ,	'' as usr_nm
+	        ,	'' as extn_no
+	        ,	'' as cti_use_yn
+	        ,	'' as cti_lgn_id
+	        ,	'' as cntr_cd
+	        ,	'' as team_cd
+	        ,	'' as dept_cd
+	        ,	'' as team_nm
+	        ,	'' as usr_grd_cd
+	    FROM om001 
+	    WHERE usr_id = #{usr_id}
+	      AND NOT EXISTS (SELECT 1 FROM om001 WHERE ret_dt is null AND usr_id = #{usr_id} )
+</select>
+	
+  <update id="usrUseYn" parameterType="map">
+    UPDATE om001
+    SET use_yn = 'N'
+    WHERE usr_id = #{usr_id}
+  </update> 
+ 
+	<select id="loginFromErp" parameterType="map" resultType="map">
+		SELECT '200' as login_code
+			,	'정상 로그인 됨' as login_desc
+			,	usr_id
+			,	usr_nm
+			,	extn_no
+			,	cti_use_yn
+			,	cti_lgn_id
+			,	cntr_cd
+			,	team_cd
+			,	getCodeNM(team_cd, '90003') AS team_nm
+			,	usr_grd_cd
+		FROM om001
+		WHERE usr_id = #{usr_id}
+		UNION  ALL 
+		SELECT '404' as login_code
+			,	'아이디가 존재하지 않습니다' as login_desc
+			,	'' as usr_id
+			,	'' as usr_nm
+			,	'' as extn_no
+			,	'' as cti_use_yn
+			,	'' as cti_lgn_id
+			,	'' as cntr_cd
+			,	'' as team_cd
+			,	'' as team_nm
+			,	'' as usr_grd_cd
+		FROM dual
+		WHERE NOT EXISTS (SELECT 1 FROM om001 WHERE usr_id = #{usr_id}) and rownum = 1
+	</select>
+	
+	<select id="selectUserInfo" resultType="map">
+		SELECT usr_id ,usr_nm FROM om001
+	</select>
+	
+	 <select id="selectMessageUsrList" parameterType="map" resultType="map">
+		SELECT  usr_nm
+		     ,  usr_id
+		     ,  getCodeNM(team_cd,'90003') team_cd
+		     ,  getCodeNM(cntr_cd,'90002') cntr_cd
+		     , decode(TEAM_CD,'9000','1','1001','2','1002','3','1003','4','9000','5','6') as orderby 
+		  FROM  om001
+		 WHERE 1 = 1
+		 	AND use_yn = 'Y'  
+		    <!--  AND usr_id != #{login_usr_id} -->
+		    AND (ret_dt is null OR ret_dt = '')
+		<if test="cntr_cd != null and !cntr_cd.equals('') and !cntr_cd.equals('all')">
+			AND cntr_cd = #{cntr_cd}
+		</if>
+		<if test="team_cd != null and !team_cd.equals('') and !team_cd.equals('all')">
+			AND team_cd = #{team_cd}
+		</if>
+		<if test="srchval != null and !srchval.equals('')">
+			AND INSTR(usr_nm, #{srchval}) > 0
+		</if>
+		<if test="sidx != null and sord != null">
+		 ORDER BY orderby, ${sidx} ${sord}
+		</if>
+	</select>
+	
+  <select id="pwdList" parameterType="map" resultType="map">
+  SELECT  t1.usr_id as usr_id
+    , t1.usr_nm as usr_nm
+    , t1.PWD_ENC_CONT as pwd
+    , t1.mod_dt as mod_dt
+    , t1.mod_tm as mod_tm
+    , getFormatDate(t1.mod_dt) AS mod_dt_format
+    , getFormatTime(t1.mod_tm) AS mod_tm_format
+    , getFormatDate(t1.pw_mod_dt) AS pw_mod_dt_format
+    , t1.mod_usr_id as mod_usr_id
+  FROM om001 t1
+  WHERE usr_id = #{usr_id}
+ </select>
+ <select id="selectListExcel" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				SELECT	usr_id
+						,	cntr_cd
+						, 	getCodeNM(cntr_cd, '90002') AS cntr_nm
+						,	team_cd
+						, 	getCodeNM(team_cd, '90003') AS team_nm
+						,	dept_cd
+						, 	getCodeNM(dept_cd, '90004') AS dept_nm
+						,	usr_nm
+						,	pwd_enc_cont
+						, USR_GRD_CD
+						,	getCodeNM(USR_GRD_CD, '90006') AS cd_nm
+						,	dty_cd
+						,	getCodeNM(dty_cd, '90005') AS dty_nm
+						,	cti_use_yn
+						,	cti_lgn_id
+						,	extn_no
+						,	at_rcv_yn
+						,	AT_RDY_YN AS AT_READY_YN
+						,	ent_dt
+						,	ret_dt
+						, 	(CASE WHEN ret_dt is not null THEN '퇴사' ELSE '' END) AS ret_yn
+						,	REGEXP_REPLACE(getFormatPhoneNum(tel_no),substr(getFormatPhoneNum(tel_no),4,length(tel_no)-5),'-****-') as tel_no
+						,	REGEXP_REPLACE(getFormatPhoneNum(cel_no),substr(getFormatPhoneNum(cel_no),4,length(cel_no)-5),'-****-') as cel_no
+						,	REGEXP_REPLACE(getFormatPhoneNum(cel_no),substr(getFormatPhoneNum(cel_no),4,length(cel_no)-5),'-****-') as cel_no_format
+						,	REGEXP_REPLACE(getFormatPhoneNum(fax_no),substr(getFormatPhoneNum(fax_no),4,length(fax_no)-5),'-****-') as fax_no
+						,	eml_adr
+						,	pc_ip
+						,	pc_mac
+						,	usr_img_pth
+						,	crt_dt
+						,	crt_tm
+						,	crt_usr_id
+						,	mod_dt
+						,	getFormatDate(mod_dt) AS mod_dt_format
+						,	mod_tm
+						,	mod_usr_id
+						,   RET_RSN as RET_RSN
+				FROM om001
+				WHERE 1 = 1
+				<if test = "!chkRetire">
+					AND (ret_dt is null OR ret_dt = '')
+				</if>
+				<if test="gradeType != null and !gradeType.equals('all') and !gradeType.equals('')">
+					AND usr_grd_cd = #{gradeType}
+				</if>
+				<if test="tfSrchVal != null and !tfSrchVal.equals('')">
+					<if test="optSrchType.equals('usrId')">
+						AND upper(usr_id) like '%' || upper(#{tfSrchVal}) || '%'
+					</if>
+					<if test="optSrchType.equals('usrNm')">
+						AND upper(usr_nm) like '%' || upper(#{tfSrchVal}) || '%'
+					</if> 
+				</if>
+				<if test="tfCallSrchVal != null and !tfCallSrchVal.equals('')">
+						AND (upper(usr_id) like '%' || upper(#{tfCallSrchVal}) || '%'
+						OR upper(usr_nm) like '%' || upper(#{tfCallSrchVal}) || '%')
+				</if>
+				<if test="!notuse">
+					AND use_yn = 'Y'
+				</if>
+				<if test="cntr_cd != null and !cntr_cd.equals('all') and !cntr_cd.equals('')">
+					AND cntr_cd = #{cntr_cd}
+				</if>
+				<if test="team_cd != null and !team_cd.equals('all') and !team_cd.equals('')">
+					AND team_cd = #{team_cd}
+				</if>
+				<if test="dept_cd != null and !dept_cd.equals('all') and !dept_cd.equals('')">
+					AND dept_cd = #{dept_cd}
+				</if>
+				<if test="cmpg_usr_id != null and !cmpg_usr_id.equals('') and !cmpg_usr_id.equals('all')">
+					AND usr_id = #{cmpg_usr_id}
+				</if>
+				<if test="notLowLev != null and notLowLev">
+					<if test="or_cntr_cd != null and !or_cntr_cd.equals('all') and !or_cntr_cd.equals('')">
+						AND cntr_cd = #{or_cntr_cd}
+					</if>
+					<if test="or_team_cd != null and !or_team_cd.equals('all') and !or_team_cd.equals('')">
+						AND team_cd = #{or_team_cd}
+					</if>
+					<if test="or_dept_cd != null and !or_dept_cd.equals('all') and !or_dept_cd.equals('')">
+						AND dept_cd = #{or_dept_cd}
+					</if>
+				</if>
+				<if test="notLowLev != null and !notLowLev">
+					AND cntr_cd = #{or_cntr_cd}
+					AND team_cd = #{or_team_cd}
+					AND dept_cd = #{or_dept_cd}
+				</if>
+				<if test="sidx == null and sord == null">
+				ORDER BY usr_nm
+				</if>
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>
+	
+	<!-- 이직율 통계 -->
+	<select id="lflyStatsList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				 SELECT RESULTS.YEAR ||' 년' as year
+               , RESULTS.TYP as typ
+               , RESULTS.CNT_01 as cnt_01
+               , RESULTS.CNT_02 as cnt_02
+               , RESULTS.CNT_03 as cnt_03
+               , RESULTS.CNT_04 as cnt_04
+               , RESULTS.CNT_05 as cnt_05
+               , RESULTS.CNT_06 as cnt_06
+               , RESULTS.CNT_07 as cnt_07
+               , RESULTS.CNT_08 as cnt_08
+               , RESULTS.CNT_09 as cnt_09
+               , RESULTS.CNT_10 as cnt_10
+               , RESULTS.CNT_11 as cnt_11
+               , RESULTS.CNT_12 as cnt_12
+               , RESULTS.CNT_MANAGER||' / '|| RESULTS.CNT_AGENT as cnt_usr
+         , (CASE WHEN TYP IN ('1.ENT','2.RET') THEN CNT_01+CNT_02+CNT_03+CNT_04+CNT_05+CNT_06+CNT_07+CNT_08+CNT_09+CNT_10+CNT_11+CNT_12
+               ELSE  (CNT_01+CNT_02+CNT_03+CNT_04+CNT_05+CNT_06+CNT_07+CNT_08+CNT_09+CNT_10+CNT_11+CNT_12) END   ) TOT,
+         ROUND((CNT_01+CNT_02+CNT_03+CNT_04+CNT_05+CNT_06+CNT_07+CNT_08+CNT_09+CNT_10+CNT_11+CNT_12)/
+            DECODE(DECODE(CNT_01,0,0,1)+DECODE(CNT_02,0,0,1)+DECODE(CNT_03,0,0,1)+DECODE(CNT_04,0,0,1)+DECODE(CNT_05,0,0,1)+DECODE(CNT_06,0,0,1)+
+                   DECODE(CNT_07,0,0,1)+DECODE(CNT_08,0,0,1)+DECODE(CNT_09,0,0,1)+DECODE(CNT_10,0,0,1)+DECODE(CNT_11,0,0,1)+DECODE(CNT_12,0,0,1),0,1,
+                   DECODE(CNT_01,0,0,1)+DECODE(CNT_02,0,0,1)+DECODE(CNT_03,0,0,1)+DECODE(CNT_04,0,0,1)+DECODE(CNT_05,0,0,1)+DECODE(CNT_06,0,0,1)+
+                   DECODE(CNT_07,0,0,1)+DECODE(CNT_08,0,0,1)+DECODE(CNT_09,0,0,1)+DECODE(CNT_10,0,0,1)+DECODE(CNT_11,0,0,1)+DECODE(CNT_12,0,0,1) )
+             ,2) AVG 
+    			FROM (
+				SELECT A.YEAR,
+					'1.ENT' TYP,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0131' AND ( B.RET_DT IS NULL OR A.YEAR || '0101' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_01,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0231' AND ( B.RET_DT IS NULL OR A.YEAR || '0201' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_02,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0331' AND ( B.RET_DT IS NULL OR A.YEAR || '0301' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_03,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0431' AND ( B.RET_DT IS NULL OR A.YEAR || '0401' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_04,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0531' AND ( B.RET_DT IS NULL OR A.YEAR || '0501' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_05,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0631' AND ( B.RET_DT IS NULL OR A.YEAR || '0601' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_06,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0731' AND ( B.RET_DT IS NULL OR A.YEAR || '0701' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_07,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0831' AND ( B.RET_DT IS NULL OR A.YEAR || '0801' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_08,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0931' AND ( B.RET_DT IS NULL OR A.YEAR || '0901' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_09,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '1031' AND ( B.RET_DT IS NULL OR A.YEAR || '1001' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_10,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '1131' AND ( B.RET_DT IS NULL OR A.YEAR || '1101' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_11,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '1231' AND ( B.RET_DT IS NULL OR A.YEAR || '1201' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_12,
+					SUM(CASE WHEN B.TEAM_CD = '9000' THEN 1 ELSE 0 END) CNT_MANAGER,
+					SUM(CASE WHEN B.TEAM_CD LIKE '100%' THEN 1 ELSE 0 END) CNT_AGENT
+				FROM (
+					SELECT DISTINCT SUBSTR(ENT_DT,0,4) YEAR FROM OM001
+					<if test="g_entStartDt != null and !g_entStartDt.equals('') and g_entEndDt != null and !g_entEndDt.equals('')">
+						<if test="!g_entStartDt.equals('all') and !g_entEndDt.equals('all')">
+					  		 WHERE (ENT_DT LIKE #{g_entStartDt}||'%' OR ENT_DT LIKE #{g_entEndDt}||'%' )
+					   </if>
+					   	<if test="g_entStartDt.equals('all') and g_entEndDt.equals('all')">
+					  		 WHERE ENT_DT IS NOT NULL
+					   </if>
+					</if>
+				UNION
+					SELECT DISTINCT SUBSTR(RET_DT,0,4) YEAR FROM OM001
+					<if test="g_entStartDt != null and !g_entStartDt.equals('') and g_entEndDt != null and !g_entEndDt.equals('')">
+						<if test="!g_entStartDt.equals('all') and !g_entEndDt.equals('all')">
+					  		 WHERE (RET_DT LIKE #{g_entStartDt}||'%' OR RET_DT LIKE #{g_entEndDt}||'%' )
+					   </if>
+					   	<if test="g_entStartDt.equals('all') and g_entEndDt.equals('all')">
+					  		 WHERE RET_DT IS NOT NULL
+					   </if>
+					</if>
+				) A
+				CROSS JOIN OM001 B
+				GROUP BY A.YEAR
+				UNION
+				SELECT A.YEAR,
+					'2.RET' TYP,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '01%'  THEN 1 ELSE 0 END) CNT_01,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '02%'  THEN 1 ELSE 0 END) CNT_02,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '03%'  THEN 1 ELSE 0 END) CNT_03,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '04%'  THEN 1 ELSE 0 END) CNT_04,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '05%'  THEN 1 ELSE 0 END) CNT_05,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '06%'  THEN 1 ELSE 0 END) CNT_06,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '07%'  THEN 1 ELSE 0 END) CNT_07,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '08%'  THEN 1 ELSE 0 END) CNT_08,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '09%'  THEN 1 ELSE 0 END) CNT_09,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '10%'  THEN 1 ELSE 0 END) CNT_10,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '11%'  THEN 1 ELSE 0 END) CNT_11,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '12%'  THEN 1 ELSE 0 END) CNT_12,
+					0 CNT_MANAGER,
+					0 CNT_AGENT
+				FROM (
+					SELECT DISTINCT SUBSTR(ENT_DT,0,4) YEAR FROM OM001
+					   	<if test="g_entStartDt != null and !g_entStartDt.equals('') and g_entEndDt != null and !g_entEndDt.equals('')">
+						<if test="!g_entStartDt.equals('all') and !g_entEndDt.equals('all')">
+					  		 WHERE (ENT_DT LIKE #{g_entStartDt} || '%' OR ENT_DT LIKE #{g_entEndDt} || '%')
+					   </if>
+					   	<if test="g_entStartDt.equals('all') and g_entEndDt.equals('all')">
+					  		 WHERE ENT_DT IS NOT NULL
+					   </if>
+					</if>
+					   
+				UNION
+					SELECT DISTINCT SUBSTR(RET_DT,0,4) YEAR FROM OM001
+					<if test="g_entStartDt != null and !g_entStartDt.equals('') and g_entEndDt != null and !g_entEndDt.equals('')">
+						<if test="!g_entStartDt.equals('all') and !g_entEndDt.equals('all')">
+					  		 WHERE (RET_DT LIKE #{g_entStartDt} || '%' OR RET_DT LIKE #{g_entEndDt} || '%')
+					   </if>
+					   	<if test="g_entStartDt.equals('all') and g_entEndDt.equals('all')">
+					  		 WHERE RET_DT IS NOT NULL
+					   </if>
+					</if>
+					   
+					) A
+						CROSS JOIN OM001 B
+						GROUP BY A.YEAR
+    UNION
+      SELECT A.YEAR,
+             '3.AVG' TYP,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '01%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0131' AND ( B.RET_DT IS NULL OR A.YEAR || '0101' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0131' AND ( B.RET_DT IS NULL OR A.YEAR || '0101' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_01,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '02%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0231' AND ( B.RET_DT IS NULL OR A.YEAR || '0201' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0231' AND ( B.RET_DT IS NULL OR A.YEAR || '0201' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_02,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '03%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0331' AND ( B.RET_DT IS NULL OR A.YEAR || '0301' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0331' AND ( B.RET_DT IS NULL OR A.YEAR || '0301' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_03,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '04%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0431' AND ( B.RET_DT IS NULL OR A.YEAR || '0401' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0431' AND ( B.RET_DT IS NULL OR A.YEAR || '0401' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_04,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '05%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0531' AND ( B.RET_DT IS NULL OR A.YEAR || '0501' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0531' AND ( B.RET_DT IS NULL OR A.YEAR || '0501' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_05,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '06%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0631' AND ( B.RET_DT IS NULL OR A.YEAR || '0601' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0631' AND ( B.RET_DT IS NULL OR A.YEAR || '0601' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_06,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '07%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0731' AND ( B.RET_DT IS NULL OR A.YEAR || '0701' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0731' AND ( B.RET_DT IS NULL OR A.YEAR || '0701' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_07,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '08%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0831' AND ( B.RET_DT IS NULL OR A.YEAR || '0801' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0831' AND ( B.RET_DT IS NULL OR A.YEAR || '0801' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_08,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '09%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0931' AND ( B.RET_DT IS NULL OR A.YEAR || '0901' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0931' AND ( B.RET_DT IS NULL OR A.YEAR || '0901' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_09,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '10%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '1031' AND ( B.RET_DT IS NULL OR A.YEAR || '1001' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '1031' AND ( B.RET_DT IS NULL OR A.YEAR || '1001' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_10,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '11%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '1131' AND ( B.RET_DT IS NULL OR A.YEAR || '1101' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '1131' AND ( B.RET_DT IS NULL OR A.YEAR || '1101' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_11,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '12%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0231' AND ( B.RET_DT IS NULL OR A.YEAR || '1201' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0231' AND ( B.RET_DT IS NULL OR A.YEAR || '1201' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_12,
+             0 CNT_MANAGER,
+             0 CNT_AGENT
+        FROM (
+          SELECT DISTINCT SUBSTR(ENT_DT,0,4) YEAR
+            FROM OM001
+						<if test="g_entStartDt != null and !g_entStartDt.equals('') and g_entEndDt != null and !g_entEndDt.equals('')">
+						<if test="!g_entStartDt.equals('all') and !g_entEndDt.equals('all')">
+					  		 WHERE (ENT_DT LIKE #{g_entStartDt}||'%' OR ENT_DT LIKE #{g_entEndDt}||'%')
+					   </if>
+					   	<if test="g_entStartDt.equals('all') and g_entEndDt.equals('all')">
+					  		 WHERE ENT_DT IS NOT NULL
+					   </if>
+					</if>
+					   
+           UNION
+          SELECT DISTINCT SUBSTR(RET_DT,0,4) YEAR
+            FROM OM001
+			<if test="g_entStartDt != null and !g_entStartDt.equals('') and g_entEndDt != null and !g_entEndDt.equals('')">
+						<if test="!g_entStartDt.equals('all') and !g_entEndDt.equals('all')">
+					  		 WHERE (RET_DT LIKE #{g_entStartDt}||'%' OR RET_DT LIKE #{g_entEndDt}||'%')
+					   </if>
+					   	<if test="g_entStartDt.equals('all') and g_entEndDt.equals('all')">
+					  		 WHERE RET_DT IS NOT NULL
+					   </if>
+			</if>
+					   
+             ) A
+             CROSS JOIN OM001 B
+    GROUP BY A.YEAR
+        ) RESULTS	
+        			<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>
+	
+	<!-- 엑셀 -->
+		<select id="lflyStatsListExcel" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				 SELECT RESULTS.YEAR ||' 년' as year
+               , RESULTS.TYP as typ
+               , RESULTS.CNT_01 as cnt_01
+               , RESULTS.CNT_02 as cnt_02
+               , RESULTS.CNT_03 as cnt_03
+               , RESULTS.CNT_04 as cnt_04
+               , RESULTS.CNT_05 as cnt_05
+               , RESULTS.CNT_06 as cnt_06
+               , RESULTS.CNT_07 as cnt_07
+               , RESULTS.CNT_08 as cnt_08
+               , RESULTS.CNT_09 as cnt_09
+               , RESULTS.CNT_10 as cnt_10
+               , RESULTS.CNT_11 as cnt_11
+               , RESULTS.CNT_12 as cnt_12
+               , RESULTS.CNT_MANAGER||' / '|| RESULTS.CNT_AGENT as cnt_usr
+         , (CASE WHEN TYP IN ('1.ENT','2.RET') THEN CNT_01+CNT_02+CNT_03+CNT_04+CNT_05+CNT_06+CNT_07+CNT_08+CNT_09+CNT_10+CNT_11+CNT_12
+               ELSE  (CNT_01+CNT_02+CNT_03+CNT_04+CNT_05+CNT_06+CNT_07+CNT_08+CNT_09+CNT_10+CNT_11+CNT_12) END   ) TOT,
+         ROUND((CNT_01+CNT_02+CNT_03+CNT_04+CNT_05+CNT_06+CNT_07+CNT_08+CNT_09+CNT_10+CNT_11+CNT_12)/
+            DECODE(DECODE(CNT_01,0,0,1)+DECODE(CNT_02,0,0,1)+DECODE(CNT_03,0,0,1)+DECODE(CNT_04,0,0,1)+DECODE(CNT_05,0,0,1)+DECODE(CNT_06,0,0,1)+
+                   DECODE(CNT_07,0,0,1)+DECODE(CNT_08,0,0,1)+DECODE(CNT_09,0,0,1)+DECODE(CNT_10,0,0,1)+DECODE(CNT_11,0,0,1)+DECODE(CNT_12,0,0,1),0,1,
+                   DECODE(CNT_01,0,0,1)+DECODE(CNT_02,0,0,1)+DECODE(CNT_03,0,0,1)+DECODE(CNT_04,0,0,1)+DECODE(CNT_05,0,0,1)+DECODE(CNT_06,0,0,1)+
+                   DECODE(CNT_07,0,0,1)+DECODE(CNT_08,0,0,1)+DECODE(CNT_09,0,0,1)+DECODE(CNT_10,0,0,1)+DECODE(CNT_11,0,0,1)+DECODE(CNT_12,0,0,1) )
+             ,2) AVG 
+    			FROM (
+				SELECT A.YEAR,
+					'정원' TYP,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0131' AND ( B.RET_DT IS NULL OR A.YEAR || '0101' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_01,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0231' AND ( B.RET_DT IS NULL OR A.YEAR || '0201' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_02,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0331' AND ( B.RET_DT IS NULL OR A.YEAR || '0301' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_03,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0431' AND ( B.RET_DT IS NULL OR A.YEAR || '0401' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_04,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0531' AND ( B.RET_DT IS NULL OR A.YEAR || '0501' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_05,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0631' AND ( B.RET_DT IS NULL OR A.YEAR || '0601' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_06,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0731' AND ( B.RET_DT IS NULL OR A.YEAR || '0701' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_07,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0831' AND ( B.RET_DT IS NULL OR A.YEAR || '0801' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_08,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0931' AND ( B.RET_DT IS NULL OR A.YEAR || '0901' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_09,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '1031' AND ( B.RET_DT IS NULL OR A.YEAR || '1001' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_10,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '1131' AND ( B.RET_DT IS NULL OR A.YEAR || '1101' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_11,
+					SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '1231' AND ( B.RET_DT IS NULL OR A.YEAR || '1201' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END) CNT_12,
+					SUM(CASE WHEN B.TEAM_CD = '9000' THEN 1 ELSE 0 END) CNT_MANAGER,
+					SUM(CASE WHEN B.TEAM_CD LIKE '100%' THEN 1 ELSE 0 END) CNT_AGENT
+				FROM (
+					SELECT DISTINCT SUBSTR(ENT_DT,0,4) YEAR FROM OM001
+							<if test="g_entStartDt != null and !g_entStartDt.equals('') and g_entEndDt != null and !g_entEndDt.equals('')">
+						<if test="!g_entStartDt.equals('all') and !g_entEndDt.equals('all')">
+					  		 WHERE (ENT_DT LIKE #{g_entStartDt} || '%' OR ENT_DT LIKE #{g_entEndDt} || '%')
+					   </if>
+					   	<if test="g_entStartDt.equals('all') and g_entEndDt.equals('all')">
+					  		 WHERE ENT_DT IS NOT NULL
+					   </if>
+					</if>
+					   
+				UNION
+					SELECT DISTINCT SUBSTR(RET_DT,0,4) YEAR FROM OM001
+					<if test="g_entStartDt != null and !g_entStartDt.equals('') and g_entEndDt != null and !g_entEndDt.equals('')">
+						<if test="!g_entStartDt.equals('all') and !g_entEndDt.equals('all')">
+					  		 WHERE (RET_DT LIKE #{g_entStartDt} || '%' OR RET_DT LIKE #{g_entEndDt} || '%')
+					   </if>
+					   	<if test="g_entStartDt.equals('all') and g_entEndDt.equals('all')">
+					  		 WHERE RET_DT IS NOT NULL
+					   </if>
+					</if>
+				) A
+				CROSS JOIN OM001 B
+				GROUP BY A.YEAR
+				UNION
+				SELECT A.YEAR,
+					'퇴사' TYP,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '01%'  THEN 1 ELSE 0 END) CNT_01,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '02%'  THEN 1 ELSE 0 END) CNT_02,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '03%'  THEN 1 ELSE 0 END) CNT_03,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '04%'  THEN 1 ELSE 0 END) CNT_04,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '05%'  THEN 1 ELSE 0 END) CNT_05,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '06%'  THEN 1 ELSE 0 END) CNT_06,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '07%'  THEN 1 ELSE 0 END) CNT_07,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '08%'  THEN 1 ELSE 0 END) CNT_08,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '09%'  THEN 1 ELSE 0 END) CNT_09,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '10%'  THEN 1 ELSE 0 END) CNT_10,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '11%'  THEN 1 ELSE 0 END) CNT_11,
+					SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '12%'  THEN 1 ELSE 0 END) CNT_12,
+					0 CNT_MANAGER,
+					0 CNT_AGENT
+				FROM (
+					SELECT DISTINCT SUBSTR(ENT_DT,0,4) YEAR FROM OM001
+					   		<if test="g_entStartDt != null and !g_entStartDt.equals('') and g_entEndDt != null and !g_entEndDt.equals('')">
+						<if test="!g_entStartDt.equals('all') and !g_entEndDt.equals('all')">
+					  		 WHERE (ENT_DT LIKE #{g_entStartDt} || '%' OR ENT_DT LIKE #{g_entEndDt} || '%')
+					   </if>
+					   	<if test="g_entStartDt.equals('all') and g_entEndDt.equals('all')">
+					  		 WHERE ENT_DT IS NOT NULL
+					   </if>
+					</if>
+					   
+				UNION
+					SELECT DISTINCT SUBSTR(RET_DT,0,4) YEAR FROM OM001
+					<if test="g_entStartDt != null and !g_entStartDt.equals('') and g_entEndDt != null and !g_entEndDt.equals('')">
+						<if test="!g_entStartDt.equals('all') and !g_entEndDt.equals('all')">
+					  		 WHERE (RET_DT LIKE #{g_entStartDt} || '%' OR RET_DT LIKE #{g_entEndDt} || '%')
+					   </if>
+					   	<if test="g_entStartDt.equals('all') and g_entEndDt.equals('all')">
+					  		 WHERE RET_DT IS NOT NULL
+					   </if>
+					</if>
+					   
+					) A
+						CROSS JOIN OM001 B
+						GROUP BY A.YEAR
+    UNION
+      SELECT A.YEAR,
+             '이직율' TYP,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '01%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0131' AND ( B.RET_DT IS NULL OR A.YEAR || '0101' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0131' AND ( B.RET_DT IS NULL OR A.YEAR || '0101' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_01,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '02%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0231' AND ( B.RET_DT IS NULL OR A.YEAR || '0201' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0231' AND ( B.RET_DT IS NULL OR A.YEAR || '0201' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_02,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '03%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0331' AND ( B.RET_DT IS NULL OR A.YEAR || '0301' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0331' AND ( B.RET_DT IS NULL OR A.YEAR || '0301' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_03,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '04%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0431' AND ( B.RET_DT IS NULL OR A.YEAR || '0401' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0431' AND ( B.RET_DT IS NULL OR A.YEAR || '0401' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_04,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '05%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0531' AND ( B.RET_DT IS NULL OR A.YEAR || '0501' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0531' AND ( B.RET_DT IS NULL OR A.YEAR || '0501' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_05,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '06%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0631' AND ( B.RET_DT IS NULL OR A.YEAR || '0601' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0631' AND ( B.RET_DT IS NULL OR A.YEAR || '0601' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_06,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '07%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0731' AND ( B.RET_DT IS NULL OR A.YEAR || '0701' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0731' AND ( B.RET_DT IS NULL OR A.YEAR || '0701' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_07,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '08%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0831' AND ( B.RET_DT IS NULL OR A.YEAR || '0801' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0831' AND ( B.RET_DT IS NULL OR A.YEAR || '0801' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_08,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '09%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0931' AND ( B.RET_DT IS NULL OR A.YEAR || '0901' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0931' AND ( B.RET_DT IS NULL OR A.YEAR || '0901' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_09,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '10%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '1031' AND ( B.RET_DT IS NULL OR A.YEAR || '1001' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '1031' AND ( B.RET_DT IS NULL OR A.YEAR || '1001' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_10,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '11%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '1131' AND ( B.RET_DT IS NULL OR A.YEAR || '1101' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '1131' AND ( B.RET_DT IS NULL OR A.YEAR || '1101' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_11,
+             ROUND(SUM(CASE WHEN B.RET_DT LIKE A.YEAR || '12%'  THEN 1 ELSE 0 END) / 
+                  DECODE(SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0231' AND ( B.RET_DT IS NULL OR A.YEAR || '1201' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END), 0 , 1,
+                         SUM(CASE WHEN B.ENT_DT <![CDATA[<=]]> A.YEAR || '0231' AND ( B.RET_DT IS NULL OR A.YEAR || '1201' <![CDATA[<=]]> B.RET_DT ) THEN 1 ELSE 0 END)) * 100,2) CNT_12,
+             0 CNT_MANAGER,
+             0 CNT_AGENT
+        FROM (
+          SELECT DISTINCT SUBSTR(ENT_DT,0,4) YEAR
+            FROM OM001
+			 		<if test="g_entStartDt != null and !g_entStartDt.equals('') and g_entEndDt != null and !g_entEndDt.equals('')">
+						<if test="!g_entStartDt.equals('all') and !g_entEndDt.equals('all')">
+					  		 WHERE (ENT_DT LIKE #{g_entStartDt} || '%' OR ENT_DT LIKE #{g_entEndDt} || '%')
+					   </if>
+					   	<if test="g_entStartDt.equals('all') and g_entEndDt.equals('all')">
+					  		 WHERE ENT_DT IS NOT NULL
+					   </if>
+					</if>
+					   
+           UNION
+          SELECT DISTINCT SUBSTR(RET_DT,0,4) YEAR
+            FROM OM001
+			<if test="g_entStartDt != null and !g_entStartDt.equals('') and g_entEndDt != null and !g_entEndDt.equals('')">
+						<if test="!g_entStartDt.equals('all') and !g_entEndDt.equals('all')">
+					  		 WHERE (RET_DT LIKE #{g_entStartDt} || '%' OR RET_DT LIKE #{g_entEndDt} || '%')
+					   </if>
+					   	<if test="g_entStartDt.equals('all') and g_entEndDt.equals('all')">
+					  		 WHERE RET_DT IS NOT NULL
+					   </if>
+			</if>
+					   
+             ) A
+             CROSS JOIN OM001 B
+    GROUP BY A.YEAR
+        ) RESULTS	
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>
+	<select id="selectUsr" parameterType="map" resultType="map">
+		select 
+				'(최근 수정일: '||' '||GETFORMATDATE(o1.PW_MOD_DT)||')' as ch_pwd 
+		from om001 o1
+		 where USR_ID = #{usrId}
+	</select>
+</mapper>

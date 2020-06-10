@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="om003">
+	
+	<select id = "progList" parameterType="map" resultType="map">
+		SELECT LEVEL lv
+			, RPAD('	-', LEVEL*2-2) || MNU_NM MNU_NM
+		  	, sm10.mnu_id AS mnu_id
+		  	, crt_yn
+		  	, rd_yn
+		  	, upd_yn
+		  	, dlt_yn
+		  	, fldn_yn
+		FROM om003 om3
+		 	JOIN sm010 sm10
+		 	ON om3.mnu_id = sm10.mnu_id
+		WHERE 1 = 1
+			AND sm10.use_yn = 'Y' 
+		<if test = "auth_cd != null">
+			AND auth_cd = #{auth_cd}
+		</if>
+		START WITH parnt_mnu_id is null
+		CONNECT BY PRIOR sm10.mnu_id = parnt_mnu_id
+	</select>
+	
+	<update id = "useProgUpdate" parameterType="map">
+		MERGE INTO om003
+		USING dual
+		ON 
+		(
+			mnu_id = #{ mnu_id } 
+			and auth_cd = #{ auth_cd } 
+		)
+		WHEN MATCHED THEN
+			UPDATE
+			SET
+				  mod_dt = to_char(sysdate, 'yyyymmdd')
+				, mod_tm = to_char(sysdate, 'hh24mmss') 
+        		, mod_usr_id = #{ login_usr_id } 
+				, crt_yn = #{ crt_yn }
+        		, rd_yn = #{ rd_yn }
+		        , upd_yn = #{ upd_yn }
+		        , dlt_yn = #{ dlt_yn }
+		        , fldn_yn = #{ fldn_yn }
+		WHEN NOT MATCHED THEN
+			INSERT 
+			( 
+				 auth_cd
+				, mnu_id
+				, crt_yn
+				, rd_yn
+				, upd_yn
+				, dlt_yn
+				, fldn_yn
+				, xldn_yn
+				, ext1_yn
+				, ext2_yn
+				, ext3_yn
+				, use_yn
+				, crt_dt
+				, crt_tm
+				, crt_usr_id
+				, mod_dt
+				, mod_tm
+				, mod_usr_id
+			)
+			VALUES
+			(
+				#{ auth_cd }
+				, #{ mnu_id }
+				, #{ crt_yn }
+				, #{ rd_yn }
+				, #{ upd_yn }
+				, #{ dlt_yn }
+				, #{ fldn_yn }
+				, 'Y'
+				, 'Y'
+				, 'Y'
+				, 'Y'
+				, 'Y'
+				, to_char(sysdate, 'yyyymmdd')
+				, to_char(sysdate, 'hh24mmss')
+				, #{ login_usr_id }
+				, to_char(sysdate, 'yyyymmdd')
+				, to_char(sysdate, 'hh24mmss')
+				, #{ login_usr_id }
+			)
+	</update>
+</mapper>

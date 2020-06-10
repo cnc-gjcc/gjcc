@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="om011">
+
+
+	<insert id="insertUpdate" parameterType="map">
+		{call
+	    	declare
+	    	begin
+
+                UPDATE om010
+                   SET TBBS_INQR_CNT = TBBS_INQR_CNT + 1
+                 WHERE TBBS_ID = #{tbbs_id}
+                   AND NOT EXISTS (SELECT 1 FROM om011 WHERE TBBS_ID = #{tbbs_id} and usr_id = #{login_usr_id})   
+                ;
+	    	
+                MERGE  INTO om011
+                USING  dual
+                   ON (TBBS_ID = #{tbbs_id} and usr_id = #{login_usr_id})
+                WHEN MATCHED THEN
+                    UPDATE
+                       SET MOD_DT     = to_char(sysdate, 'yyyymmdd')
+                         , MOD_TM     = to_char(sysdate, 'hh24miss')
+                         , MOD_USR_ID = #{login_usr_id}
+                WHEN NOT MATCHED THEN
+                    INSERT (TBBS_ID, USR_ID, CNTR_NM, TEAM_NM, USR_NM, USE_YN
+                          , CRT_DT, CRT_TM, CRT_USR_ID, MOD_DT, MOD_TM, MOD_USR_ID)
+                    VALUES (#{tbbs_id}, #{login_usr_id}
+					                , getCodeNM((select CNTR_CD from om001 where USR_ID = #{login_usr_id}), '90002')
+					                , getCodeNM((select TEAM_CD from om001 where USR_ID = #{login_usr_id}), '90003')
+					                , #{login_usr_nm}, 'Y'
+					                , to_char(sysdate, 'yyyymmdd')
+					                , to_char(sysdate, 'hh24miss')
+					                , #{login_usr_id}
+					                , to_char(sysdate, 'yyyymmdd')
+					                , to_char(sysdate, 'hh24miss')
+					                , #{login_usr_id})
+                ;
+			end
+		}
+	</insert>
+	
+	<insert id="insertJisikUpdate" parameterType="map">
+		{call
+	    	declare
+	    	begin
+
+                UPDATE om010
+                   SET TBBS_INQR_CNT = TBBS_INQR_CNT + 1
+                 WHERE TBBS_ID = #{tbbs_id}
+                ;
+	    	
+                MERGE  INTO om011
+                USING  dual
+                   ON (TBBS_ID = #{tbbs_id} and usr_id = #{usr_id})
+                WHEN MATCHED THEN
+                    UPDATE
+                       SET MOD_DT     = to_char(sysdate, 'yyyymmdd')
+                         , MOD_TM     = to_char(sysdate, 'hh24miss')
+                         , MOD_USR_ID = #{usr_id}
+                WHEN NOT MATCHED THEN
+                    INSERT (TBBS_ID, USR_ID, CNTR_NM, TEAM_NM, USR_NM, USE_YN
+                          , CRT_DT, CRT_TM, CRT_USR_ID, MOD_DT, MOD_TM, MOD_USR_ID)
+                    VALUES (
+                    				#{tbbs_id}
+                    				, #{login_usr_id}
+					                <!-- , getCodeNM((select CNTR_CD from om001 where USR_ID = #{usr_id}), '90002') 
+					                , getCodeNM((select TEAM_CD from om001 where USR_ID = #{usr_id}), '90003') 
+					                , #{usr_nm} -->
+					                , nvl2(getcodenm((SELECT cntr_cd FROM om001 WHERE usr_id = #{usr_id}),'90002'), getcodenm((SELECT cntr_cd FROM om001 WHERE usr_id = #{usr_id}),'90002'), '공주시청')
+					                , nvl2(getcodenm((SELECT team_cd FROM om001 WHERE usr_id = #{usr_id}),'90002'), getcodenm((SELECT cntr_cd FROM om001 WHERE usr_id = #{usr_id}),'90002'), (select OU from om061 where UID_ = #{usr_id}))
+					                , nvl2(#{usr_nm}, #{usr_nm}, (select DISPLAYNAME from om061 where UID_ = #{usr_id}))
+					                , 'Y'
+					                , to_char(sysdate, 'yyyymmdd')
+					                , to_char(sysdate, 'hh24miss')
+					                , #{usr_id}
+					                , to_char(sysdate, 'yyyymmdd')
+					                , to_char(sysdate, 'hh24miss')
+					                , #{usr_id}
+					       );
+			end
+		}
+	</insert>
+      <select id="getNoticeUser" parameterType="map" resultType="map">
+      <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+       SELECT * FROM (SELECT USR_NM as USR_NM,
+              getFormatDate(CRT_DT) ||' '|| getFormatTime(CRT_TM) as CRT_DT,
+              USE_YN as USE_YN
+         FROM OM011 
+        WHERE USE_YN = 'Y'  
+          AND TBBS_ID IN ( 
+                          SELECT TBBS_ID FROM OM010 
+                           WHERE  USE_YN = 'Y' 
+                              <if test="tbbs_cl_two == null and tbbs_cl_two.equal('')">
+                             AND TBBS_GB_CD = #{tbbs_cl_cd} 
+                             </if>
+                             AND TBBS_GB_CD IN (#{tbbs_cl_cd},#{tbbs_cl_two}) 
+                             AND TBBS_ID = #{tbbs_id}
+                          )
+           UNION
+			select USR_NM AS USR_NM,'' AS CRT_DT, 'N' AS USE_YN FROM OM001 
+			WHERE USR_ID NOT IN (SELECT USR_ID FROM OM011 WHERE USE_YN = 'Y'
+                              AND TBBS_ID = #{tbbs_id}  
+                              )
+                              )
+			order by USE_YN desc, CRT_DT desc
+
+       <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+   </select> 
+   </mapper>

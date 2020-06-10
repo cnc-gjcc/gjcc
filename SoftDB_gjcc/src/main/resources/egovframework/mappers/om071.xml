@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="om071">
+
+	<select id="scheduleList" parameterType="map"  resultType="map">
+		select 
+			schd_id
+			,    vact_appr_nm
+			, 	 case when title is null then '내용없음' else title end title
+			, 	 case when vact_appr_nm ='200000' then schd_gb_cd else '200000' end schdGbCd
+			, 	 case when colors is null then '#9EE9F4' else colors end colors
+			, 	 strt_dttm
+			, 	 all_day
+			, 	 end_dttm
+			,	 crt_usr_id as crt_usr_id
+			,    usr_nm
+		from(
+					SELECT   schd_id as schd_id
+					,   (select a.usr_nm from om001 a where a.usr_id = o1.usr_id) as usr_nm
+					, 	 SUBSTR(cont,0,15) AS title
+					,  schd_gb_cd AS schd_gb_cd
+					,   (select ext1_cd from sm002 where tp_cd = '90075' and cd = schd_gb_cd) AS colors
+					,	trim(getFormatDate(strt_dt)|| NVL2(strt_tm, 'T'||getFormatTime(strt_tm || '00'), ' ')) AS strt_dttm
+					,	NVL2(strt_tm, 'false', 'true') AS all_day
+					, 	trim(getFormatDate(end_dt)|| NVL2(end_tm, 'T'||getFormatTime(end_tm || '00'), ' ')) AS end_dttm 
+					,	'200000' AS vact_appr_nm
+					,	STRT_DT AS STRT_DT
+					,	END_DT AS END_DT
+					,   crt_usr_id as crt_usr_id
+					FROM om071 o1
+					WHERE  use_yn ='Y'
+					AND (schd_gb_cd != '010000' OR  (schd_gb_cd = '010000' AND crt_usr_id = #{login_usr_id}))
+					union all
+					select PNCT_ID as schd_id
+					,   (select a.usr_nm from om001 a where a.usr_id = o1.usr_id) as usr_nm
+					,	SUBSTR((select sm.cd_nm from sm002 sm where sm.tp_cd = '90064' AND sm.cd = VACT_GB_CD),0,15) AS title
+					,	'020000' AS schd_gb_cd
+					,	(select ext1_cd from sm002 where tp_cd = '90075' and cd = '020000') AS colors
+<!-- 					,	trim(getFormatDate(APP_DT)|| NVL2(crt_tm, 'T'||getFormatTime(crt_tm || '00'), ' ')) AS strt_dttm -->
+					,	trim(getFormatDate(strt_dt)|| NVL2(crt_tm, 'T'||getFormatTime(crt_tm || '00'), ' ')) AS strt_dttm
+					,	NVL2(crt_tm, 'false', 'true') AS all_day
+<!-- 					,	trim(getFormatDate(APP_DT)|| NVL2(crt_tm, 'T'||getFormatTime(crt_tm || '00'), ' ')) AS end_dttm -->
+					,	trim(getFormatDate(end_dt)|| NVL2(crt_tm, 'T'||getFormatTime(crt_tm || '00'), ' ')) AS end_dttm
+					,	vact_appr_cd AS vact_appr_nm
+					,	STRT_DT AS STRT_DT
+					,	END_DT AS END_DT
+					,   crt_usr_id as crt_usr_id
+					FROM om075 o1
+					WHERE  use_yn ='Y'
+			)
+		where 1=1
+<!-- 		and crt_usr_id = #{login_usr_id} -->
+		<if test="schdGbCd != null and !schdGbCd.equals('all') and !schdGbCd.equals('')">
+			AND schd_gb_cd =#{schdGbCd}
+		</if>
+		AND STRT_DT between #{startDate} and #{endDate}
+	</select>
+	
+	<select id="scheduleView" parameterType="map"  resultType="map">
+		select 
+			schd_id
+			, 	 getFormatDate(strt_dt) AS strt_dt
+			, 	 strt_tm AS strt_tm
+			, 	 end_tm AS end_tm
+			, 	 schd_gb_cd as schd_gb_cd
+			, 	 title AS cont
+			, 	 crt_usr_id as crt_usr_id
+			, 	 fdisplay as fdisplay
+		from(
+					SELECT  schd_id as schd_id
+					, 	 SUBSTR(cont,0,15) AS title
+					,  schd_gb_cd AS schd_gb_cd
+					,   (select ext1_cd from sm002 where tp_cd = '90075' and cd = schd_gb_cd) AS colors
+					,	trim(getFormatDate(strt_dt)|| NVL2(strt_tm, 'T'||getFormatTime(strt_tm || '00'), ' ')) AS strt_dttm
+					,	NVL2(strt_tm, 'false', 'true') AS all_day
+					, 	trim(getFormatDate(end_dt)|| NVL2(end_tm, 'T'||getFormatTime(end_tm || '00'), ' ')) AS end_dttm 
+					,	STRT_DT AS STRT_DT
+					,	END_DT AS END_DT
+					,   STRT_TM as STRT_TM
+					,   end_tm as end_tm
+					,   crt_usr_id as crt_usr_id
+					,   schd_gb_cd as fdisplay
+					FROM om071 o1
+					WHERE  use_yn ='Y'
+					AND (schd_gb_cd != '010000' OR  (schd_gb_cd = '010000' AND crt_usr_id = #{login_usr_id}))
+					union all
+					select PNCT_ID as schd_id
+					,	SUBSTR((select sm.cd_nm from sm002 sm where sm.tp_cd = '90064' AND sm.cd = VACT_GB_CD),0,15) AS title
+					,	VACT_GB_CD AS schd_gb_cd
+					,	(select ext1_cd from sm002 where tp_cd = '90075' and cd = '020000') AS colors
+					,	trim(getFormatDate(STRT_DT)|| NVL2(crt_tm, 'T'||getFormatTime(crt_tm || '00'), ' ')) AS strt_dttm
+					,	NVL2(crt_tm, 'false', 'true') AS all_day
+					,	trim(getFormatDate(END_DT)|| NVL2(crt_tm, 'T'||getFormatTime(crt_tm || '00'), ' ')) AS end_dttm
+					,	STRT_DT AS STRT_DT
+					,	END_DT AS END_DT
+					,   substr(crt_tm,0,4) as end_tm
+					,   substr(crt_tm,0,4) as STRT_TM
+					,   crt_usr_id as crt_usr_id
+					,   '200000' as fdisplay
+					FROM om075 o1
+					WHERE  use_yn ='Y'
+			)WHERE  1=1
+			AND SCHD_ID = #{schd_id} AND STRT_DT = #{strt_dt} AND END_DT = #{end_dt}
+	</select>
+	
+	<select id="schColorList" parameterType="map"  resultType="map">
+		SELECT 
+				cd
+			, 	cd_nm
+			,	ext1_cd
+		FROM 
+			sm002 
+		WHERE use_yn ='Y' 
+		AND tp_cd = #{tpCd}
+	</select>
+	
+	 <select id="nextval" parameterType="map" resultType="map">
+        SELECT  som071.NEXTVAL schd_id
+          FROM  dual
+    </select>
+    
+	<insert id="scheduleSave" parameterType="map">
+		 INSERT INTO om071
+            (
+            		schd_id
+            	,	usr_id
+            	,	strt_dt
+            	,	end_dt
+            	,	strt_tm
+            	,	end_tm
+            	, 	schd_gb_cd
+            	,	cont
+                ,   use_yn
+                ,   crt_dt
+                ,   crt_tm
+                ,   crt_usr_id
+                ,   mod_dt
+                ,   mod_tm
+                ,   mod_usr_id
+            )
+            VALUES
+            (
+            	  	#{schd_id}
+            	,   #{usr_id}
+            	,	#{strtDt}
+            	,	#{endDt}
+            	,	#{strtTm}
+            	,	#{endTm}
+            	, 	#{schdGbCd}
+            	, 	#{cont}
+            	,   'Y'
+                ,   to_char(sysdate, 'yyyymmdd')
+                ,   to_char(sysdate, 'hh24miss')
+                ,   #{login_usr_id}
+                ,   to_char(sysdate, 'yyyymmdd')
+                ,   to_char(sysdate, 'hh24miss')
+                ,   #{login_usr_id}    
+            )
+	</insert>
+	<update id="scheduleModfy" parameterType="map">
+		 UPDATE om071
+		 SET
+		 		usr_id				= #{usr_id}
+		 	,	strt_dt			= #{strtDt}
+           	,	end_dt			= #{endDt}
+           	,	strt_tm			= #{strtTm}
+           	,	end_tm			= #{endTm}
+           	, 	schd_gb_cd 	= #{schdGbCd}
+           	,	cont 				= #{cont}
+		 	,   mod_dt 			= to_char(sysdate, 'yyyymmdd')
+            ,   mod_tm 			= to_char(sysdate, 'hh24miss')
+            ,   mod_usr_id 		= #{login_usr_id}
+		 WHERE 
+		 		schd_id 	= #{schd_id}
+	</update>
+	
+	<update id="scheduleDel" parameterType="map">
+		 UPDATE om071
+		 SET
+		 		use_yn			= 'N'
+		 WHERE 
+		 		schd_id 	= #{schd_id}
+	</update>
+</mapper>        

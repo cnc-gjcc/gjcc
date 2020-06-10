@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="or042">
+
+  <!-- 교육과정 설문조사 결과 조회 -->
+  <select id="selectSuvyInfm" parameterType="map" resultType="map">
+      SELECT EDU_ID 
+           , SUVY_ID 
+           , SUVY_INFM 
+           , QST_NM 
+           , ANS_NM 
+           , ETC 
+        FROM OR042
+       WHERE EDU_ID = #{edu_Id}
+         AND SUVY_ID = #{suvy_Id}
+         AND USE_YN = 'Y'         
+  
+  </select>      
+
+ <!-- 교육과정 설문조사 결과 Insert, Update -->
+  <update id="saveSuvyInfm" parameterType="map">
+    MERGE INTO OR042
+    USING dual
+    ON
+    (
+      EDU_ID = #{edu_Id} AND SUVY_ID = #{suvy_Id}
+    )
+    WHEN MATCHED THEN
+      UPDATE
+      SET
+             USE_YN = 'Y'
+           , SUVY_INFM = #{suvy_Infm}
+           , QST_NM = #{qst_Nm} 
+           , ANS_NM = #{ans_Nm}
+           , ETC = #{etc}
+           , MOD_DT = to_char(sysdate, 'yyyyMMdd')
+           , MOD_TM = to_char(sysdate, 'hh24miss')
+           , MOD_USR_ID = #{login_usr_id}    
+    WHEN NOT MATCHED THEN
+      INSERT
+      ( 
+             EDU_ID          
+           , SUVY_ID          
+           , SUVY_INFM      
+           , QST_NM  
+           , ANS_NM
+           , ETC       
+           , USE_YN 
+           , CRT_DT 
+           , CRT_TM 
+           , CRT_USR_ID 
+           , MOD_DT 
+           , MOD_TM 
+           , MOD_USR_ID 
+      )
+      VALUES
+      (
+            #{edu_Id}
+          , #{suvy_Id}
+          , #{suvy_Infm}
+          , #{qst_Nm} 
+          , #{ans_Nm}
+          , #{etc}
+          , 'Y'
+          , to_char(sysdate, 'yyyyMMdd')
+          , to_char(sysdate, 'hh24miss')
+          , #{login_usr_id}
+          , to_char(sysdate, 'yyyyMMdd')
+          , to_char(sysdate, 'hh24miss')
+          , #{login_usr_id}
+      )
+
+  </update>
+  
+</mapper>

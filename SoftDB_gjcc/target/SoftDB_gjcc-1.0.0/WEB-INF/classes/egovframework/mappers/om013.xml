@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="om013">
+
+
+		<insert id="civilInsert" parameterType="map">
+			INSERT INTO om013
+			(
+				comm_id
+				,	tbbs_id
+				,	parnt_comm_id
+				,	usr_id
+				,	cntr_nm
+				,	team_nm
+				,	usr_nm
+				,	comm_cont
+				,	use_yn
+				,	crt_dt
+				,	crt_tm
+				,	crt_usr_id
+				,	mod_dt
+				,	mod_tm
+				,	mod_usr_id
+			)
+			VALUES
+			(
+					som013.NEXTVAL
+				,	#{tbbs_id}
+			<if test="parnt_tbbs_id != null and !parnt_tbbs_id.equals('')">
+				,	#{parnt_tbbs_id}
+			</if>
+			<if test="parnt_tbbs_id == null">
+				,	''
+			</if>
+				,	#{sendingUid}
+				,	(select OU from om061 where UID_ = #{sendingUid})
+				,	(select OU from om061 where UID_ = #{sendingUid})
+				,	(select DISPLAYNAME from om061 where UID_ = #{sendingUid})
+				,	#{comm_cntn}
+				,	'Y'
+				,	to_char(sysdate, 'yyyymmdd')
+				,	to_char(sysdate, 'hh24miss')
+				,	#{sendingUid}
+				,	to_char(sysdate, 'yyyymmdd')
+				,	to_char(sysdate, 'hh24miss')
+				,	#{sendingUid}	
+			)
+		</insert>
+
+		
+		<update id="civilUpdate" parameterType="map">
+			UPDATE om013
+			<if test="use_yn == null">
+				SET 	comm_cont = #{comm_cntn}
+					,	mod_dt = to_char(sysdate, 'yyyymmdd')
+					,	mod_tm = to_char(sysdate, 'hh24miss')
+					,	mod_usr_id = #{sendingUid}
+			</if>
+			<if test="use_yn != null">
+				SET	use_yn = #{use_yn}
+					,	mod_dt = to_char(sysdate, 'yyyymmdd')
+					,	mod_tm = to_char(sysdate, 'hh24miss')
+					,	mod_usr_id = #{sendingUid}
+			</if>
+			WHERE comm_id = #{comm_id}
+	  </update>
+
+		<select id="civilSelectList" parameterType="map" resultType="map">
+			SELECT 	comm_id
+					,	tbbs_id
+					,	parnt_comm_id
+					,	usr_id
+					,	cntr_nm
+					,	team_nm
+					,	usr_nm
+					,	comm_cont
+					,	use_yn
+					,	getFormatDate(crt_dt) AS crt_dt_format
+					,	getFormatTime(crt_tm) AS crt_tm_format
+					,	crt_usr_id
+					,	getFormatDate(mod_dt) AS mod_dt_format
+					,	getFormatTime(mod_tm) AS mod_tm_format
+					,	mod_usr_id
+					,	CASE WHEN usr_id = #{sendingUid} then 'Y' else 'N' END AS is_own 
+			FROM om013
+			WHERE 1 = 1
+			AND use_yn = 'Y'
+		<if test="tbbs_id != null and !tbbs_id.equals('')">
+			AND tbbs_id = #{tbbs_id}
+		</if>
+			ORDER BY comm_id ASC
+		</select>
+
+
+
+		<select id="selectList" parameterType="map" resultType="map">
+			SELECT 	comm_id
+					,	tbbs_id
+					,	parnt_comm_id
+					,	usr_id
+					,	cntr_nm
+					,	team_nm
+					,	usr_nm
+					,	comm_cont
+					,	use_yn
+					,	getFormatDate(crt_dt) AS crt_dt_format
+					,	getFormatTime(crt_tm) AS crt_tm_format
+					,	crt_usr_id
+					,	getFormatDate(mod_dt) AS mod_dt_format
+					,	getFormatTime(mod_tm) AS mod_tm_format
+					,	mod_usr_id
+					,	CASE WHEN usr_id = #{login_usr_id} then 'Y' else 'N' END AS is_own 
+			FROM om013
+			WHERE 1 = 1
+			AND use_yn = 'Y'
+		<if test="tbbs_id != null and !tbbs_id.equals('')">
+			AND tbbs_id = #{tbbs_id}
+		</if>
+			ORDER BY comm_id ASC
+		</select>
+		
+		<select id="select" parameterType="map" resultType="map">
+			SELECT 	comm_id
+					,	tbbs_id
+					,	parnt_comm_id
+					,	usr_id
+					,	cntr_nm
+					,	team_nm
+					,	usr_nm
+					,	comm_cont
+					,	use_yn
+					,	getFormatDate(crt_dt) AS crt_dt_format
+					,	getFormatTime(crt_tm) AS crt_tm_format
+					,	crt_usr_id
+					,	getFormatDate(mod_dt) AS mod_dt_format
+					,	getFormatTime(mod_tm) AS mod_tm_format
+					,	mod_usr_id
+			FROM om013
+			WHERE comm_id = #{comm_id}
+		</select>
+
+		
+		<insert id="insert" parameterType="map">
+			INSERT INTO om013
+			(
+				comm_id
+				,	tbbs_id
+				,	parnt_comm_id
+				,	usr_id
+				,	cntr_nm
+				,	team_nm
+				,	usr_nm
+				,	comm_cont
+				,	use_yn
+				,	crt_dt
+				,	crt_tm
+				,	crt_usr_id
+				,	mod_dt
+				,	mod_tm
+				,	mod_usr_id
+			)
+			VALUES
+			(
+					som013.NEXTVAL
+				,	#{tbbs_id}
+			<if test="parnt_tbbs_id != null and !parnt_tbbs_id.equals('')">
+				,	#{parnt_tbbs_id}
+			</if>
+			<if test="parnt_tbbs_id == null">
+				,	''
+			</if>
+				,	#{login_usr_id}
+				,	(select cd_nm from sm002 where tp_cd = '90002' and cd = (select cntr_cd from om001 where usr_id = #{login_usr_id}))
+				,	(select cd_nm from sm002 where tp_cd = '90003' and cd = (select team_cd from om001 where usr_id = #{login_usr_id}))
+				,	#{login_usr_nm}				
+		<![CDATA[
+				,	replace(replace(#{comm_cntn}, CHR(10), '<br>'), CHR(13), '<br>')
+			]]>
+				<!-- ,	#{comm_cntn} -->
+				,	'Y'
+				,	to_char(sysdate, 'yyyymmdd')
+				,	to_char(sysdate, 'hh24miss')
+				,	#{login_usr_id}
+				,	to_char(sysdate, 'yyyymmdd')
+				,	to_char(sysdate, 'hh24miss')
+				,	#{login_usr_id}	
+			)
+		</insert>
+		
+		<update id="update" parameterType="map">
+			UPDATE om013
+			<if test="use_yn == null">
+				SET 	comm_cont = #{comm_cntn}
+					,	mod_dt = to_char(sysdate, 'yyyymmdd')
+					,	mod_tm = to_char(sysdate, 'hh24miss')
+					,	mod_usr_id = #{login_usr_id}
+			</if>
+			<if test="use_yn != null">
+				SET	use_yn = #{use_yn}
+					,	mod_dt = to_char(sysdate, 'yyyymmdd')
+					,	mod_tm = to_char(sysdate, 'hh24miss')
+					,	mod_usr_id = #{login_usr_id}
+			</if>
+			WHERE comm_id = #{comm_id}
+	</update>
+</mapper>

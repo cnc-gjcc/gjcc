@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="om019">
+
+	<sql id="where">
+		 WHERE  1 = 1
+		<if test="fl_id != null">
+		   AND  t1.fl_id = #{fl_id}
+		</if>
+		<if test="tbl_nm != null">
+		   AND  t1.tbl_nm = #{tbl_nm}
+		</if>
+		<if test="tbl_pk != null">
+		   AND  t1.tbl_pk = #{tbl_pk}
+		</if>
+		<if test="srhText != null">
+			<!-- 조회조건에 따라 칼럼 수정해서 사용하세요 -->
+			<if test="srhType == fl_id">
+			   AND  upper(t1.fl_id) LIKE '%' || upper(#{srhText}) || '%'
+			</if>
+		</if>
+	</sql>
+
+	<select id="selectList" parameterType="map" resultType="map">
+		<if test="page != null">
+		SELECT A2.* FROM (
+		</if>
+			SELECT ROW_NUMBER() OVER(ORDER BY ROWNUM) row_no
+				  ,  CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) pagenum
+				  ,  CEIL((COUNT(1) OVER()) / #{rows}) totpagecount
+				  ,  CEIL(COUNT(1) OVER()) totrowcount
+				  ,  A1.*                                                        
+			 FROM (                                                            
+				   SELECT  t1.fl_id, t1.tbl_nm, t1.tbl_pk, t1.loc_fl_nm, t1.svr_fl_nm, t1.svr_sv_pth, t1.fl_sz, t1.use_yn, t1.crt_dt, t1.crt_tm, t1.crt_usr_id, t1.mod_dt, t1.mod_tm, t1.mod_usr_id
+					 FROM  om019  t1
+				   <include refid="where" />
+					ORDER  BY ${sidx} ${sord}
+				  ) A1
+		<if test="page != null">
+			  ) A2
+		 WHERE pagenum = #{page}
+		</if>
+	</select>
+
+	<select id="select" parameterType="map" resultType="map">
+		SELECT  ROWNUM AS row_no, t1.fl_id, t1.tbl_nm, t1.tbl_pk, t1.loc_fl_nm, t1.svr_fl_nm, t1.svr_sv_pth, t1.fl_sz, t1.use_yn, t1.crt_dt, t1.crt_tm, t1.crt_usr_id, t1.mod_dt, t1.mod_tm, t1.mod_usr_id
+		  FROM  om019  t1
+		 WHERE  t1.fl_id = #{fl_id}
+	</select>
+
+	<insert id="duplicate" parameterType="map">
+		INSERT  INTO om019 (fl_id
+			 ,  tbl_nm
+			 ,  tbl_pk
+			 ,  loc_fl_nm
+			 ,  svr_fl_nm
+			 ,  svr_sv_pth
+			 ,  fl_sz
+			 ,  use_yn
+			 ,  crt_dt
+			 ,  crt_tm
+			 ,  crt_usr_id
+			 ,  mod_dt
+			 ,  mod_tm
+			 ,  mod_usr_id
+			 <if test = "tbl_pk2 != null and !tbl_pk2.equals('')">
+			 ,  tbl_pk2
+			 </if>
+			) VALUES (som019.NEXTVAL
+			 ,  #{tbl_nm}
+			 ,  #{tbl_pk}
+			 ,  (select loc_fl_nm from om019 where fl_id = #{fl_id})
+             ,  (select svr_fl_nm from om019 where fl_id = #{fl_id})
+             ,  (select svr_sv_pth from om019 where fl_id = #{fl_id})
+             ,  (select fl_sz from om019 where fl_id = #{fl_id})
+			 ,  'Y'
+			 ,   TO_CHAR(SYSDATE, 'YYYYMMDD')
+			 ,   TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+			 <choose>
+				<when test = "sendingUid != null and !sendingUid.equals('')">
+			 , 	  #{sendingUid}
+			 	</when>
+			 	<otherwise>
+			 ,    #{login_usr_id}
+			 	</otherwise>
+			 </choose>
+			 ,   TO_CHAR(SYSDATE, 'YYYYMMDD')
+			 ,   TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+			 <choose>
+				<when test = "sendingUid != null and !sendingUid.equals('')">
+			 , 	  #{sendingUid}
+			 	</when>
+			 	<otherwise>
+			 ,    #{login_usr_id}
+			 	</otherwise>
+			 </choose>
+ 			 <if test = "tbl_pk2 != null and !tbl_pk2.equals('')">
+			 ,  #{ tbl_pk2 }
+			 </if>
+		)
+	</insert>
+
+	<insert id="insert" parameterType="map">
+		INSERT  INTO om019 (fl_id
+			 ,  tbl_nm
+			 ,  tbl_pk
+			 ,  loc_fl_nm
+			 ,  svr_fl_nm
+			 ,  svr_sv_pth
+			 ,  fl_sz
+			 ,  use_yn
+			 ,  crt_dt
+			 ,  crt_tm
+			 ,  crt_usr_id
+			 ,  mod_dt
+			 ,  mod_tm
+			 ,  mod_usr_id
+			 <if test = "tbl_pk2 != null and !tbl_pk2.equals('')">
+			 ,  tbl_pk2
+			 </if>
+			) VALUES (som019.NEXTVAL
+			 ,  #{tbl_nm}
+			 ,  #{tbl_pk}
+			 ,  #{locfl_nm}
+			 ,  #{svrfl_nm}
+			 ,  #{svrfl_pth}
+			 ,  #{fl_sz}
+			 ,  'Y'
+			 ,   TO_CHAR(SYSDATE, 'YYYYMMDD')
+			 ,   TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+			 <choose>
+				<when test = "sendingUid != null and !sendingUid.equals('')">
+			 , 	  #{sendingUid}
+			 	</when>
+			 	<otherwise>
+			 ,    #{login_usr_id}
+			 	</otherwise>
+			 </choose>
+			 ,   TO_CHAR(SYSDATE, 'YYYYMMDD')
+			 ,   TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+			 <choose>
+				<when test = "sendingUid != null and !sendingUid.equals('')">
+			 , 	  #{sendingUid}
+			 	</when>
+			 	<otherwise>
+			 ,    #{login_usr_id}
+			 	</otherwise>
+			 </choose>
+ 			 <if test = "tbl_pk2 != null and !tbl_pk2.equals('')">
+			 ,  #{ tbl_pk2 }
+			 </if>
+		)
+	</insert>
+
+	<update id="update" parameterType="map">
+		UPDATE  om019
+		   SET  tbl_nm = #{tbl_nm}
+			 ,  tbl_pk = #{tbl_pk}
+			 ,  loc_fl_nm = #{locfl_nm}
+			 ,  svr_fl_nm = #{svrfl_nm}
+			 ,  svr_sv_pth = #{svrfl_pth}
+			 ,  fl_sz = #{fl_sz}
+			 ,  use_yn = #{use_yn}
+			 ,  mod_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			 ,  mod_tm = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+			 ,  mod_usr_id = #{login_usr_id}
+		 WHERE  fl_id = #{fl_id}
+	</update>
+
+	<delete id="delete" parameterType="map">
+		DELETE FROM om019
+		 WHERE fl_id = #{fl_id}
+	</delete>
+
+	<delete id="deleteList" parameterType="map">
+		DELETE  FROM om019
+		 WHERE  tbl_nm = #{tbl_nm}
+		   AND  tbl_pk = #{tbl_pk}
+	</delete>
+
+	<select id="fileList" parameterType="map" resultType="map">
+		SELECT  ROWNUM row_no
+			, t1.fl_id
+			, t1.tbl_nm
+			, t1.tbl_pk
+			, t1.tbl_pk2
+			, t1.loc_fl_nm
+			, t1.svr_fl_nm
+			, t1.svr_sv_pth
+			, t1.fl_sz
+			, t1.use_yn
+			, t1.crt_dt
+			, t1.crt_tm
+			, t1.crt_usr_id
+			, t1.mod_dt
+			, t1.mod_tm
+			, t1.mod_usr_id
+			, 'X' AS file_delete
+			, changeNumberFormat(CEIL(FL_SZ/1024)) || 'KB' AS FL_KB_SZ
+		FROM  om019  t1
+		WHERE 1 = 1
+			AND use_yn = 'Y'  
+			AND t1.tbl_nm = #{tbl_nm}
+			AND  t1.tbl_pk = #{tbl_pk}
+			<if test = "tbl_pk2 != null and !tbl_pk2.equals('')">
+			AND t1.tbl_pk2 = #{tbl_pk2}
+			</if>
+		<if test = "orderby != null and orderby.equals('crtTime')">
+			ORDER BY crt_dt asc, crt_tm asc
+		</if>
+	</select>
+	
+	<select id="dumySelect">
+		SELECT 1 FROM dual
+	</select>
+	
+	<update id = "deleteFileUseYn" parameterType="map">
+		UPDATE  om019
+		SET  use_yn = #{use_yn}
+			,  mod_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			,  mod_tm = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+			,  mod_usr_id = #{login_usr_id}
+		WHERE  fl_id = #{fl_id}
+	</update>
+
+	<insert id="reInsert" parameterType="map">
+		INSERT 	INTO OM019 
+		SELECT 	SOM019.NEXTVAL AS FL_ID, TBL_NM, #{tbl_pk} AS TBL_PK, TBL_PK2, TBL_PK3, LOC_FL_NM, SVR_FL_NM, SVR_SV_PTH, FL_SZ, USE_YN
+		        , TO_CHAR(SYSDATE, 'YYYYMMDD'), TO_CHAR(SYSTIMESTAMP, 'HH24MISS'), #{login_usr_id}
+		        , TO_CHAR(SYSDATE, 'YYYYMMDD'), TO_CHAR(SYSTIMESTAMP, 'HH24MISS'), #{login_usr_id}
+		FROM OM019 WHERE FL_ID = #{fl_id}
+	</insert>		
+</mapper>

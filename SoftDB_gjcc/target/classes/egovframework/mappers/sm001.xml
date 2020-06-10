@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="sm001">
+	
+		<resultMap id="MenuMap" type="map">
+		<result property="text" column="TEXT"/>
+		<result property="id" column="ID"/>
+	</resultMap>
+
+	<select id="codetypelist" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				SELECT 0
+					,	tp_cd
+					,	tp_nm
+					,	ext1_nm
+					,	ext2_nm
+					,	ext3_nm
+					,	ext4_nm
+					,	ext5_nm
+					,	ext6_nm
+					,	ext7_nm
+					,	ext8_nm
+					,	ext9_nm
+					,	use_yn
+					,	crt_dt
+					,	crt_tm
+					,	mod_dt
+					,	mod_tm
+				FROM sm001
+				WHERE 1 = 1
+				<if test="srchtype != null and !srchval.equals('')">
+					<if test="srchtype.equals('tp_cd')">
+						and tp_cd = #{srchval}
+					</if>
+					<if test="srchtype.equals('tp_nm')">
+						and upper(tp_nm) like '%' || upper(#{srchval}) || '%' || 
+					</if>
+					<if test="srchtype.equals('all')">
+						and (tp_cd like '%' || #{srchval} || '%' 
+						OR upper(tp_nm) like '%' || upper(#{srchval}) || '%'
+						)						
+					</if>
+				</if>
+				<if test="ext9nm">
+					and ext9_nm = #{ext9nm}
+				</if>
+				<if test="!notuse">
+					and use_yn = 'Y'
+				</if>
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>
+	
+	<select id="codetypelistAll" parameterType="map" resultMap="MenuMap">
+				SELECT 	tp_nm AS TEXT
+					,	tp_cd AS ID
+				FROM sm001
+				WHERE 1 = 1
+				<if test="ext9nm">
+					and ext9_nm = #{ext9nm}
+				</if>
+				<if test="!notuse">
+					and use_yn = 'Y'
+				</if>
+	</select>
+	
+	<select id="codetypespec" parameterType="map" resultType="map">
+		SELECT 0
+			,	tp_cd
+			,	tp_nm
+			,	ext1_nm
+			,	ext2_nm
+			,	ext3_nm
+			,	ext4_nm
+			,	ext5_nm
+			,	ext6_nm
+			,	ext7_nm
+			,	ext8_nm
+			,	ext9_nm
+			,	use_yn
+			,	crt_dt
+			,	crt_tm
+			,	mod_dt
+			,	mod_tm
+		FROM sm001
+		WHERE tp_cd = #{tp_cd}
+	</select>
+	
+
+	<insert id="insert" parameterType="map">
+		INSERT INTO sm001
+		(
+				tp_cd
+			,	tp_nm
+			,	ext1_nm
+			,	ext2_nm
+			,	ext3_nm
+			,	ext4_nm
+			,	ext5_nm
+			,	ext6_nm
+			,	ext7_nm
+			,	ext8_nm
+			,	ext9_nm
+			,	use_yn
+			,	crt_dt
+			,	crt_tm
+			,	crt_usr_id
+			,	mod_dt
+			,	mod_tm
+			,	mod_usr_id
+		)
+		VALUES
+		(
+				#{tp_cd}
+			,	#{tp_nm}
+			,	#{ext1_nm}
+			,	#{ext2_nm}
+			,	#{ext3_nm}
+			,	#{ext4_nm}
+			,	#{ext5_nm}
+			,	#{ext6_nm}
+			,	#{ext7_nm}
+			,	#{ext8_nm}
+			,	#{ext9_nm}
+			<if test="use_yn != null">
+			,	#{use_yn}
+			</if>
+			<if test="use_yn == null">
+			,	'Y'
+			</if>
+			,	to_char(sysdate, 'yyyymmdd')
+			,	to_char(sysdate, 'hh24miss')
+			,	#{login_usr_id}
+			,	to_char(sysdate, 'yyyymmdd')
+			,	to_char(sysdate, 'hh24miss')
+			,	#{login_usr_id}
+		)
+	</insert>
+
+	<update id="update" parameterType="map">
+		UPDATE sm001
+			SET	tp_nm = #{tp_nm}
+				,	ext1_nm = #{ext1_nm}
+				,	ext2_nm = #{ext2_nm}
+				,	ext3_nm = #{ext3_nm}
+				,	ext4_nm = #{ext4_nm}
+				,	ext5_nm = #{ext5_nm}
+				,	ext6_nm = #{ext6_nm}
+				,	ext7_nm = #{ext7_nm}
+				,	ext8_nm = #{ext8_nm}
+				,	ext9_nm = #{ext9_nm}
+				,	mod_dt = to_char(sysdate, 'yyyymmdd')
+				,	mod_tm = to_char(sysdate, 'hh24miss')
+				,	mod_usr_id = #{login_usr_id}
+			<if test="use_yn != null">
+				,	use_yn = #{use_yn}
+			</if>
+			<if test="use_yn == null">
+				,	use_yn = 'Y'
+			</if>
+		 WHERE tp_cd = #{tp_cd}
+	</update>
+</mapper>

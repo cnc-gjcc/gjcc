@@ -1,0 +1,432 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+  <mapper namespace="st031">
+  
+
+  
+  <select id="counselingYearResult" parameterType="map" resultType="map">
+  <![CDATA[
+    WITH DATA AS (
+      SELECT YEAR, ROUND((SUM(H07H09)+SUM(H09H18)+SUM(H18H22))/SUM(DAY_CNT),0) DAY_AGE, SUM(H07H09)+SUM(H09H18)+SUM(H18H22) TOT_CNT
+      FROM (     
+          SELECT YEAR, MONTH, GB, DAY_CNT, H07H09, H09H18, H18H22
+          FROM ST031
+          WHERE USE_YN='Y'
+          AND YEAR > TO_CHAR(SYSDATE,'YYYY')-5
+  ]]>           
+          <if test="searchGb != null and searchGb.equals('Day') ">
+          UNION ALL 
+  <![CDATA[   
+          SELECT  TO_CHAR(SYSDATE,'YYYY') AS YEAR, TO_CHAR(SYSDATE,'MM') AS MONTH, GB, SUM(DAY_CNT) AS DAY_CNT, SUM(CNT_09) AS H07H09, SUM(CNT_17) H09H18, SUM(CNT_18) H18H22
+          FROM(
+                   SELECT   RCV_DT,  1 AS DAY_CNT,
+                            CASE WHEN (SELECT MAX(HDY_NM) FROM OM004 WHERE RCV_DT BETWEEN STRT_DT AND END_DT AND USE_YN='Y' ) IS NOT NULL
+                                    OR (SELECT TO_CHAR(TO_DATE(RCV_DT,'YYYYMMDD'),'D') FROM DUAL ) = 1 THEN '10'
+                                  WHEN (SELECT MAX(HDY_NM) FROM OM004 WHERE RCV_DT BETWEEN STRT_DT AND END_DT AND USE_YN='Y' ) IS NOT NULL
+                                    OR (SELECT TO_CHAR(TO_DATE(RCV_DT,'YYYYMMDD'),'D') FROM    DUAL ) = 7 THEN '7'
+                                  ELSE '2'
+                            END GB,
+                            (SELECT MAX(HDY_NM) FROM OM004 WHERE RCV_DT BETWEEN STRT_DT AND END_DT AND USE_YN='Y' ) HDY_NM,
+                            COUNT(1) AS CNT,
+                            SUM(CASE WHEN RCV_TM < '090000' THEN 1 ELSE 0 END) CNT_09,
+                            SUM(CASE  WHEN RCV_TM BETWEEN '090000' AND '175959' THEN 1 ELSE 0 END) CNT_17,
+                            SUM(CASE WHEN RCV_TM >= '180000' THEN 1 ELSE 0 END) CNT_18
+                   FROM     CH001 A
+                   WHERE    USE_YN='Y'
+                   AND      RCV_USR_ID IN (SELECT USR_ID FROM OM001  WHERE CNTR_CD = '010000' AND USE_YN  = 'Y' )
+                   AND      RCV_DT BETWEEN TO_CHAR(SYSDATE,'YYYYMM')||'01' AND TO_CHAR(SYSDATE - 1 ,'YYYYMMDD')
+                   GROUP BY RCV_DT
+                   ORDER BY RCV_DT
+          )GROUP BY GB
+  ]]>           
+          </if>
+      )  
+    
+      GROUP BY YEAR
+      ORDER BY YEAR
+    )
+  <![CDATA[     
+    SELECT  ROWNUM RN,
+            A.YEAR, TO_CHAR(A.TOT_CNT, '999,999,990') AS TOT_CNT, TO_CHAR(A.DAY_AGE, '999,999,990') AS DAY_AGE,
+            TO_CHAR(ROUND((A.DAY_AGE-(SELECT DAY_AGE FROM DATA B WHERE B.YEAR = A.YEAR-1))/(SELECT DAY_AGE FROM DATA B WHERE B.YEAR = A.YEAR-1)*100,1), '999,999,990.9') AS WITH_RATE,
+            CASE WHEN (A.DAY_AGE-(SELECT DAY_AGE FROM DATA B WHERE B.YEAR = A.YEAR-1) < 0) THEN '&#8595;' ELSE '&#8593;' END GAP
+    FROM DATA A
+    WHERE A.YEAR > TO_CHAR(SYSDATE,'YYYY')-4
+    ORDER BY YEAR
+  ]]>   
+  </select>
+
+
+  <select id="counselingYearCivil" parameterType="map" resultType="map">
+  <![CDATA[
+    WITH DATA AS (
+          SELECT TO_CHAR(SYSDATE,'YYYY')-YEAR+1 AS RN, YEAR , 'CNT' GB, SUM(STAT_SCNT) AS TOT_CNT,
+                 SUM(DECODE(CD,'10000000', STAT_SCNT,0)) AS DO_CNT,
+                 SUM(DECODE(CD,'20000000', STAT_SCNT,0)) AS SJ_CNT,
+                 SUM(DECODE(CD,'30000000', STAT_SCNT,0)) AS SS_CNT,
+                 SUM(DECODE(CD,'10000000',0,'20000000',0,'30000000',0, STAT_SCNT)) AS ETC_CNT
+          FROM (
+              SELECT YEAR , MONTH, CD, nm, STAT_SCNT
+              FROM ST030
+              WHERE GB='CEX'
+              AND USE_YN='Y'
+            
+              AND YEAR > TO_CHAR(SYSDATE,'YYYY')-4
+  ]]>           
+          <if test="searchGb != null and searchGb.equals('Day') ">
+             UNION ALL 
+    
+              SELECT  TO_CHAR(SYSDATE,'YYYY') AS YEAR, TO_CHAR(SYSDATE,'MM') AS MONTH,  NVL(C.CTG_CD,'Etc') AS CTG_CD,  MAX(NVL(CTG_CD_NM,'기타')) AS CTG_NM, COUNT(1)
+              FROM  CH001 S,
+                    (
+                      SELECT CTG_CD, CTG_CD_NM
+                      FROM OM020
+                      WHERE USE_YN   = 'Y'
+                      AND CTG_LVL  = 1
+                      ORDER BY CTG_CD
+                    ) C
+              WHERE S.USE_YN='Y'
+              <!-- AND S.CTG_EX_CD = C.CTG_CD(+)-->
+              AND S.CTG_LG_CD = C.CTG_CD(+)
+              AND S.RCV_USR_ID IN (SELECT USR_ID FROM OM001 WHERE   CNTR_CD = '010000'  AND     USE_YN  = 'Y' )
+              AND S.RCV_DT BETWEEN TO_CHAR(SYSDATE,'YYYYMM')||'01' AND TO_CHAR(SYSDATE - 1,'YYYYMMDD')
+              GROUP BY  NVL(C.CTG_CD,'Etc')
+          </if>             
+          )
+          GROUP BY YEAR
+    )
+  <![CDATA[     
+    SELECT RN, YEAR, GB, TO_CHAR(TOT_CNT, '999,999,990') AS TOT_CNT, TO_CHAR(DO_CNT, '999,999,990') AS DO_CNT, TO_CHAR(SJ_CNT, '999,999,990') AS SJ_CNT, TO_CHAR(SS_CNT, '999,999,990') AS SS_CNT, TO_CHAR(ETC_CNT, '999,999,990') AS ETC_CNT
+    FROM DATA
+    UNION ALL
+    SELECT RN, YEAR, 'RATE' AS GB, TO_CHAR(ROUND(TOT_CNT/TOT_CNT*100,1), '999,999,990.9')||' %', TO_CHAR(ROUND(DO_CNT/TOT_CNT*100,1), '999,999,990.9')||' %', TO_CHAR(ROUND(SJ_CNT/TOT_CNT*100,1), '999,999,990.9')||' %', TO_CHAR(ROUND(SS_CNT/TOT_CNT*100,1), '999,999,990.9')||' %', TO_CHAR(ROUND(ETC_CNT/TOT_CNT*100,1), '999,999,990.9')||' %'
+    FROM DATA
+    ORDER BY YEAR, GB
+  ]]>   
+  </select> 
+
+  <select id="counselingYearGBCdNm" parameterType="map" resultType="map">
+     
+     <if test="gb != null and gb.equals('CTG') ">     
+      SELECT CTG_CD AS CD
+           , CTG_CD_NM AS NM
+        FROM OM020    
+       WHERE CTG_LVL = '1'
+         AND USE_YN = 'Y'
+       ORDER BY CD_ORD     
+      </if>
+      
+     <if test="gb != null and gb.equals('ACT') ">     
+      SELECT CD AS CD
+           , CD_NM AS NM
+        FROM SM002    
+       WHERE TP_CD = '90014'
+         AND USE_YN = 'Y'
+       ORDER BY CD_ORD     
+      </if>
+ 
+          
+<!--      
+  <![CDATA[ 
+    SELECT CD, NM
+    FROM ST030  
+    WHERE GB = #{gb}
+    AND USE_YN = 'Y'
+    AND YEAR||MONTH = ( SELECT MAX(YEAR||MONTH) FROM ST030  WHERE GB = #{gb} AND USE_YN = 'Y' AND YEAR > TO_CHAR(SYSDATE,'YYYY')-4)
+    ORDER BY CD
+  ]]>   
+ 
+ --> 
+  </select>
+  
+    
+  <select id="counselingYearCTG" parameterType="map" resultType="map">
+	  WITH DATA AS 
+	  (  
+	   SELECT YEAR, TO_CHAR(SYSDATE,'YYYY')-YEAR+1 AS RN, 'CNT' GB, 
+	   (C001000000 + C002000000 + C003000000 + C004000000 + C005000000 + C006000000 + C007000000 + C008000000 + C009000000 + C010000000 + C011000000) AS TOT,
+	   C001000000, 
+	   C002000000, 
+	   C003000000, 
+	   C004000000, 
+	   C005000000, 
+	   C006000000, 
+	   C007000000, 
+	   C008000000, 
+	   C009000000, 
+	   C010000000, 
+	   C011000000
+	  FROM (
+  
+ 	<![CDATA[    
+        SELECT YEAR, CD, STAT_SCNT
+        FROM ST030 
+        WHERE GB='CTG'
+        AND USE_YN = 'Y'
+        AND YEAR > TO_CHAR(SYSDATE,'YYYY')-4
+    
+  	]]>     
+       
+          <if test="searchGb != null and searchGb.equals('Day') ">
+             UNION ALL 
+		  	<![CDATA[   
+		    
+		        SELECT  TO_CHAR(SYSDATE,'YYYY') AS YEAR,  'C'||C.CTG_CD AS CTG_CD,  SUM(SCNT) AS STAT_SCNT
+		        FROM  ST022 S,
+		            (
+		              SELECT CTG_CD,
+		                     CTG_CD_NM AS CTG_NM,
+		                     CD_ORD AS CTG_ORD
+		              FROM OM020
+		              WHERE USE_YN   = 'Y'
+		              AND CTG_LVL  = 1
+		              ORDER BY CTG_ORD
+		            ) C
+		        WHERE S.CTG_CD = C.CTG_CD(+)
+		        AND S.USE_YN   = 'Y'
+		    
+		        AND TASK_DT BETWEEN TO_CHAR(SYSDATE,'YYYYMM')||'01' AND TO_CHAR(SYSDATE -1 ,'YYYYMMDD') 
+		        GROUP BY  C.CTG_CD
+		        ORDER BY YEAR, CD
+		  	]]>           
+          </if>         
+          )
+          
+      PIVOT (
+        SUM(STAT_SCNT) FOR CD IN
+            <foreach collection="gCtgCdArr" item="c" index="index" open="(" separator="," close=")">
+            '${c}'  AS "C${c}"
+          </foreach>         
+      )
+      
+      ORDER BY YEAR
+    )
+  
+    SELECT RN, YEAR, GB, TO_CHAR(TOT, '999,999,990') AS TOT, TO_CHAR(C001000000, '999,999,990') AS "C001000000", 
+		TO_CHAR(C002000000, '999,999,990') AS "C002000000" , TO_CHAR(C003000000, '999,999,990') AS "C003000000", 
+		TO_CHAR(C004000000, '999,999,990') AS "C004000000" , TO_CHAR(C005000000, '999,999,990') AS "C005000000", 
+		TO_CHAR(C006000000, '999,999,990') AS "C006000000" , TO_CHAR(C007000000, '999,999,990') AS "C007000000", 
+		TO_CHAR(C008000000, '999,999,990') AS "C008000000" , TO_CHAR(C009000000, '999,999,990') AS "C009000000", 
+		TO_CHAR(C010000000, '999,999,990') AS "C010000000" , TO_CHAR(C011000000, '999,999,990') AS "C011000000" 
+	FROM DATA 
+	UNION ALL 
+	SELECT RN, YEAR, 'RATE' AS GB, 
+		TO_CHAR(ROUND(TOT/TOT*100,1), '999,999,990.9'), 
+		TO_CHAR(ROUND(C001000000/TOT*100,1), '999,999,990.9')||' %', 
+		TO_CHAR(ROUND(C002000000/TOT*100,1), '999,999,990.9')||' %', 
+		TO_CHAR(ROUND(C003000000/TOT*100,1), '999,999,990.9')||' %', 
+		TO_CHAR(ROUND(C004000000/TOT*100,1), '999,999,990.9')||' %', 
+		TO_CHAR(ROUND(C005000000/TOT*100,1), '999,999,990.9')||' %', 
+		TO_CHAR(ROUND(C006000000/TOT*100,1), '999,999,990.9')||' %', 
+		TO_CHAR(ROUND(C007000000/TOT*100,1), '999,999,990.9')||' %',
+		TO_CHAR(ROUND(C008000000/TOT*100,1), '999,999,990.9')||' %', 
+		TO_CHAR(ROUND(C009000000/TOT*100,1), '999,999,990.9')||' %', 
+		TO_CHAR(ROUND(C010000000/TOT*100,1), '999,999,990.9')||' %', 
+		TO_CHAR(ROUND(C011000000/TOT*100,1), '999,999,990.9')||' %' 
+	FROM DATA 
+	ORDER BY YEAR, GB    
+  </select> 
+  
+  <select id="counselingYearACT" parameterType="map" resultType="map">
+
+    WITH DATA AS (
+      SELECT  TO_CHAR(SYSDATE,'YYYY')-YEAR+1 AS RN, YEAR, 'CNT' GB,
+		NVL(A010000, 0) + NVL(A020000, 0) + NVL(A030100, 0) + NVL(A050000, 0) + 
+        NVL(A030400, 0) + NVL(A030200, 0) + NVL(A030300, 0) + NVL(A010100, 0) + 
+        NVL(A040000, 0) + NVL(A060000, 0) + NVL(A070000, 0) AS TOT,
+        NVL(A010000, 0) AS A010000,
+        NVL(A010100, 0) AS A010100,
+        NVL(A020000, 0) AS A020000,
+        NVL(A030100, 0) AS A030100,
+        NVL(A030400, 0) AS A030400,
+        NVL(A030200, 0) AS A030200,
+        NVL(A030300, 0) AS A030300,
+        NVL(A040000, 0) AS A040000,
+        NVL(A050000, 0) AS A050000,
+        NVL(A060000, 0) AS A060000,
+        NVL(A070000, 0) AS A070000
+      FROM (
+  <![CDATA[   
+        SELECT YEAR, CD, STAT_SCNT
+        FROM ST030 
+        WHERE GB='ACT'
+        AND USE_YN = 'Y'
+        AND YEAR > TO_CHAR(SYSDATE,'YYYY')-4
+    
+  ]]>
+            
+          <if test="searchGb != null and searchGb.equals('Day') ">
+             UNION ALL 
+  <![CDATA[   
+    
+        SELECT  TO_CHAR(SYSDATE,'YYYY') AS YEAR,  'A'||C.ACT_CD AS ACT_CD,  SUM(SCNT) AS STAT_SCNT
+        FROM  ST021 S,
+            (
+              SELECT CD AS ACT_CD,
+                     CD_NM AS ACT_NM,
+                     CD_ORD AS ACT_ORD
+              FROM SM002
+              WHERE USE_YN   = 'Y'
+              AND TP_CD='90014'
+              ORDER BY CD_ORD
+            ) C
+        WHERE S.ACT_TYPE_CD = C.ACT_CD(+)
+        AND S.USE_YN   = 'Y'
+    
+        AND TASK_DT BETWEEN TO_CHAR(SYSDATE,'YYYYMM')||'01' AND TO_CHAR(SYSDATE -1 ,'YYYYMMDD') 
+        GROUP BY  C.ACT_CD
+        ORDER BY YEAR, CD
+  ]]>           
+          </if>         
+          )
+      PIVOT (
+        SUM(STAT_SCNT) FOR CD IN
+            <foreach collection="gActCdArr" item="c" index="index" open="(" separator="," close=")">
+            '${c}' AS "A${c}"
+          </foreach>         
+      )
+      ORDER BY YEAR
+    )
+  
+    SELECT RN, YEAR, GB, TO_CHAR(TOT, '999,999,990') AS TOT,
+        TO_CHAR(A010000, '999,999,990') AS A010000,
+        TO_CHAR(A010100, '999,999,990') AS A010100,
+        TO_CHAR(A020000, '999,999,990') AS A020000,
+        TO_CHAR(A030100, '999,999,990') AS A030100,
+        TO_CHAR(A030400, '999,999,990') AS A030400,
+        TO_CHAR(A030200, '999,999,990') AS A030200,
+        TO_CHAR(A030300, '999,999,990') AS A030300,
+        TO_CHAR(A040000, '999,999,990') AS A040000,
+        TO_CHAR(A050000, '999,999,990') AS A050000,
+        TO_CHAR(A060000, '999,999,990') AS A060000,
+        TO_CHAR(A070000, '999,999,990') AS A070000
+    FROM DATA
+    UNION ALL
+    SELECT RN, YEAR, 'RATE' AS GB, TO_CHAR(ROUND(TOT/TOT*100,1), '999,999,990.9'),
+        TO_CHAR(ROUND(A010000/TOT*100,1), '999,999,990.9')||' %',
+        TO_CHAR(ROUND(A010100/TOT*100,1), '999,999,990.9')||' %',
+        TO_CHAR(ROUND(A020000/TOT*100,1), '999,999,990.9')||' %',
+        TO_CHAR(ROUND(A030100/TOT*100,1), '999,999,990.9')||' %',
+        TO_CHAR(ROUND(A030400/TOT*100,1), '999,999,990.9')||' %',
+        TO_CHAR(ROUND(A030200/TOT*100,1), '999,999,990.9')||' %',
+        TO_CHAR(ROUND(A030300/TOT*100,1), '999,999,990.9')||' %',
+        TO_CHAR(ROUND(A040000/TOT*100,1), '999,999,990.9')||' %',
+        TO_CHAR(ROUND(A050000/TOT*100,1), '999,999,990.9')||' %',
+        TO_CHAR(ROUND(A060000/TOT*100,1), '999,999,990.9')||' %',
+        TO_CHAR(ROUND(A070000/TOT*100,1), '999,999,990.9')||' %'  
+    FROM DATA
+    ORDER BY YEAR, GB       
+  </select> 
+
+  <!-- 구축전 처리유형별 데이타 -->
+  <select id="counselingYearACT_O" parameterType="map" resultType="map">
+
+    
+    WITH DATA AS (
+      SELECT  TO_CHAR(SYSDATE,'YYYY')-YEAR+1 AS RN, YEAR, 'CNT' GB,
+        <foreach collection="gActOCdArr" item="a" index="index" open="(" separator="+" close=")">
+          NVL("${a}", 0)
+        </foreach>        
+        AS TOT,       
+        <foreach collection="gActOCdArr" item="b" separator="," index="index">
+          NVL("${b}", 0) AS "${b}"
+        </foreach>
+    
+      FROM (
+  <![CDATA[   
+        SELECT YEAR, CD, STAT_SCNT
+        FROM ST030 
+        WHERE GB='ACT_O'
+        AND USE_YN = 'Y'
+        AND YEAR > TO_CHAR(SYSDATE,'YYYY')-4
+    
+  ]]>           
+          
+          
+           ORDER BY YEAR, CD        
+          )
+          
+      PIVOT (
+        SUM(STAT_SCNT) FOR CD IN
+            <foreach collection="gActOCdArr" item="c" index="index" open="(" separator="," close=")">
+            '${c}'  AS "${c}"
+          </foreach>         
+      )
+      
+      ORDER BY YEAR
+    )
+  
+    SELECT RN, YEAR, GB, TO_CHAR(TOT, '999,999,990') AS TOT,
+        <foreach collection="gActOCdArr" item="d" separator="," index="index">
+          TO_CHAR("${d}", '999,999,990') AS "${d}" 
+        </foreach>
+    FROM DATA
+    UNION ALL
+    SELECT RN, YEAR, 'RATE' AS GB, TO_CHAR(ROUND(TOT/TOT*100,1), '999,999,990.9'),
+        <foreach collection="gActOCdArr" item="e" separator="," index="index">
+          TO_CHAR(ROUND("${e}"/TOT*100,1), '999,999,990.9')||' %'
+        </foreach>  
+          
+    FROM DATA
+    ORDER BY YEAR, GB
+        
+  </select>
+
+
+
+<!-- 주야간 및 공휴일 상담실적 -->
+  <select id="counselingYearHoli" parameterType="map" resultType="map">
+
+    WITH DATA AS (
+      SELECT  YEAR, MIN(MONTH) ||'~'|| MAX(MONTH) AS MONTH, GB,
+              SUM(DAY_CNT) DAY_CNT, SUM(H07H09) H07H09, SUM(H09H18) H09H18, SUM(H18H22) H18H22, 
+              (SUM(H07H09)+SUM(H09H18)+SUM(H18H22)) AS TOT_CNT, 
+              ROUND((SUM(H07H09)+SUM(H09H18)+SUM(H18H22))/SUM(DAY_CNT),0) DAY_AVG
+      FROM(
+    
+          SELECT YEAR, MONTH, GB, DAY_CNT, H07H09, H09H18, H18H22, H07H09+H09H18+H18H22
+          FROM ST031 
+          WHERE USE_YN='Y'
+		      <!-- 당해 1월에는 월 배치 데이타가 없어 작년 데이타를 가져오도록 수정. jhko 2020.01.05 -->
+		      <!-- AND YEAR = TO_CHAR(SYSDATE,'YYYY') -->
+		      AND YEAR = (case when TO_CHAR(SYSDATE,'MM')='01' then TO_CHAR(SYSDATE,'YYYY')-1 else TO_CHAR(SYSDATE,'YYYY')-0 end )
+    <if test="searchGb != null and searchGb.equals('Day') ">
+          UNION ALL
+          <![CDATA[ 
+          SELECT  TO_CHAR(SYSDATE,'YYYY') YEAR, TO_CHAR(SYSDATE,'MM') MONTH,  
+                  CASE WHEN (SELECT MAX(HDY_NM) FROM OM004 WHERE RCV_DT BETWEEN STRT_DT AND END_DT AND USE_YN='Y' ) IS NOT NULL
+                          OR (SELECT TO_CHAR(TO_DATE(RCV_DT,'YYYYMMDD'),'D') FROM DUAL ) = 1 THEN '10'
+                        WHEN (SELECT MAX(HDY_NM) FROM OM004 WHERE RCV_DT BETWEEN STRT_DT AND END_DT AND USE_YN='Y' ) IS NOT NULL
+                          OR (SELECT TO_CHAR(TO_DATE(RCV_DT,'YYYYMMDD'),'D') FROM    DUAL ) = 7 THEN '7'
+                        ELSE '2'
+                  END GB,
+                  1 AS DAY_CNT,
+                  
+                  SUM(CASE WHEN RCV_TM < '090000' THEN 1 ELSE 0 END) CNT_09,
+                  SUM(CASE  WHEN RCV_TM BETWEEN '090000' AND '175959' THEN 1 ELSE 0 END) CNT_17,
+                  SUM(CASE WHEN RCV_TM >= '180000' THEN 1 ELSE 0 END) CNT_18,
+                  COUNT(1) AS CNT
+          FROM     CH001 A
+          WHERE    USE_YN='Y'
+          AND      RCV_USR_ID IN (SELECT USR_ID FROM OM001  WHERE CNTR_CD = '010000' AND USE_YN  = 'Y' )
+                   
+          AND      RCV_DT BETWEEN TO_CHAR(SYSDATE,'YYYYMM')||'01' AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+          GROUP BY RCV_DT
+         ]]>  
+     </if>
+      )GROUP BY YEAR, GB
+    )
+    SELECT YEAR, MONTH, GB, DAY_CNT, to_char(H07H09,'999,999,999') as H07H09, to_char(H09H18,'999,999,999') H09H18, to_char(H18H22,'999,999,999') H18H22, to_char(TOT_CNT,'999,999,999') TOT_CNT, to_char(DAY_AVG,'999,999,999') DAY_AVG
+    FROM DATA
+    UNION ALL
+    SELECT YEAR, '', 'TOT' GB, SUM(DAY_CNT), to_char(SUM(H07H09),'999,999,999'), to_char(SUM(H09H18),'999,999,999'), to_char(SUM(H18H22),'999,999,999'), to_char(SUM(TOT_CNT),'999,999,999'), to_char(ROUND(SUM(TOT_CNT)/SUM(DAY_CNT),0),'999,999,999')
+    FROM DATA
+    GROUP BY YEAR
+    ORDER BY YEAR, GB
+
+  </select>
+</mapper>

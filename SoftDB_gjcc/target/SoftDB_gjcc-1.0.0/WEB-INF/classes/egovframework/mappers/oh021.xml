@@ -1,0 +1,415 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+    <mapper namespace="oh021">
+	<select id="userCheck" parameterType="map" resultType="map">
+		select USE_YN  from oh021 where usr_id = #{usr_id} and crt_dt = #{workDate}
+	</select>    
+
+
+	<insert id="addUserInfo"  parameterType="map">
+        MERGE INTO oh021
+        USING dual
+        ON 
+        (
+            wrk_dt = #{wrk_dt} and usr_id = #{usr_id}
+        )
+        WHEN MATCHED THEN
+	    UPDATE
+           SET
+                    pnct_cd = #{dty_cd}
+                ,   mod_dt = to_char(sysdate, 'yyyymmdd')
+                ,   mod_tm = to_char(sysdate, 'hh24miss')
+                ,   mod_usr_id = #{usr_id}
+                ,	use_yn ='Y'
+                <if test="aaw_time != null">
+                ,   aaw_tm = #{aaw_time}
+                </if>
+                <if test="aaw_time == null">
+                ,   aaw_tm = to_char(sysdate, 'hh24mmss')
+                </if>
+                <if test="lvof_time != null">
+                ,   lvof_tm = #{lvof_time}
+                </if>
+                <if test="lvof_time == null">
+                ,   lvof_tm = ''
+                </if>
+        WHEN NOT MATCHED THEN   
+		INSERT 
+            (
+                    wrk_dt
+                ,   usr_id
+                ,   cntr_nm
+                ,   team_nm
+                ,   usr_nm
+                ,   pnct_cd
+                ,   aaw_tm
+                ,   lvof_tm
+                ,   use_yn
+                ,   crt_dt
+                ,   crt_tm
+                ,   crt_usr_id
+                ,   mod_dt
+                ,   mod_tm
+                ,   mod_usr_id
+            )
+            VALUES
+            (
+                    #{wrk_dt}
+                ,   #{usr_id}
+                ,   getCodeNM((select cntr_cd from om001 where usr_id = #{usr_id}), '90002')
+                ,   getCodeNM((select team_cd from om001 where usr_id = #{usr_id}), '90003')
+                ,   GETUSERNM('CC',#{usr_id})
+                ,   #{dty_cd}
+                <if test="aaw_time != null">
+                ,   #{aaw_time}
+                </if>
+                <if test="aaw_time == null">
+                ,   to_char(sysdate, 'hh24mmss')
+                </if>
+                <if test="lvof_time != null">
+                ,   #{lvof_time}
+                </if>
+                <if test="lvof_time == null">
+                ,   ''
+                </if>
+                <if test="use_yn != null">
+                ,   #{use_yn}
+                </if>
+                <if test="use_yn == null">
+                ,   'Y'
+                </if>
+                ,   #{wrk_dt}
+                ,   to_char(sysdate, 'hh24mmss')
+                ,   #{login_usr_id}
+                ,   to_char(sysdate, 'yyyymmdd')
+                ,   to_char(sysdate, 'hh24mmss')
+                ,   #{login_usr_id}
+            )
+	</insert>
+	
+	
+	
+	
+	
+ 
+     <select id="nextval" parameterType="map" resultType="map">
+        SELECT  soh021.NEXTVAL pnct_id
+          FROM  dual
+    </select>
+
+    
+    <update id = "merge" parameterType="map">
+        MERGE INTO oh021
+        USING dual
+        ON 
+        (
+            wrk_dt = #{wrk_dt} and usr_id = #{usr_id}
+        )
+        WHEN MATCHED THEN
+            UPDATE
+            SET
+                    mod_dt = to_char(sysdate, 'yyyymmdd')
+                ,   mod_tm = to_char(sysdate, 'hh24miss')
+                ,   mod_usr_id = #{usr_id}
+                <if test="lvof_time != null">
+                ,   lvof_tm = #{lvof_time}
+                </if>
+                <if test="lvof_time == null">
+                ,   lvof_tm = ''
+                </if>
+        WHEN NOT MATCHED THEN
+            INSERT 
+            (
+                    wrk_dt
+                ,   usr_id
+                ,   cntr_nm
+                ,   team_nm
+                ,   usr_nm
+                ,   pnct_cd
+                ,   aaw_tm
+                ,   lvof_tm
+                ,   use_yn
+                ,   crt_dt
+                ,   crt_tm
+                ,   crt_usr_id
+                ,   mod_dt
+                ,   mod_tm
+                ,   mod_usr_id
+            )
+            VALUES
+            (
+                    #{wrk_dt}
+                ,   #{usr_id}
+                ,   getCodeNM((select cntr_cd from om001 where usr_id = #{usr_id}), '90002')
+                ,   getCodeNM((select team_cd from om001 where usr_id = #{usr_id}), '90003')
+                ,   GETUSERNM('CC',#{usr_id})
+                ,   case when to_char(sysdate, 'hh24mmss') > '180000' then '100200' else '100100' end
+                <if test="aaw_time != null">
+                ,   #{aaw_time}
+                </if>
+                <if test="aaw_time == null">
+                ,   to_char(sysdate, 'hh24mmss')
+                </if>
+                <if test="lvof_time != null">
+                ,   #{lvof_time}
+                </if>
+                <if test="lvof_time == null">
+                ,   ''
+                </if>
+                <if test="use_yn != null">
+                ,   #{use_yn}
+                </if>
+                <if test="use_yn == null">
+                ,   'Y'
+                </if>
+                ,   to_char(sysdate, 'yyyymmdd')
+                ,   to_char(sysdate, 'hh24mmss')
+                ,   #{login_usr_id}
+                ,   to_char(sysdate, 'yyyymmdd')
+                ,   to_char(sysdate, 'hh24mmss')
+                ,   #{login_usr_id}
+            )
+    </update>
+    
+    
+    <select id="com" parameterType="map" resultType="map">
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+             SELECT 
+			        getFormatDate(C.dt) as wrk_dt_format 
+			    ,   (getCodeNM(A.cntr_cd, '90002')||'/'||getCodeNM(A.team_cd, '90003')) as team_nm 
+			    ,   A.usr_nm AS usr_nm
+			    , 	getCodeNM(nvl
+			       		(
+			              (SELECT schd_gb_cd 
+			                FROM om071 
+			               WHERE usr_id = A.usr_id 
+			                     AND strt_dt = c.dt 
+<!--			                     AND schd_gb_cd ='040400'--> 
+			                     AND schd_gb_cd ='010000' 
+			                      GROUP BY schd_gb_cd
+			              ), case when C.dt <![CDATA[<=]]> TO_char(sysdate,'YYYYMMDD') then
+			                nvl(B.pnct_cd,'100200')
+			                else
+			                B.pnct_cd
+			                end
+			          	),'90042') AS dyt_cd 
+			    ,   nvl2( B.aaw_tm, getFormatTime( B.aaw_tm), '') as aaw_time_format
+			    ,   nvl2( B.lvof_tm, getFormatTime( B.lvof_tm), '') as lvof_time_format
+			    ,	A.usr_id
+			  FROM OM001 A , 
+			       (SELECT 
+			       		wrk_dt, usr_id , aaw_tm, lvof_tm, pnct_cd  FROM oh021 
+			        WHERE use_yn ='Y'
+			        	AND 
+			        	wrk_dt BETWEEN #{fr_dt} AND #{to_dt} 
+			        ) B ,
+			       (SELECT TO_CHAR(TO_DATE(#{fr_dt},'yyyymmdd') + ROWNUM - 1,'yyyymmdd') dt 
+			         FROM dual CONNECT BY LEVEL <![CDATA[<= ]]>TO_DATE(#{to_dt},'yyyymmdd') - TO_DATE(#{fr_dt},'yyyymmdd') + 1 
+			        ) C 
+			 WHERE A.usr_id = B.usr_id(+) 
+<!-- 			  	AND C.dt = B.wrk_dt(+)  -->
+			  	AND C.dt = B.wrk_dt 
+			    AND A.use_yn ='Y' 
+			    AND (A.RET_DT IS NULL  OR A.RET_DT > TO_CHAR(SYSDATE, 'YYYYMMDD')) 
+            <if test="cntrcd != null and !cntrcd.equals('all') and !cntrcd.equals('')">
+			          AND A.cntr_cd = #{cntrcd}
+            </if>
+            <if test="usr_id != null and !usr_id.equals('all') and !usr_id.equals('')">
+                and A.usr_id = #{usr_id}
+            </if>
+            <if test="commute != null and !commute.equals('all') and !commute.equals('')">
+                and  B.pnct_cd = #{commute}
+            </if>
+                
+                <if test="sidx != null and sord != null">
+                ORDER BY ${sidx} ${sord}
+                </if>
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+    </select>   
+    
+    <select id="commuteInfo" parameterType="map" resultType="map">
+        SELECT  a1.*
+             ,  A2.USR_NM mod_nm
+          FROM (
+                SELECT (t1.cntr_nm||'/'||t1.team_nm||' '||t1.usr_nm) cntr
+                     ,  t1.usr_id usr_id
+                   <!--   ,  getCodeNM(t1.pnct_cd, '90042') dyt_cd -->
+                    <!--  ,  t1.pnct_cd pnct_cd -->
+                     , CASE WHEN  (select cd_nm from SM002 where tp_cd = '90042' and cd = t1.pnct_cd) = '결근' THEN '결근' ELSE '근무' END as dyt_cd
+                     , CASE WHEN  t1.pnct_cd = '100200' THEN '100200' ELSE '100100' END pnct_cd
+                     ,  getFormatDate(t1.wrk_dt) wrk_dt
+                     ,  nvl2(t1.aaw_tm, getFormatTime(t1.aaw_tm), '') aaw_time
+                     ,  nvl2(t1.lvof_tm, getFormatTime(t1.lvof_tm), '') lvof_time
+                     ,  t1.crt_usr_id
+                     ,  getFormatDate(t1.crt_dt)||' '||getFormatTime(t1.crt_tm) crt_dttm
+                     ,  getFormatDate(t1.mod_dt)||' '||getFormatTime(t1.mod_tm)  mod_dttm
+                     ,  t2.usr_nm as crt_nm
+                     ,  t1.mod_usr_id as mod_id
+                  FROM  oh021 t1
+                  LEFT  JOIN om001 t2
+                    ON  t1.crt_usr_id = t2.usr_id
+                 WHERE  t1.usr_id =#{usr_id}
+                   AND  getFormatDate(t1.wrk_dt) = #{wrk_dt}
+                   AND  t1.USE_YN = 'Y'
+               ) a1
+          LEFT  JOIN om001 a2 
+            ON  a1.mod_id = a2.usr_id 
+    </select>
+    
+    <update id="deleteInfo" parameterType="map">
+    
+        UPDATE oh021 
+           SET use_yn = 'N' 
+         WHERE usr_id = #{usr_id} 
+           AND wrk_dt = #{wrk_dt}
+        
+    </update>
+    
+    <update id="userCommuteProp" parameterType="map">
+    
+        UPDATE  oh021
+           SET  pnct_cd = #{dty_cd}
+             ,  aaw_tm = #{aawTime}
+             ,  lvof_tm = #{lvofTime}
+             ,  mod_dt = TO_CHAR(SYSDATE,'yyyymmdd')
+             ,  mod_tm =  TO_CHAR(SYSDATE, 'HH24MISS')
+           WHERE usr_id = #{usr_id} 
+             AND wrk_dt = #{wrk_dt}
+
+    </update>
+    
+   <!--   
+   <select id="getWorkCount" parameterType="map" resultType="map">
+    select
+      (
+          SELECT count(1) 
+          FROM oh021 
+          where USE_YN = 'Y' 
+               and pnct_cd = '100100'
+                and pnct_cd IN ('100100','100300')
+               and wrk_dt between #{fr_dt} and #{to_dt}
+               and usr_id = #{usr_id}
+       ) as worked근무 
+        ,(
+            SELECT count(1) 
+            FROM oh021 
+            where USE_YN = 'Y' 
+            and pnct_cd = '100200' 
+            and wrk_dt between #{fr_dt} and #{to_dt} 
+            and usr_id = #{usr_id}
+       ) as absence
+        ,(
+           SELECT count(1) 
+           FROM oh021 
+           where USE_YN = 'Y' 
+           and pnct_cd = '100300' 
+           and wrk_dt between #{fr_dt} and #{to_dt} 
+           and usr_id = #{usr_id}
+       ) as lateness지각
+         ,(
+            SELECT count(1) 
+            FROM oh021 
+            where USE_YN = 'Y' 
+            and wrk_dt between #{fr_dt} and #{to_dt} 
+            and usr_id = #{usr_id}
+     ) as workingday
+      from dual 
+   </select> 
+   -->
+
+	<select id="selectWorkOX" parameterType="map" resultType="map">
+		SELECT GETCODENM(B.TEAM_CD,'90003')AS TEAM_NM, B.USR_NM, B.USR_ID, TO_CHAR(LAST_DAY(TO_DATE(#{wrk_dt},'YYYYMM')),'DD') AS LASTDAY, A.*
+		FROM (
+		<![CDATA[
+		    SELECT  TO_CHAR(TO_DATE(WRK_DT,'YYYYMMDD'),'DD') AS DD, USR_ID,
+		    CASE WHEN ((LVOF_TM - AAW_TM) >= (60*60*9) AND (NVL(LVOF_TM,'N')!='N' AND NVL(AAW_TM,'N')!='N')) THEN 'O' 
+		    	 WHEN (((LVOF_TM - AAW_TM) < (60*60*9) AND (NVL(LVOF_TM,'N')!='N' AND NVL(AAW_TM,'N')!='N'))
+		    	 OR ((NVL(LVOF_TM,'N')='N' AND NVL(AAW_TM,'N')!='N'))
+		    	 OR ((NVL(LVOF_TM,'N')!='N' AND NVL(AAW_TM,'N')='N'))) 	 THEN '△'
+		    	 ELSE 'X' END GB 
+		 ]]>
+		    FROM    OH021
+		    WHERE   USE_YN = 'Y'
+		    AND     WRK_DT BETWEEN #{wrk_dt} ||'01' AND TO_CHAR(LAST_DAY(TO_DATE(#{wrk_dt},'YYYYMM')),'YYYYMMDD') 
+		    <if test="gUserArr!=null">
+		    AND     USR_ID IN 			
+			<foreach collection="gUserArr" item="gUserArr1" index="index" open="(" separator="," close=")">
+	          #{gUserArr1}
+			</foreach>	
+			</if>	
+		    UNION
+			SELECT TO_CHAR(TO_DATE(STRT_DT,'YYYYMMDD'),'DD') AS DD, USR_ID, 
+			CASE WHEN vact_appr_cd = '200000' THEN '' ELSE '' END GB 
+            FROM OM075 WHERE USE_YN = 'Y' 
+            AND( STRT_DT BETWEEN #{wrk_dt} ||'01' AND TO_CHAR(LAST_DAY(TO_DATE(#{wrk_dt},'YYYYMM')),'YYYYMMDD')
+         	OR END_DT BETWEEN #{wrk_dt} ||'01' AND TO_CHAR(LAST_DAY(TO_DATE(#{wrk_dt},'YYYYMM')),'YYYYMMDD'))
+         	)
+		PIVOT ( MAX(GB) FOR DD IN ( 
+		              '01' AS "DD_01" ,
+		              '02' AS "DD_02" ,
+		              '03' AS "DD_03" ,
+		              '04' AS "DD_04" ,
+		              '05' AS "DD_05" ,
+		              '06' AS "DD_06" ,
+		              '07' AS "DD_07" ,
+		              '08' AS "DD_08" ,
+		              '09' AS "DD_09" ,
+		              '10' AS "DD_10" ,
+		              
+		              '11' AS "DD_11" ,
+		              '12' AS "DD_12" ,
+		              '13' AS "DD_13" ,
+		              '14' AS "DD_14" ,
+		              '15' AS "DD_15" ,
+		              '16' AS "DD_16" ,
+		              '17' AS "DD_17" ,
+		              '18' AS "DD_18" ,
+		              '19' AS "DD_19" ,
+		              '20' AS "DD_20" ,
+		              
+		              '21' AS "DD_21" ,
+		              '22' AS "DD_22" ,
+		              '23' AS "DD_23",
+		              '24' AS "DD_24" ,
+		              '25' AS "DD_25" ,
+		              '26' AS "DD_26" ,
+		              '27' AS "DD_27" ,
+		              '28' AS "DD_28" ,
+		              '29' AS "DD_29" ,
+		              '30' AS "DD_30" , 
+		              '31' AS "DD_31" 
+		       ) 
+		) A, OM001 B
+		WHERE A.USR_ID = B.USR_ID
+		<if test="cntr_cd != null and !cntr_cd.equals('')">
+		AND B.CNTR_CD = #{cntr_cd}
+		</if>
+		<if test="team_cd != null and !team_cd.equals('all') and !team_cd.equals('')">
+		AND B.TEAM_CD = #{team_cd}
+		</if>		
+		AND B.USE_YN = 'Y'
+		
+        
+        ORDER BY TEAM_NM, USR_NM
+       
+	</select>
+	    
+</mapper>

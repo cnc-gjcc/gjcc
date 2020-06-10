@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="oh015">
+	
+	<resultMap id="boardSearchResult" type="map" >
+	   <result property="COMM_CNTN" column="COMM_CNTN" jdbcType="CLOB" javaType="java.lang.String" />
+	</resultMap>
+
+	<select id="selectHisList" parameterType="map" resultType="map">
+	 <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+			SELECT
+			  tbbs_id
+			, usr_id
+			, org_usr_id
+<!-- 			, org_ful_nm -->
+			, NVL((SELECT SUBSTR(ORG_FUL_NM,9) FROM om061 WHERE uid_ = org_usr_id),(SELECT ORG_FUL_NM FROM om061 WHERE uid_ = org_usr_id)) AS ORG_FUL_NM
+			, NVL((select DISPLAYNAME from om061 A where A.UID_ = org_usr_id),(select usr_nm from om001 where usr_id = org_usr_id)) as usr_nm
+			, rtn_rsn
+			, cdb_gb_cd
+			, DECODE(CDB_ACT_ST_CD, '010100','접수', '010105','부서접수', '020100','처리중', '030100','완료', '010200','담당자지정', '020200','반송', '020300','재작성요청','010400','담당자(재)지정') as procStats
+			, DECODE(CDB_REQ_GB_CD, '010100','신규','020100','수정','삭제') as gb_cd_nm
+			,  getFormatdate(crt_dt)||' '||getFormatTime(crt_tm) AS crt_dttm
+			FROM oh015
+			WHERE 1 = 1
+<!-- 			<if test="tbbsId != null and !tbbsId.equals('')"> -->
+				AND TBBS_ID = #{tbbsId}
+<!-- 			</if> -->
+			<if test="use_yn != null and !use_yn.equals('')">
+				AND use_yn = #{use_yn}
+			</if>
+			<if test="frDate != null and !frDate.equals('') and toDate != null and !toDate.equals('')">
+				AND mod_dt BETWEEN #{frDate} AND #{toDate}
+			</if>
+           <if test="sidx != null and sord != null">
+                ORDER BY ${sidx} ${sord}, CRT_TM ${sord}
+            </if>
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+    </select>
+		
+		
+<!-- 	<insert id="jsikRewordinsert" parameterType="map">
+	    <selectKey resultType="string" keyProperty="Khist_ord" order="BEFORE">
+       	     select NVL((select sum((select max(hist_ord) as max from oh015 where TBBS_ID= #{tbbs_id} group by tbbs_id)+1) as max
+       	      from dual), 0) 
+       	      from dual  
+    	</selectKey>
+    	{	call
+        	declare
+       		begin
+			insert into oh015
+	      			(
+	      					TBBS_ID
+	      				,	HIST_ORD
+	      				,	USR_ID
+	      				,   ORG_ID
+	      				, 	TBBS_TTL
+	      				, 	MOD_CONT_C
+	      				,	ORG_USR_ID
+	      				,	ORG_FUL_NM
+	      				,	CDB_GB_CD
+	      				,	CTG_EX_CD
+	      				,	CTG_LG_CD
+	      				,	CTG_MD_CD
+	      				,	CTG_SM_CD
+	      				,	CDB_ACT_ST_CD
+	      				,	CDB_REQ_GB_CD
+	      				,  	RTN_RSN	
+	      				,	USE_YN      			
+	      				,	CRT_DT
+	      				,	CRT_TM
+	      				,	CRT_USR_ID
+	      				,	MOD_DT
+	      				,	MOD_TM
+	      				,	MOD_USR_ID
+	      			)
+	      			values
+	      			(
+	       					#{tbbs_id}
+	       				,	#{Khist_ord} 
+	      				,	#{usr_id}
+	      				,   #{org_id}
+	     				, 	#{tbbs_ttl}
+	     				,	Empty_Clob()
+	      				,	#{org_usr_id}
+	      				,	#{org_ful_nm}
+	      				,	#{cdb_gb_cd}
+	      				,	#{ctg_ex_cd}
+	      				,	#{ctg_lg_cd}
+	      				,	#{ctg_md_cd}
+	      				,	#{ctg_sm_cd}
+	      				,	#{cdb_act_st_cd}
+	      				,	#{cdb_req_gb_cd}
+	      				,	#{rtn_rsn}
+	      				,	'Y'
+	                    ,	to_char(sysdate, 'yyyymmdd')
+	      				,	to_char(sysdate, 'hh24miss')
+	      				,	#{login_usr_id}
+	                    ,	to_char(sysdate, 'yyyymmdd')
+	      				,	to_char(sysdate, 'hh24miss')
+	      				,	#{login_usr_id}
+	      			);
+	      			
+	      			UPDATE oh015
+                	 		SET MOD_CONT_C = #{mod_cont_c, jdbcType = CLOB}
+             				WHERE TBBS_ID = #{tbbs_id}
+             				and HIST_ORD = #{Khist_ord};
+        			end
+    	}
+		</insert>	
+	
+	
+		<insert id="chargerAppnInsert" parameterType="map">
+	    <selectKey resultType="string" keyProperty="Khist_ord" order="BEFORE">
+       	     select NVL((select sum((select max(hist_ord) as max from oh015 where TBBS_ID= #{tbbs_id} group by tbbs_id)+1) as max
+       	      from dual), 0) 
+       	      from dual  
+    	</selectKey>
+			insert into oh015
+	      			(
+	      					HIST_ORD
+	      				,	TBBS_ID
+	      				,	ORG_ID
+	      				<if test="org_usr_id != null and !org_usr_id.equals('')">
+	      				,	ORG_USR_ID
+	      				</if>
+	      				,	CDB_ACT_ST_CD
+	      				,  	RTN_RSN
+	      				,	USE_YN 	
+	      				,	CRT_DT
+	      				,	CRT_TM
+	      				,	CRT_USR_ID
+	      				,	MOD_DT
+	      				,	MOD_TM
+	      				,	MOD_USR_ID
+	      			)
+	      			values
+	      			(
+	       					#{Khist_ord} 
+	       				,	#{tbbs_id}
+	       				,   #{org_id}
+	       				<if test="org_usr_id != null and !org_usr_id.equals('')">
+	      				,	#{org_usr_id}
+	      				</if>
+	      				,	#{cdb_act_st_cd2}
+	      				,	#{rtn_rsn2}
+	      				,	'Y'
+	                    ,	to_char(sysdate, 'yyyymmdd')
+	      				,	to_char(sysdate, 'hh24miss')
+	      				,	#{login_usr_id}
+	                    ,	to_char(sysdate, 'yyyymmdd')
+	      				,	to_char(sysdate, 'hh24miss')
+	      				,	#{login_usr_id}
+	      			)
+		</insert>	
+		
+		
+		<insert id="counselDbConfmDetail" parameterType="map">
+	    <selectKey resultType="string" keyProperty="Khist_ord" order="BEFORE">
+       	     select NVL((select sum((select max(hist_ord) as max from oh015 where TBBS_ID= #{tbbs_id} group by tbbs_id)+1) as max
+       	      from dual), 0) 
+       	      from dual  
+    	</selectKey>
+			insert into oh015
+	      			(
+	      					HIST_ORD
+	      				,	TBBS_ID
+	      				<if test="org_usr_id != null and !org_usr_id.equals('')">
+	      				,	ORG_USR_ID
+	      				</if>
+	      				,	CDB_ACT_ST_CD
+	      				,  	RTN_RSN
+	      				,	USE_YN 	
+	      				,	CRT_DT
+	      				,	CRT_TM
+	      				,	CRT_USR_ID
+	      				,	MOD_DT
+	      				,	MOD_TM
+	      				,	MOD_USR_ID
+	      			)
+	      			values
+	      			(
+	       					#{Khist_ord} 
+	       				,	#{tbbs_id} 
+	       				<if test="org_usr_id != null and !org_usr_id.equals('')">
+	      				,	#{org_usr_id}
+	      				</if>
+	      				,	#{cdb_act_st_cd}
+	      				,	#{rtn_rsn}
+	      				,	'Y'
+	                    ,	to_char(sysdate, 'yyyymmdd')
+	      				,	to_char(sysdate, 'hh24miss')
+	      				,	#{login_usr_id}
+	                    ,	to_char(sysdate, 'yyyymmdd')
+	      				,	to_char(sysdate, 'hh24miss')
+	      				,	#{login_usr_id}
+	      			)
+		</insert>	 -->
+</mapper>

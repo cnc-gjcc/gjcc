@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="om041">
+	
+	<select id="selectTchList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+      SELECT TCH_ID 
+           , TCH_NM 
+           , CORP_NM 
+           , DTY_NM 
+           , TEL_NO 
+           , EML_ADR 
+           , LECT_NM 
+           , USE_YN
+        FROM OM041
+			 WHERE 1 = 1
+    	   
+      <if test="tch_gb_cd != null and !tch_gb_cd.equals('')">
+         AND TCH_GB_CD = #{tch_gb_cd} 
+      </if>
+	    <if test="tch_nm != null and !tch_nm.equals('')">
+	     	 AND TCH_NM LIKE '%' || #{tch_nm} || '%'
+	    </if>
+      <if test="tch_use_yn != null and !tch_use_yn.equals('')">
+         AND USE_YN = #{tch_use_yn} 
+      </if>
+
+	    <if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+	    </if>		
+	</select>
+	
+	<select id="selectTchInfo" parameterType="map" resultType="map">
+    SELECT TCH_ID 
+         , TCH_NM 
+         , TCH_GB_CD 
+         , CORP_NM 
+         , DTY_NM 
+         , TEL_NO 
+         , EML_ADR 
+         , LECT_NM 
+         , MEMO 
+         , GETFORMATDATE(CRT_DT) || ' ' || GETFORMATTIME(CRT_TM) AS CRT_DT_TM
+         , CRT_USR_ID 
+         , (SELECT T1.USR_NM FROM OM001 T1 WHERE T1.USR_ID = CRT_USR_ID) AS CRT_USR_NM
+         , USE_YN
+      FROM OM041
+     WHERE TCH_ID = #{tch_Id}
+       <!-- AND USE_YN = 'Y' -->
+	</select>
+	
+	<insert id="insertTchInfo" parameterType="map">
+    INSERT INTO OM041
+    (
+        TCH_ID 
+        , TCH_NM 
+        , TCH_GB_CD 
+        , CORP_NM 
+        , DTY_NM 
+        , TEL_NO 
+        , EML_ADR 
+        , LECT_NM 
+        , MEMO 
+        , USE_YN 
+        , CRT_DT 
+        , CRT_TM        
+        , CRT_USR_ID 
+        , MOD_DT 
+        , MOD_TM 
+        , MOD_USR_ID 
+    )
+    VALUES
+		(
+			  SOM041.NEXTVAL
+			, #{tch_Nm}
+			, #{tch_gb_cd}
+			, #{corp_Nm}
+			, #{dty_Nm}
+			, #{tel_No}
+			, #{eml_Adr}
+			, #{lect_Nm}
+			, #{memo}
+			, #{use_yn}
+			, to_char(sysdate, 'yyyyMMdd')
+			, to_char(sysdate, 'hh24miss')
+			, #{login_usr_id}
+			, to_char(sysdate, 'yyyyMMdd')
+			, to_char(sysdate, 'hh24miss')
+			, #{login_usr_id}
+		)
+	</insert>
+	
+	<update id="updateTchInfo" parameterType="map">
+    UPDATE OM041
+       SET TCH_NM  = #{tch_Nm}
+         , TCH_GB_CD  = #{tch_gb_cd}
+         , CORP_NM  = #{corp_Nm}
+         , DTY_NM  = #{dty_Nm}
+         , TEL_NO  = #{tel_No}
+         , EML_ADR  = #{eml_Adr}
+         , LECT_NM  = #{lect_Nm}
+         , MEMO  = #{memo}
+         , USE_YN  = #{use_yn}
+         , MOD_USR_ID = #{login_usr_id}
+         , MOD_DT = to_char(sysdate, 'yyyymmdd')
+         , MOD_TM = to_char(sysdate, 'hh24miss')
+     WHERE TCH_ID  = #{tch_Id}
+	</update>
+
+</mapper>

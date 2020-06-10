@@ -1,0 +1,1248 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="st000">
+	
+  <!--업무보고 생성 -->
+	<insert id="insert" parameterType="map">
+        INSERT INTO st020
+        (
+                TASK_ID
+            ,   TASK_DT
+            ,   TASK_CONT
+            ,   ENTR_ST
+            ,   USE_YN
+            ,   CRT_DT
+            ,   CRT_TM
+            ,   CRT_USR_ID
+            ,   MOD_DT
+            ,   MOD_TM
+            ,   MOD_USR_ID
+        )
+        VALUES
+        (
+                  '' || SST020.NEXTVAL
+            ,   #{taskDt}
+            ,   #{taskCont}
+            ,   #{entr_st}
+            ,   'Y'
+            ,   to_char(sysdate, 'yyyymmdd')
+            ,   to_char(sysdate, 'hh24miss')
+            ,   #{login_usr_id}                   
+            ,   to_char(sysdate, 'yyyymmdd')
+            ,   to_char(sysdate, 'hh24miss')
+            ,   #{login_usr_id}
+        )
+    </insert>
+    
+    <!-- 업무보고날짜검색 -->
+    <select id="check" parameterType="map" resultType="map">
+        SELECT  COUNT(*) as at
+        FROM    st020
+        WHERE   use_yn = 'Y'
+        AND     crt_dt = #{day}
+    </select>
+    
+    <!-- 업무보고출력 -->
+    <select id="select" parameterType="map" resultType="map">
+        SELECT  task_id
+                , crt_dt
+                , task_cont
+        FROM    st020
+        WHERE   use_yn = 'Y'
+        AND     crt_dt = #{day}
+    </select>
+      
+      <!-- 업무보고수정 -->
+    <update id="update" parameterType="map">
+        UPDATE  st020
+           SET  task_cont = #{contents}
+             ,  mod_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+             ,  mod_tm = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+             ,  mod_usr_id = #{mod_usr_id}
+         WHERE  tsk_id = #{taskSeq}
+    </update> 
+
+    <select id = "yearListso" parameterType="map" resultType="map">
+      SELECT *
+        FROM
+              (
+              SELECT '2' AS TITLE
+                   , CALL_YEAR AS WRK_DT
+                   , CNTR_NM
+                   , TEAM_NM 
+                   , USR_ID
+                   , USR_NM
+                   , CALL_MONTH 
+                   , SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)) AS TRT_SCNT_TOT
+                   , SUM(DECODE(CALL_TELCAT, '인바운드', 1, 0 )) AS TRT_SCNT_IN_TOT
+                   , SUM(DECODE(CALL_TELCAT, '아웃바운드', 1, 0)) AS TRT_SCNT_OUT_TOT
+                   , SUM(DECODE(CALL_HSC, '완료', 1, 0)) AS ACT_SCNT_TOT
+                FROM V_CALLLAW
+               WHERE CALL_YEAR = #{ year }
+          <if test = "centerNm != null and !centerNm.equals('all')">
+                 AND CNTR_CD = #{ centerNm }
+          </if>
+          <if test = "teamNm != null and !teamNm.equals('all')">
+                 AND TEAM_CD = #{ teamNm }
+          </if>
+          <if test = "counselNm != null and !counselNm.equals('all')">
+                 AND USR_ID = #{ counselNm }
+          </if>
+               
+               GROUP BY CALL_YEAR, CNTR_NM, TEAM_NM, USR_ID, USR_NM, CALL_MONTH 
+              ) PIVOT (SUM(TRT_SCNT_TOT) AS TRT
+                    , SUM(TRT_SCNT_IN_TOT) AS TRT_IN
+                    , SUM(TRT_SCNT_OUT_TOT) AS TRT_OUT
+                    , SUM(ACT_SCNT_TOT) AS ACT
+                  FOR CALL_MONTH IN ('01' AS TRT01, '02' AS TRT02, '03' AS TRT03, '04' AS TRT04, '05' AS TRT05, '06' AS TRT06
+                                   , '07' AS TRT07, '08' AS TRT08, '09' AS TRT09, '10' AS TRT10, '11' AS TRT11, '12' AS TRT12)) RPT_TBL
+              LEFT JOIN         
+                      (
+                      SELECT CALL_YEAR
+                           , USR_ID
+                           , SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)) AS TRT_SCNT_TOT
+                           , SUM(DECODE(CALL_TELCAT, '인바운드', 1, 0 )) AS TRT_SCNT_IN_TOT
+                           , SUM(DECODE(CALL_TELCAT, '아웃바운드', 1, 0)) AS TRT_SCNT_OUT_TOT
+                           , SUM(DECODE(CALL_HSC, '완료', 1, 0)) AS ACT_SCNT_TOT
+                           , SUM(DECODE(CALL_HSC, '미완료', 1, 0)) AS IMPF_SCNT_TOT 
+                           , (NVL(SUM(DECODE(CALL_HSC, '완료', 1, 0)), 0) / 
+                              NVL(SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)), 0)) * 100 || '%' AS ACT_RATE
+                           , GETSECONDTOTIME(SUM(CALLING_TM)) AS CALL_TM_TOT
+                           , GETSECONDTOTIME(SUM(ACW_TM)) AS ACW_TM_TOT  
+                           , SUM(CALLING_TM) AS CALL_TM_SUM
+                           , SUM(ACW_TM) AS ACW_TM_SUM                           
+                        FROM V_CALLLAW  
+                       WHERE CALL_YEAR = #{ year }
+                     <if test = "centerNm != null and !centerNm.equals('all')">
+                         AND CNTR_CD = #{ centerNm }
+                     </if>
+                     <if test = "teamNm != null and !teamNm.equals('all')">
+                         AND TEAM_CD = #{ teamNm }
+                     </if>
+                     <if test = "counselNm != null and !counselNm.equals('all')">
+                         AND USR_ID = #{ counselNm }
+                     </if>
+                       
+                       GROUP BY CALL_YEAR, USR_ID                            
+                      ) SUM_TBL ON RPT_TBL.WRK_DT = SUM_TBL.CALL_YEAR AND RPT_TBL.USR_ID = SUM_TBL.USR_ID 
+    <!-- <if test = "out_type != null and out_type.equals('excel')"> -->
+        UNION
+       SELECT *
+         FROM
+               (
+               SELECT '1' AS TITLE
+                    , CALL_YEAR AS WRK_DT
+                    , '합계' AS CNTR_NM
+                    , '' AS TEAM_NM 
+                    , '' AS USR_ID
+                    , '' AS USR_NM
+                    , CALL_MONTH 
+                    , SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)) AS TRT_SCNT_TOT
+                    , SUM(DECODE(CALL_TELCAT, '인바운드', 1, 0 )) AS TRT_SCNT_IN_TOT
+                    , SUM(DECODE(CALL_TELCAT, '아웃바운드', 1, 0)) AS TRT_SCNT_OUT_TOT
+                    , SUM(DECODE(CALL_HSC, '완료', 1, 0)) AS ACT_SCNT_TOT
+                 FROM V_CALLLAW
+                WHERE CALL_YEAR = #{ year }
+           <if test = "centerNm != null and !centerNm.equals('all')">
+                  AND CNTR_CD = #{ centerNm }
+           </if>
+           <if test = "teamNm != null and !teamNm.equals('all')">
+                  AND TEAM_CD = #{ teamNm }
+           </if>
+           <if test = "counselNm != null and !counselNm.equals('all')">
+                  AND USR_ID = #{ counselNm }
+           </if>
+                GROUP BY CALL_YEAR, CALL_MONTH 
+              ) PIVOT (SUM(TRT_SCNT_TOT) AS TRT
+                    , SUM(TRT_SCNT_IN_TOT) AS TRT_IN
+                    , SUM(TRT_SCNT_OUT_TOT) AS TRT_OUT
+                    , SUM(ACT_SCNT_TOT) AS ACT
+                   FOR CALL_MONTH IN ('01' AS TRT01, '02' AS TRT02, '03' AS TRT03, '04' AS TRT04, '05' AS TRT05, '06' AS TRT06
+                                    , '07' AS TRT07, '08' AS TRT08, '09' AS TRT09, '10' AS TRT10, '11' AS TRT11, '12' AS TRT12)) RPT_TBL
+               LEFT JOIN         
+                       (
+                       SELECT CALL_YEAR
+                            , '' AS USR_ID
+                            , SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)) AS TRT_SCNT_TOT
+                            , SUM(DECODE(CALL_TELCAT, '인바운드', 1, 0 )) AS TRT_SCNT_IN_TOT
+                            , SUM(DECODE(CALL_TELCAT, '아웃바운드', 1, 0)) AS TRT_SCNT_OUT_TOT
+                            , SUM(DECODE(CALL_HSC, '완료', 1, 0)) AS ACT_SCNT_TOT
+                            , SUM(DECODE(CALL_HSC, '미완료', 1, 0)) AS IMPF_SCNT_TOT 
+                            , (NVL(SUM(DECODE(CALL_HSC, '완료', 1, 0)), 0) / 
+                               NVL(SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)), 0)) * 100 || '%' AS ACT_RATE
+                            , GETSECONDTOTIME(SUM(CALLING_TM)) AS CALL_TM_TOT
+                            , GETSECONDTOTIME(SUM(ACW_TM)) AS ACW_TM_TOT  
+                            , SUM(CALLING_TM) AS CALL_TM_SUM
+                            , SUM(ACW_TM) AS ACW_TM_SUM                            
+                         FROM V_CALLLAW  
+                        WHERE CALL_YEAR = #{ year }
+                      <if test = "centerNm != null and !centerNm.equals('all')">
+                          AND CNTR_CD = #{ centerNm }
+                      </if>
+                      <if test = "teamNm != null and !teamNm.equals('all')">
+                          AND TEAM_CD = #{ teamNm }
+                      </if>
+                      <if test = "counselNm != null and !counselNm.equals('all')">
+                          AND USR_ID = #{ counselNm }
+                      </if>
+                        GROUP BY CALL_YEAR                            
+                       ) SUM_TBL ON RPT_TBL.WRK_DT = SUM_TBL.CALL_YEAR
+    <!-- </if> -->
+        ORDER BY 1, 2, 3, 4, 6                
+    </select>          
+          
+    <select id = "monthListso" parameterType="map" resultType="map">
+       SELECT *
+        FROM
+              (
+              SELECT '2' AS TITLE
+                   , CALL_MONTH AS WRK_DT
+                   , CNTR_NM
+                   , TEAM_NM 
+                   , USR_ID
+                   , USR_NM
+                   , CALL_DATE
+                   , SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)) AS TRT_SCNT_TOT
+                   , SUM(DECODE(CALL_TELCAT, '인바운드', 1, 0 )) AS TRT_SCNT_IN_TOT
+                   , SUM(DECODE(CALL_TELCAT, '아웃바운드', 1, 0)) AS TRT_SCNT_OUT_TOT
+                   , SUM(DECODE(CALL_HSC, '완료', 1, 0)) AS ACT_SCNT_TOT
+                FROM V_CALLLAW
+               WHERE CALL_YEAR = #{ year }
+                 AND CALL_MONTH = #{ yearMonth }
+          <if test = "centerNm != null and !centerNm.equals('all')">
+                 AND CNTR_CD = #{ centerNm }
+          </if>
+          <if test = "teamNm != null and !teamNm.equals('all')">
+                 AND TEAM_CD = #{ teamNm }
+          </if>
+          <if test = "counselNm != null and !counselNm.equals('all')">
+                 AND USR_ID = #{ counselNm }
+          </if>
+               
+               GROUP BY CALL_MONTH, CNTR_NM, TEAM_NM, USR_ID, USR_NM, CALL_DATE 
+              ) PIVOT (SUM(TRT_SCNT_TOT) AS TRT
+                    , SUM(TRT_SCNT_IN_TOT) AS TRT_IN
+                    , SUM(TRT_SCNT_OUT_TOT) AS TRT_OUT
+                    , SUM(ACT_SCNT_TOT) AS ACT
+                  FOR CALL_DATE IN ('01' AS TRT01, '02' AS TRT02, '03' AS TRT03, '04' AS TRT04, '05' AS TRT05
+                                  , '06' AS TRT06, '07' AS TRT07, '08' AS TRT08, '09' AS TRT09, '10' AS TRT10
+                                  , '11' AS TRT11, '12' AS TRT12, '13' AS TRT13, '14' AS TRT14, '15' AS TRT15
+                                  , '16' AS TRT16, '17' AS TRT17, '18' AS TRT18, '19' AS TRT19, '20' AS TRT20
+                                  , '21' AS TRT21, '22' AS TRT22, '23' AS TRT23, '24' AS TRT24, '25' AS TRT25
+                                  , '26' AS TRT26, '27' AS TRT27, '28' AS TRT28
+                        <if test = "lastDay == 29">          
+                                  , '29' AS TRT29
+                        </if>
+                        <if test = "lastDay == 30">          
+                                  , '29' AS TRT29          
+                                  , '30' AS TRT30
+                        </if>
+                        <if test = "lastDay == 31">          
+                                  , '29' AS TRT29          
+                                  , '30' AS TRT30
+                                  , '31' AS TRT31
+                        </if>
+                                  )) RPT_TBL
+              LEFT JOIN         
+                      (
+                      SELECT CALL_MONTH
+                           , USR_ID
+                           , SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)) AS TRT_SCNT_TOT
+                           , SUM(DECODE(CALL_TELCAT, '인바운드', 1, 0 )) AS TRT_SCNT_IN_TOT
+                           , SUM(DECODE(CALL_TELCAT, '아웃바운드', 1, 0)) AS TRT_SCNT_OUT_TOT
+                           , SUM(DECODE(CALL_HSC, '완료', 1, 0)) AS ACT_SCNT_TOT
+                           , SUM(DECODE(CALL_HSC, '미완료', 1, 0)) AS IMPF_SCNT_TOT 
+                           , (NVL(SUM(DECODE(CALL_HSC, '완료', 1, 0)), 0) / 
+                              NVL(SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)), 0)) * 100 || '%' AS ACT_RATE
+                           , GETSECONDTOTIME(SUM(CALLING_TM)) AS CALL_TM_TOT
+                           , GETSECONDTOTIME(SUM(ACW_TM)) AS ACW_TM_TOT  
+                        FROM V_CALLLAW  
+                       WHERE CALL_YEAR = #{ year }
+                         AND CALL_MONTH = #{ yearMonth }
+                     <if test = "centerNm != null and !centerNm.equals('all')">
+                         AND CNTR_CD = #{ centerNm }
+                     </if>
+                     <if test = "teamNm != null and !teamNm.equals('all')">
+                         AND TEAM_CD = #{ teamNm }
+                     </if>
+                     <if test = "counselNm != null and !counselNm.equals('all')">
+                         AND USR_ID = #{ counselNm }
+                     </if>
+                       
+                       GROUP BY CALL_MONTH, USR_ID                            
+                      ) SUM_TBL ON RPT_TBL.WRK_DT = SUM_TBL.CALL_MONTH AND RPT_TBL.USR_ID = SUM_TBL.USR_ID
+        UNION
+       SELECT *
+         FROM
+               (
+               SELECT '1' AS TITLE
+                    , CALL_MONTH AS WRK_DT
+                    , '합계' AS CNTR_NM
+                    , '' AS TEAM_NM 
+                    , '' AS USR_ID
+                    , '' AS USR_NM
+                    , CALL_DATE  
+                    , SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)) AS TRT_SCNT_TOT
+                    , SUM(DECODE(CALL_TELCAT, '인바운드', 1, 0 )) AS TRT_SCNT_IN_TOT
+                    , SUM(DECODE(CALL_TELCAT, '아웃바운드', 1, 0)) AS TRT_SCNT_OUT_TOT
+                    , SUM(DECODE(CALL_HSC, '완료', 1, 0)) AS ACT_SCNT_TOT
+                 FROM V_CALLLAW
+                WHERE CALL_YEAR = #{ year }
+                  AND CALL_MONTH = #{ yearMonth }
+           <if test = "centerNm != null and !centerNm.equals('all')">
+                  AND CNTR_CD = #{ centerNm }
+           </if>
+           <if test = "teamNm != null and !teamNm.equals('all')">
+                  AND TEAM_CD = #{ teamNm }
+           </if>
+           <if test = "counselNm != null and !counselNm.equals('all')">
+                  AND USR_ID = #{ counselNm }
+           </if>
+                GROUP BY CALL_MONTH, CALL_DATE 
+              ) PIVOT (SUM(TRT_SCNT_TOT) AS TRT
+                    , SUM(TRT_SCNT_IN_TOT) AS TRT_IN
+                    , SUM(TRT_SCNT_OUT_TOT) AS TRT_OUT
+                    , SUM(ACT_SCNT_TOT) AS ACT
+                  FOR CALL_DATE IN ('01' AS TRT01, '02' AS TRT02, '03' AS TRT03, '04' AS TRT04, '05' AS TRT05
+                                  , '06' AS TRT06, '07' AS TRT07, '08' AS TRT08, '09' AS TRT09, '10' AS TRT10
+                                  , '11' AS TRT11, '12' AS TRT12, '13' AS TRT13, '14' AS TRT14, '15' AS TRT15
+                                  , '16' AS TRT16, '17' AS TRT17, '18' AS TRT18, '19' AS TRT19, '20' AS TRT20
+                                  , '21' AS TRT21, '22' AS TRT22, '23' AS TRT23, '24' AS TRT24, '25' AS TRT25
+                                  , '26' AS TRT26, '27' AS TRT27, '28' AS TRT28
+                        <if test = "lastDay == 29">          
+                                  , '29' AS TRT29
+                        </if>
+                        <if test = "lastDay == 30">          
+                                  , '29' AS TRT29          
+                                  , '30' AS TRT30
+                        </if>
+                        <if test = "lastDay == 31">          
+                                  , '29' AS TRT29          
+                                  , '30' AS TRT30
+                                  , '31' AS TRT31
+                        </if>
+                                  )) RPT_TBL
+                                                          
+               LEFT JOIN         
+                       (
+                       SELECT CALL_MONTH
+                            , '' AS USR_ID
+                            , SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)) AS TRT_SCNT_TOT
+                            , SUM(DECODE(CALL_TELCAT, '인바운드', 1, 0 )) AS TRT_SCNT_IN_TOT
+                            , SUM(DECODE(CALL_TELCAT, '아웃바운드', 1, 0)) AS TRT_SCNT_OUT_TOT
+                            , SUM(DECODE(CALL_HSC, '완료', 1, 0)) AS ACT_SCNT_TOT
+                            , SUM(DECODE(CALL_HSC, '미완료', 1, 0)) AS IMPF_SCNT_TOT 
+                            , (NVL(SUM(DECODE(CALL_HSC, '완료', 1, 0)), 0) / 
+                               NVL(SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)), 0)) * 100 || '%' AS ACT_RATE
+                            , GETSECONDTOTIME(SUM(CALLING_TM)) AS CALL_TM_TOT
+                            , GETSECONDTOTIME(SUM(ACW_TM)) AS ACW_TM_TOT  
+                         FROM V_CALLLAW  
+                        WHERE CALL_YEAR = #{ year }
+                          AND CALL_MONTH = #{ yearMonth }
+                      <if test = "centerNm != null and !centerNm.equals('all')">
+                          AND CNTR_CD = #{ centerNm }
+                      </if>
+                      <if test = "teamNm != null and !teamNm.equals('all')">
+                          AND TEAM_CD = #{ teamNm }
+                      </if>
+                      <if test = "counselNm != null and !counselNm.equals('all')">
+                          AND USR_ID = #{ counselNm }
+                      </if>
+                        GROUP BY CALL_MONTH                            
+                       ) SUM_TBL ON RPT_TBL.WRK_DT = SUM_TBL.CALL_MONTH
+        ORDER BY 1, 2, 3, 4, 6             
+    </select>
+    
+    <select id = "timeListzt" parameterType="map" resultType="map">
+      <!-- 조회조건을 기간으로 From ~ To -->
+      SELECT *
+        FROM
+              (
+              SELECT '2' AS TITLE
+                   , 'S' AS WRK_DT
+                   , CNTR_NM
+                   , TEAM_NM 
+                   , USR_ID
+                   , USR_NM
+                   , SUBSTR(CALL_TM, 0, 2) AS CALL_TM
+                   , SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)) AS TRT_SCNT_TOT
+                   , SUM(DECODE(CALL_TELCAT, '인바운드', 1, 0 )) AS TRT_SCNT_IN_TOT
+                   , SUM(DECODE(CALL_TELCAT, '아웃바운드', 1, 0)) AS TRT_SCNT_OUT_TOT
+                   , SUM(DECODE(CALL_HSC, '완료', 1, 0)) AS ACT_SCNT_TOT
+                FROM V_CALLLAW
+               WHERE CALL_DT BETWEEN #{ timeS } AND #{ timeE } 
+          <if test = "centerNm != null and !centerNm.equals('all')">
+                 AND CNTR_CD = #{ centerNm }
+          </if>
+          <if test = "teamNm != null and !teamNm.equals('all')">
+                 AND TEAM_CD = #{ teamNm }
+          </if>
+          <if test = "counselNm != null and !counselNm.equals('all')">
+                 AND USR_ID = #{ counselNm }
+          </if>
+               
+               GROUP BY CNTR_NM, TEAM_NM, USR_ID, USR_NM, SUBSTR(CALL_TM, 0, 2) 
+              ) PIVOT (SUM(TRT_SCNT_TOT) AS TRT
+                    , SUM(TRT_SCNT_IN_TOT) AS TRT_IN
+                    , SUM(TRT_SCNT_OUT_TOT) AS TRT_OUT
+                    , SUM(ACT_SCNT_TOT) AS ACT
+                  FOR CALL_TM IN ('00' AS TRT00, '01' AS TRT01, '02' AS TRT02, '03' AS TRT03, '04' AS TRT04
+                                  , '05' AS TRT05, '06' AS TRT06, '07' AS TRT07, '08' AS TRT08, '09' AS TRT09
+                                  , '10' AS TRT10, '11' AS TRT11, '12' AS TRT12, '13' AS TRT13, '14' AS TRT14
+                                  , '15' AS TRT15, '16' AS TRT16, '17' AS TRT17, '18' AS TRT18, '19' AS TRT19
+                                  , '20' AS TRT20, '21' AS TRT21, '22' AS TRT22, '23' AS TRT23
+                                  )) RPT_TBL
+              LEFT JOIN         
+                      (
+                      SELECT 'S' AS CALL_DT
+                           , USR_ID
+                           , SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)) AS TRT_SCNT_TOT
+                           , SUM(DECODE(CALL_TELCAT, '인바운드', 1, 0 )) AS TRT_SCNT_IN_TOT
+                           , SUM(DECODE(CALL_TELCAT, '아웃바운드', 1, 0)) AS TRT_SCNT_OUT_TOT
+                           , SUM(DECODE(CALL_HSC, '완료', 1, 0)) AS ACT_SCNT_TOT
+                           , SUM(DECODE(CALL_HSC, '미완료', 1, 0)) AS IMPF_SCNT_TOT 
+                           , (NVL(SUM(DECODE(CALL_HSC, '완료', 1, 0)), 0) / 
+                              NVL(SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)), 0)) * 100 || '%' AS ACT_RATE
+                           , GETSECONDTOTIME(SUM(CALLING_TM)) AS CALL_TM_TOT
+                           , GETSECONDTOTIME(SUM(ACW_TM)) AS ACW_TM_TOT  
+                        FROM V_CALLLAW  
+                       WHERE CALL_DT BETWEEN #{ timeS } AND #{ timeE }
+                     <if test = "centerNm != null and !centerNm.equals('all')">
+                         AND CNTR_CD = #{ centerNm }
+                     </if>
+                     <if test = "teamNm != null and !teamNm.equals('all')">
+                         AND TEAM_CD = #{ teamNm }
+                     </if>
+                     <if test = "counselNm != null and !counselNm.equals('all')">
+                         AND USR_ID = #{ counselNm }
+                     </if>
+                       
+                       GROUP BY USR_ID                            
+                      ) SUM_TBL ON RPT_TBL.WRK_DT = SUM_TBL.CALL_DT AND RPT_TBL.USR_ID = SUM_TBL.USR_ID 
+        UNION
+       SELECT *
+         FROM
+               (
+               SELECT '1' AS TITLE
+                    , 'T' AS WRK_DT
+                    , '합계' AS CNTR_NM
+                    , '' AS TEAM_NM 
+                    , '' AS USR_ID
+                    , '' AS USR_NM
+                    , SUBSTR(CALL_TM, 0, 2) AS CALL_TM  
+                    , SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)) AS TRT_SCNT_TOT
+                    , SUM(DECODE(CALL_TELCAT, '인바운드', 1, 0 )) AS TRT_SCNT_IN_TOT
+                    , SUM(DECODE(CALL_TELCAT, '아웃바운드', 1, 0)) AS TRT_SCNT_OUT_TOT
+                    , SUM(DECODE(CALL_HSC, '완료', 1, 0)) AS ACT_SCNT_TOT
+                 FROM V_CALLLAW
+                WHERE CALL_DT BETWEEN #{ timeS } AND #{ timeE }
+           <if test = "centerNm != null and !centerNm.equals('all')">
+                  AND CNTR_CD = #{ centerNm }
+           </if>
+           <if test = "teamNm != null and !teamNm.equals('all')">
+                  AND TEAM_CD = #{ teamNm }
+           </if>
+           <if test = "counselNm != null and !counselNm.equals('all')">
+                  AND USR_ID = #{ counselNm }
+           </if>
+                GROUP BY SUBSTR(CALL_TM, 0, 2) 
+              ) PIVOT (SUM(TRT_SCNT_TOT) AS TRT
+                    , SUM(TRT_SCNT_IN_TOT) AS TRT_IN
+                    , SUM(TRT_SCNT_OUT_TOT) AS TRT_OUT
+                    , SUM(ACT_SCNT_TOT) AS ACT
+                  FOR CALL_TM IN ('00' AS TRT00, '01' AS TRT01, '02' AS TRT02, '03' AS TRT03, '04' AS TRT04
+                                  , '05' AS TRT05, '06' AS TRT06, '07' AS TRT07, '08' AS TRT08, '09' AS TRT09
+                                  , '10' AS TRT10, '11' AS TRT11, '12' AS TRT12, '13' AS TRT13, '14' AS TRT14
+                                  , '15' AS TRT15, '16' AS TRT16, '17' AS TRT17, '18' AS TRT18, '19' AS TRT19
+                                  , '20' AS TRT20, '21' AS TRT21, '22' AS TRT22, '23' AS TRT23
+                                  )) RPT_TBL                    
+               LEFT JOIN         
+                       (
+                       SELECT 'T' AS CALL_DT
+                            , '' AS USR_ID
+                            , SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)) AS TRT_SCNT_TOT
+                            , SUM(DECODE(CALL_TELCAT, '인바운드', 1, 0 )) AS TRT_SCNT_IN_TOT
+                            , SUM(DECODE(CALL_TELCAT, '아웃바운드', 1, 0)) AS TRT_SCNT_OUT_TOT
+                            , SUM(DECODE(CALL_HSC, '완료', 1, 0)) AS ACT_SCNT_TOT
+                            , SUM(DECODE(CALL_HSC, '미완료', 1, 0)) AS IMPF_SCNT_TOT 
+                            , (NVL(SUM(DECODE(CALL_HSC, '완료', 1, 0)), 0) / 
+                               NVL(SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)), 0)) * 100 || '%' AS ACT_RATE
+                            , GETSECONDTOTIME(SUM(CALLING_TM)) AS CALL_TM_TOT
+                            , GETSECONDTOTIME(SUM(ACW_TM)) AS ACW_TM_TOT  
+                         FROM V_CALLLAW 
+                        WHERE CALL_DT BETWEEN #{ timeS } AND #{ timeE }
+                      <if test = "centerNm != null and !centerNm.equals('all')">
+                          AND CNTR_CD = #{ centerNm }
+                      </if>
+                      <if test = "teamNm != null and !teamNm.equals('all')">
+                          AND TEAM_CD = #{ teamNm }
+                      </if>
+                      <if test = "counselNm != null and !counselNm.equals('all')">
+                          AND USR_ID = #{ counselNm }
+                      </if>                         
+                       ) SUM_TBL ON RPT_TBL.WRK_DT = SUM_TBL.CALL_DT
+        ORDER BY 1, 2, 3, 4, 6         
+         
+    </select>    
+        
+    <select id = "termListso" parameterType="map" resultType="map">
+      SELECT *
+        FROM
+              (
+              SELECT '2' AS TITLE
+                   , '' AS WRK_DT
+                   , CNTR_NM
+                   , TEAM_NM 
+                   , USR_ID
+                   , USR_NM
+                   , CALL_DT
+                   , SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)) AS TRT_SCNT_TOT
+                   , SUM(DECODE(CALL_TELCAT, '인바운드', 1, 0 )) AS TRT_SCNT_IN_TOT
+                   , SUM(DECODE(CALL_TELCAT, '아웃바운드', 1, 0)) AS TRT_SCNT_OUT_TOT
+                   , SUM(DECODE(CALL_HSC, '완료', 1, 0)) AS ACT_SCNT_TOT
+                FROM V_CALLLAW
+               WHERE CALL_DT BETWEEN #{ startDate } AND #{endDate}
+          <if test = "centerNm != null and !centerNm.equals('all')">
+                 AND CNTR_CD = #{ centerNm }
+          </if>
+          <if test = "teamNm != null and !teamNm.equals('all')">
+                 AND TEAM_CD = #{ teamNm }
+          </if>
+          <if test = "counselNm != null and !counselNm.equals('all')">
+                 AND USR_ID = #{ counselNm }
+          </if>
+               
+               GROUP BY CNTR_NM, TEAM_NM, USR_ID, USR_NM, CALL_DT
+              ) PIVOT (SUM(TRT_SCNT_TOT) AS TRT
+                    , SUM(TRT_SCNT_IN_TOT) AS TRT_IN
+                    , SUM(TRT_SCNT_OUT_TOT) AS TRT_OUT
+                    , SUM(ACT_SCNT_TOT) AS ACT
+                  FOR CALL_DT IN (
+                                  ${ trtPivotValue }
+                                  )) RPT_TBL
+              LEFT JOIN         
+                      (
+                      SELECT '' AS CALL_DT
+                           , USR_ID
+                           , SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)) AS TRT_SCNT_TOT
+                           , SUM(DECODE(CALL_TELCAT, '인바운드', 1, 0 )) AS TRT_SCNT_IN_TOT
+                           , SUM(DECODE(CALL_TELCAT, '아웃바운드', 1, 0)) AS TRT_SCNT_OUT_TOT
+                           , SUM(DECODE(CALL_HSC, '완료', 1, 0)) AS ACT_SCNT_TOT
+                           , SUM(DECODE(CALL_HSC, '미완료', 1, 0)) AS IMPF_SCNT_TOT 
+                           , (NVL(SUM(DECODE(CALL_HSC, '완료', 1, 0)), 0) / 
+                              NVL(SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)), 0)) * 100 || '%' AS ACT_RATE
+                           , GETSECONDTOTIME(SUM(CALLING_TM)) AS CALL_TM_TOT
+                           , GETSECONDTOTIME(SUM(ACW_TM)) AS ACW_TM_TOT  
+                        FROM V_CALLLAW  
+                       WHERE CALL_DT BETWEEN #{ startDate } AND #{endDate}
+                     <if test = "centerNm != null and !centerNm.equals('all')">
+                         AND CNTR_CD = #{ centerNm }
+                     </if>
+                     <if test = "teamNm != null and !teamNm.equals('all')">
+                         AND TEAM_CD = #{ teamNm }
+                     </if>
+                     <if test = "counselNm != null and !counselNm.equals('all')">
+                         AND USR_ID = #{ counselNm }
+                     </if>
+                       
+                       GROUP BY USR_ID                            
+                      ) SUM_TBL ON RPT_TBL.USR_ID = SUM_TBL.USR_ID
+        UNION
+       SELECT *
+         FROM
+               (
+               SELECT '1' AS TITLE
+                    , 'T' AS WRK_DT
+                    , '합계' AS CNTR_NM
+                    , '' AS TEAM_NM 
+                    , '' AS USR_ID
+                    , '' AS USR_NM
+                    , CALL_DT
+                    , SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)) AS TRT_SCNT_TOT
+                    , SUM(DECODE(CALL_TELCAT, '인바운드', 1, 0 )) AS TRT_SCNT_IN_TOT
+                    , SUM(DECODE(CALL_TELCAT, '아웃바운드', 1, 0)) AS TRT_SCNT_OUT_TOT
+                    , SUM(DECODE(CALL_HSC, '완료', 1, 0)) AS ACT_SCNT_TOT
+                 FROM V_CALLLAW
+                WHERE CALL_DT BETWEEN #{ startDate } AND #{endDate}
+           <if test = "centerNm != null and !centerNm.equals('all')">
+                  AND CNTR_CD = #{ centerNm }
+           </if>
+           <if test = "teamNm != null and !teamNm.equals('all')">
+                  AND TEAM_CD = #{ teamNm }
+           </if>
+           <if test = "counselNm != null and !counselNm.equals('all')">
+                  AND USR_ID = #{ counselNm }
+           </if>
+                GROUP BY CALL_DT
+              ) PIVOT (SUM(TRT_SCNT_TOT) AS TRT
+                    , SUM(TRT_SCNT_IN_TOT) AS TRT_IN
+                    , SUM(TRT_SCNT_OUT_TOT) AS TRT_OUT
+                    , SUM(ACT_SCNT_TOT) AS ACT
+                  FOR CALL_DT IN (
+                                  ${ trtPivotValue }                  
+                                  )) RPT_TBL
+                                                          
+               LEFT JOIN         
+                       (
+                       SELECT 'T' AS CALL_DT
+                            , '' AS USR_ID
+                            , SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)) AS TRT_SCNT_TOT
+                            , SUM(DECODE(CALL_TELCAT, '인바운드', 1, 0 )) AS TRT_SCNT_IN_TOT
+                            , SUM(DECODE(CALL_TELCAT, '아웃바운드', 1, 0)) AS TRT_SCNT_OUT_TOT
+                            , SUM(DECODE(CALL_HSC, '완료', 1, 0)) AS ACT_SCNT_TOT
+                            , SUM(DECODE(CALL_HSC, '미완료', 1, 0)) AS IMPF_SCNT_TOT 
+                            , (NVL(SUM(DECODE(CALL_HSC, '완료', 1, 0)), 0) / 
+                               NVL(SUM(DECODE(CALL_TELCAT, '인바운드', 1, '아웃바운드', 1, 0)), 0)) * 100 || '%' AS ACT_RATE
+                            , GETSECONDTOTIME(SUM(CALLING_TM)) AS CALL_TM_TOT
+                            , GETSECONDTOTIME(SUM(ACW_TM)) AS ACW_TM_TOT  
+                         FROM V_CALLLAW  
+                        WHERE CALL_DT BETWEEN #{ startDate } AND #{endDate}
+                      <if test = "centerNm != null and !centerNm.equals('all')">
+                          AND CNTR_CD = #{ centerNm }
+                      </if>
+                      <if test = "teamNm != null and !teamNm.equals('all')">
+                          AND TEAM_CD = #{ teamNm }
+                      </if>
+                      <if test = "counselNm != null and !counselNm.equals('all')">
+                          AND USR_ID = #{ counselNm }
+                      </if>                            
+                       ) SUM_TBL ON RPT_TBL.WRK_DT = SUM_TBL.CALL_DT
+        ORDER BY 1, 2, 3, 4, 6    
+
+    </select>
+    
+    <!-- st006 -->
+    <select id="allListss" parameterType="map" resultType="map">
+        SELECT
+            <if test="(startDate == null or startDate.equals('')) and (endDate == null or endDate.equals(''))">
+                '총계' AS wrk_dt
+            ,   '' AS cntr_nm,
+            </if>
+            <if test="startDate != null and !startDate.equals('') and endDate != null and !endDate.equals('')">
+                '총계' AS cntr_nm,
+            </if>
+                '' AS team_nm
+            ,   '' AS usr_nm
+            ,   '' AS intv_lg_nm
+            ,   '' AS intv_md_nm
+            ,   '' AS intv_sm_nm
+            ,   CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '인바운드',1 , 0))+sum(decode(CALL_TELCAT, '아웃바운드',1 , 0))) AS trt_scnt
+            ,   CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '인바운드',1 , 0))) AS trt_scnt_in
+            ,   CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '아웃바운드',1 , 0))) AS trt_scnt_out
+            ,   CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_HSC, '완료',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS trt_scnt_rate
+            ,   CHANGENUMBERFORMAT(sum(decode(CALL_HSC, '완료',1 , 0))) AS act_scnt
+            ,   CHANGENUMBERFORMAT(sum(decode(CALL_HSC, '미완료',1 , 0))) AS impf_scnt
+            ,   CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS act_per
+            ,   GETFORMATTIME(SUM(CALL_AET)) AS tota_acw_tm
+            ,   getformattime(sum(CALL_LT-CALL_AT)) AS tota_call_tm
+        FROM V_CALLLAW
+        WHERE 1 = 1
+        <if test="startDate != null and !startDate.equals('') and endDate != null and !endDate.equals('')">
+            AND CALL_DT between #{startDate} and #{endDate} 
+        </if>
+        <if test="(startDate == null or startDate.equals('')) and (endDate == null or endDate.equals(''))">
+            AND CALL_DT LIKE #{term} || '%'
+        </if>
+        <if test="centerNm != null and !centerNm.equals('')">
+            AND cntr_nm = #{centerNm}
+        </if>
+        <if test="teamNm != null and !teamNm.equals('')">
+            AND team_nm = #{teamNm}
+        </if>
+        <if test="counselNm != null and !counselNm.equals('')">
+            AND usr_nm = #{counselNm}
+        </if>
+        UNION ALL
+        SELECT
+            <if test="(startDate == null or startDate.equals('')) and (endDate == null or endDate.equals(''))">
+                NVL(wrk_dt, '합계') AS wrk_dt,
+            </if>
+                NVL(cntr_nm, '합계') AS cntr_nm
+            ,   NVL(team_nm, '합계') AS team_nm
+            ,   NVL(usr_nm, '합계') AS usr_nm
+            ,   NVL(LARGE_CN, '합계') AS intv_lg_nm
+            ,   NVL(MIDDLE_CN, '합계') AS intv_md_nm
+            ,   NVL(SMALL_CN, '합계') AS intv_sm_nm
+            ,   CHANGENUMBERFORMAT(trt_scnt) AS trt_scnt
+            ,   CHANGENUMBERFORMAT(trt_scnt_in) AS trt_scnt_in
+            ,   CHANGENUMBERFORMAT(trt_scnt_out) AS trt_scnt_out
+            ,   CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_HSC, '완료',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS trt_scnt_rate
+            ,   CHANGENUMBERFORMAT(act_scnt) AS act_scnt
+            ,   CHANGENUMBERFORMAT(impf_scnt) AS impf_scnt
+            ,   CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS act_per
+            ,   GETSECONDTOTIME(tota_acw_tm)
+            ,   GETSECONDTOTIME(tota_call_tm)
+        FROM
+        (
+            SELECT
+                <if test="(startDate == null or startDate.equals('')) and (endDate == null or endDate.equals(''))">
+                    to_char(to_date(a1.CALL_DT, 'yyyymmdd'), '${ termType }') AS wrk_dt,
+                </if>
+                    a1.cntr_nm
+                ,   a1.team_nm
+                ,   a1.usr_nm
+                ,   a1.LARGE_CN as LARGE_CN
+                ,   a1.MIDDLE_CN as MIDDLE_CN
+                ,   a1.SMALL_CN as SMALL_CN
+                ,   SUM(a1.trt_scnt) + SUM(a1.trt_scnt_out) AS trt_scnt
+                ,   SUM(a1.trt_scnt) AS trt_scnt_in
+                ,   SUM(a1.trt_scnt_out) AS trt_scnt_out
+                ,   CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_HSC, '완료',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' ENDd AS trt_scnt_rate
+                ,   SUM(a1.act_scnt) AS act_scnt
+                ,   SUM(a1.impf_scnt) AS impf_scnt
+                ,   SUM(a1.tota_acw_tm) AS tota_acw_tm
+                ,   SUM(a1.tota_call_tm) AS tota_call_tm
+            FROM 
+            (
+                SELECT
+                    <if test="(startDate == null or startDate.equals('')) and (endDate == null or endDate.equals(''))">
+                        CALL_DT,
+                    </if>
+                        NVL(cntr_nm, ' ') AS cntr_nm
+                    ,   NVL(team_nm, ' ') AS team_nm
+                    ,   usr_nm as usr_nm
+                    ,   LARGE_CN as LARGE_CN
+                    ,   MIDDLE_CN as MIDDLE_CN
+                    ,   SMALL_CN as SMALL_CN
+                    ,   decode(CALL_TELCAT, '인바운드',1 , 0) as trt_scnt
+                    ,   decode(CALL_TELCAT, '아웃바운드',1 , 0) as trt_scnt_out
+                    ,   decode(CALL_HSC, '완료',1 , 0) AS act_scnt
+                    ,   decode(CALL_HSC, '미완료',1 , 0) AS impf_scnt
+                    ,   ACW_TM as tota_acw_tm
+                    ,   (CALLING_TM) as tota_call_tm
+                FROM V_CALLLAW
+                WHERE 1 = 1
+                <if test="startDate != null and !startDate.equals('') and endDate != null and !endDate.equals('')">
+                    AND CALL_DT between #{startDate} and #{endDate} 
+                </if>
+                <if test="(startDate == null or startDate.equals('')) and (endDate == null or endDate.equals(''))">
+                    AND CALL_DT LIKE #{term} || '%'
+                </if>
+            ) a1
+            WHERE 1 = 1
+            <if test="centerNm != null and !centerNm.equals('')">
+                AND cntr_nm = #{centerNm}
+            </if>
+            <if test="teamNm != null and !teamNm.equals('')">
+                AND team_nm = #{teamNm}
+            </if>
+            <if test="counselNm != null and !counselNm.equals('')">
+                AND usr_nm = #{counselNm}
+            </if>
+            GROUP BY ROLLUP(<if test="(startDate == null or startDate.equals('')) and (endDate == null or endDate.equals(''))">to_char(to_date(a1.CALL_DT, 'yyyymmdd'), '${ termType }'),</if> a1.cntr_nm, a1.team_nm, a1.usr_nm, a1.LARGE_CN, a1.MIDDLE_CN, a1.SMALL_CN)
+            ORDER BY <if test="(startDate == null or startDate.equals('')) and (endDate == null or endDate.equals(''))">wrk_dt,</if> cntr_nm, team_nm, usr_nm, LARGE_CN,MIDDLE_CN, SMALL_CN
+        )
+        WHERE <if test="(startDate == null or startDate.equals('')) and (endDate == null or endDate.equals(''))">wrk_dt != '합계' OR</if> cntr_nm != '합계' OR team_nm != '합계' OR usr_nm != '합계' OR LARGE_CN != '합계' OR MIDDLE_CN != '합계' OR SMALL_CN != '합계'
+    </select>
+    
+     <select id="intvListss" parameterType="map" resultType="map">
+        SELECT
+                '총계' AS intv_lg_nm
+            ,   '총계' AS intv_md_nm
+            ,   '총계' AS intv_sm_nm
+            ,   CHANGENUMBERFORMAT(SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) + SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) AS trt_scnt
+            ,   CHANGENUMBERFORMAT(SUM(decode(CALL_TELCAT, '인바운드',1 , 0))) AS trt_scnt_in
+            ,   CHANGENUMBERFORMAT(SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) AS trt_scnt_out
+            , CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_HSC, '완료',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS trt_scnt_rate
+            ,   CHANGENUMBERFORMAT(SUM(decode(CALL_HSC, '완료',1 , 0))) AS act_scnt
+            ,   CHANGENUMBERFORMAT(SUM(decode(CALL_HSC, '미완료',1 , 0))) AS impf_scnt
+            , CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS act_per
+            ,   GETSECONDTOTIME(SUM(ACW_TM)) AS tota_acw_tm
+            ,   GETSECONDTOTIME(SUM(CALLING_TM)) AS tota_call_tm
+        FROM V_CALLLAW
+        WHERE 1 = 1
+        <if test="startDate != null and !startDate.equals('') and endDate != null and !endDate.equals('')">
+            AND CALL_DT between #{startDate} and #{endDate} 
+        </if>
+        <if test="(startDate == null or startDate.equals('')) and (endDate == null or endDate.equals(''))">
+            AND CALL_DT LIKE #{term} || '%'
+        </if>
+        <if test="centerNm != null and !centerNm.equals('')">
+            AND cntr_nm = #{centerNm}
+        </if>
+        <if test="teamNm != null and !teamNm.equals('')">
+            AND team_nm = #{teamNm}
+        </if>
+        <if test="counselNm != null and !counselNm.equals('')">
+            AND usr_nm = #{counselNm}
+        </if>
+        UNION ALL
+        SELECT
+                NVL(intv_lg_nm, '합계') AS intv_lg_nm
+            ,   NVL(intv_md_nm, '합계') AS intv_md_nm
+            ,   NVL(intv_sm_nm, '합계') AS intv_sm_nm
+            ,   CHANGENUMBERFORMAT(trt_scnt) AS trt_scnt
+            ,   CHANGENUMBERFORMAT(trt_scnt_in) AS trt_scnt_in
+            ,   CHANGENUMBERFORMAT(trt_scnt_out) AS trt_scnt_out
+            ,   trt_scnt_rate AS trt_scnt_rate
+            ,   CHANGENUMBERFORMAT(act_scnt) AS act_scnt
+            ,   CHANGENUMBERFORMAT(impf_scnt) AS impf_scnt
+            ,   CASE WHEN trt_scnt = 0 THEN '0.00' ELSE ROUND(act_scnt / trt_scnt * 100, 2) || '%' END AS act_per
+            ,   GETSECONDTOTIME(tota_acw_tm)
+            ,   GETSECONDTOTIME(tota_call_tm)
+        FROM
+        (
+            SELECT
+                    a1.LARGE_CN as intv_lg_nm
+                ,   a1.MIDDLE_CN as intv_md_nm
+                ,   a1.SMALL_CN as intv_sm_nm
+                ,   sum(decode(a1.CALL_TELCAT, '인바운드',1 , 0)) + sum(decode(a1.CALL_TELCAT, '아웃바운드',1 , 0)) AS trt_scnt
+                ,   sum(decode(a1.CALL_TELCAT, '인바운드',1 , 0)) AS trt_scnt_in
+                ,    sum(decode(a1.CALL_TELCAT, '아웃바운드',1 , 0)) AS trt_scnt_out
+                , CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS trt_scnt_rate
+                ,   sum(decode(a1.CALL_HSC, '완료',1 , 0)) AS act_scnt
+                ,   sum(decode(a1.CALL_HSC, '미완료',1 , 0)) AS impf_scnt
+                ,   SUM(a1.ACW_TM) AS tota_acw_tm
+                ,   SUM((CALLING_TM)) AS tota_call_tm
+            FROM V_CALLLAW a1
+            WHERE 1 = 1
+            <if test="startDate != null and !startDate.equals('') and endDate != null and !endDate.equals('')">
+                AND CALL_DT between #{startDate} and #{endDate} 
+            </if>
+            <if test="(startDate == null or startDate.equals('')) and (endDate == null or endDate.equals(''))">
+                AND CALL_DT LIKE #{term} || '%'
+            </if>
+            <if test="centerNm != null and !centerNm.equals('')">
+                AND cntr_nm = #{centerNm}
+            </if>
+            <if test="teamNm != null and !teamNm.equals('')">
+                AND team_nm = #{teamNm}
+            </if>
+            <if test="counselNm != null and !counselNm.equals('')">
+                AND usr_nm = #{counselNm}
+            </if>
+            GROUP BY rollup(a1.LARGE_CN, a1.MIDDLE_CN,a1.SMALL_CN)
+            ORDER BY LARGE_CN, MIDDLE_CN,SMALL_CN
+        )
+        WHERE intv_lg_nm != '합계' OR intv_md_nm != '합계' OR intv_sm_nm != '합계'
+    </select>
+    <select id="usrListss" parameterType="map" resultType="map">
+                SELECT
+                '총계' AS cntr_nm
+            ,   '' AS team_nm
+            ,   '' AS usr_nm
+            ,   '' AS intv_lg_nm
+            ,   '' AS intv_md_nm
+            ,   '' AS intv_sm_nm
+            ,   CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '인바운드',1 , 0))+sum(decode(CALL_TELCAT, '아웃바운드',1 , 0))) AS trt_scnt
+            ,   CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '인바운드',1 , 0))) AS trt_scnt_in
+            ,   CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '아웃바운드',1 , 0))) AS trt_scnt_out
+            ,   CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_HSC, '완료',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS trt_scnt_rate
+            ,   CHANGENUMBERFORMAT(sum(decode(CALL_HSC, '완료',1 , 0))) AS act_scnt
+            ,   CHANGENUMBERFORMAT(sum(decode(CALL_HSC, '미완료',1 , 0))) AS impf_scnt
+            ,   CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS act_per
+            ,   GETSECONDTOTIME(SUM(ACW_TM)) AS tota_acw_tm
+            ,   GETSECONDTOTIME(sum(CALLING_TM)) AS tota_call_tm
+        FROM V_CALLLAW
+        WHERE 1 = 1
+        <if test="startDate != null and !startDate.equals('') and endDate != null and !endDate.equals('')">
+            AND CALL_DT between #{startDate} and #{endDate} 
+        </if>
+        <if test="(startDate == null or startDate.equals('')) and (endDate == null or endDate.equals(''))">
+            AND CALL_DT LIKE #{term} || '%'
+        </if>
+        <if test="centerNm != null and !centerNm.equals('')">
+            AND cntr_nm = #{centerNm}
+        </if>
+        <if test="teamNm != null and !teamNm.equals('')">
+            AND team_nm = #{teamNm}
+        </if>
+        <if test="counselNm != null and !counselNm.equals('')">
+            AND usr_nm = #{counselNm}
+        </if>
+        UNION ALL
+        SELECT
+                NVL(cntr_nm, '합계') AS cntr_nm
+            ,   NVL(team_nm, '합계') AS team_nm
+            ,   NVL(usr_nm, '합계') AS usr_nm
+            ,   NVL(intv_lg_nm, '합계') AS intv_lg_nm
+            ,   NVL(intv_md_nm, '합계') AS intv_md_nm
+            ,   NVL(intv_sm_nm, '합계') AS intv_sm_nm
+            ,   CHANGENUMBERFORMAT(trt_scnt) AS trt_scnt
+            ,   CHANGENUMBERFORMAT(trt_scnt_in) AS trt_scnt_in
+            ,   CHANGENUMBERFORMAT(trt_scnt_out) AS trt_scnt_out
+            ,   case when trt_scnt_rate is null then '0' else case when substr(trt_scnt_rate, 4, 1) = ' ' then '0' || trim(trt_scnt_rate) else trim(trt_scnt_rate) end || '%' end AS trt_scnt_rate
+            ,   CHANGENUMBERFORMAT(act_scnt) AS act_scnt
+            ,   CHANGENUMBERFORMAT(impf_scnt) AS impf_scnt
+            ,   CASE WHEN trt_scnt = 0 THEN '0.00' ELSE ROUND(act_scnt / trt_scnt * 100, 2) || '%' END AS act_per
+            ,   GETSECONDTOTIME(tota_acw_tm)
+            ,   GETSECONDTOTIME(tota_call_tm)
+        FROM
+        (
+            SELECT
+                    a1.cntr_nm as cntr_nm
+                ,   a1.team_nm as team_nm
+                ,   a1.usr_nm as usr_nm
+                ,   a1.intv_lg_cd as intv_lg_nm
+                ,   a1.intv_md_cd as intv_md_nm
+                ,   a1.intv_sm_cd as intv_sm_nm
+                ,   SUM(a1.trt_scnt) + SUM(a1.trt_scnt_out) AS trt_scnt
+                ,   SUM(a1.trt_scnt) AS trt_scnt_in
+                ,   SUM(a1.trt_scnt_out) AS trt_scnt_out
+                ,   CASE WHEN  SUM(a1.trt_scnt) = 0 THEN '0.00' WHEN  SUM(a1.trt_scnt) is null THEN null ELSE ROUND( SUM(a1.act_scnt) / ( SUM(a1.trt_scnt) +  SUM(a1.trt_scnt_out)) * 100, 2) || '%' END AS trt_scnt_rate
+                ,   SUM(a1.act_scnt) AS act_scnt
+                ,   SUM(a1.impf_scnt) AS impf_scnt
+                ,   SUM(a1.tota_acw_tm) AS tota_acw_tm
+                ,   SUM(a1.tota_call_tm) AS tota_call_tm
+            FROM 
+            (
+                SELECT
+                    CALL_DT as wrk_dt 
+                    ,   NVL(cntr_nm, ' ') AS cntr_nm
+                    ,   NVL(team_nm, ' ') AS team_nm
+                    ,   usr_nm as usr_nm
+                    ,    LARGE_CN as intv_lg_cd
+                    ,    MIDDLE_CN as intv_md_cd
+                    ,    SMALL_CN as intv_sm_cd
+                    ,   decode(CALL_TELCAT, '인바운드',1 , 0) as trt_scnt
+                    ,   decode(CALL_TELCAT, '아웃바운드',1 , 0) as trt_scnt_out
+                    ,    decode(CALL_HSC, '완료',1 , 0)as act_scnt
+                    ,    decode(CALL_HSC, '미완료',1 , 0) as impf_scnt
+                    ,    ACW_TM as tota_acw_tm
+                    ,    (CALLING_TM) as tota_call_tm
+                FROM V_CALLLAW
+            ) a1
+            WHERE 1 = 1
+            <if test="startDate != null and !startDate.equals('') and endDate != null and !endDate.equals('')">
+                AND a1.wrk_dt between #{startDate} and #{endDate} 
+            </if>
+            <if test="(startDate == null or startDate.equals('')) and (endDate == null or endDate.equals(''))">
+                AND a1.wrk_dt LIKE #{term} || '%'
+            </if>
+            <if test="centerNm != null and !centerNm.equals('')">
+                AND cntr_nm = #{centerNm}
+            </if>
+            <if test="teamNm != null and !teamNm.equals('')">
+                AND team_nm = #{teamNm}
+            </if>
+            <if test="counselNm != null and !counselNm.equals('')">
+                AND usr_nm = #{counselNm}
+            </if>
+            GROUP BY ROLLUP(a1.cntr_nm, a1.team_nm, a1.usr_nm, a1.intv_lg_cd, a1.intv_md_cd,a1.intv_sm_cd)
+            ORDER BY cntr_nm, team_nm, usr_nm,  a1.usr_nm, a1.intv_lg_cd, a1.intv_md_cd,a1.intv_sm_cd
+        )
+        WHERE cntr_nm != '합계' OR team_nm != '합계' OR usr_nm != '합계' OR intv_lg_nm != '합계' OR intv_md_nm != '합계' OR intv_sm_nm != '합계'
+    </select>
+    
+    <!-- st011  -->
+    
+    <select id = "checkedListsel" parameterType="map" resultType="map">
+        SELECT *
+        FROM
+        (
+            SELECT CASE WHEN team_nm is null THEN cntr_nm ELSE cntr_nm || ' / ' || team_nm END AS team_nm
+                , usr_nm
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '일반',1 , 0))) AS gnrl_act <!-- 일반 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '상담후호전환',1 , 0))) AS apnt_act <!-- 상담후호전환 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '자동저장',1 , 0))) AS voc_reg <!-- 자동저장 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '호전환',1 , 0))) AS callbck_reg <!-- 호전환 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '인바운드',1 , 0))+sum(decode(CALL_TELCAT, '아웃바운드',1 , 0))) AS trt_scnt <!-- 전체건수 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '인바운드',1 , 0))) AS INBOUND <!-- 인바운드 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '아웃바운드',1 , 0))) AS OUTBOUND <!-- 아웃바운드 -->
+                , CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS trt_scnt_rate <!-- 비율 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_HSC, '완료',1 , 0))) AS act_scnt <!-- 완료건수 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_HSC, '미완료',1 , 0))) AS impf_scnt <!-- 미완료 -->
+                , CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_HSC, '완료',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS act_rate <!-- 처리완료율 -->
+                , GETSECONDTOTIME(SUM(ACW_TM)) AS tota_acw_tm <!-- 총 후처리시간 -->
+                , GETSECONDTOTIME(sum(CALLING_TM)) AS tota_call_tm <!-- 총상담시간 -->
+            FROM V_CALLLAW
+            WHERE 1 = 1
+                <if test="term != null and !term.equals('')">
+                    AND CALL_DT like  #{ term } || '%'
+                </if>
+                <if test="term == null or term.equals('')">
+                    AND CALL_DT between #{ startDate } AND #{ endDate }
+                </if>
+                <if test = "centerNm != null and !centerNm.equals('')">
+                    AND cntr_nm = #{ centerNm }
+                </if>
+                <if test = "teamNm != null and !teamNm.equals('')">
+                    AND team_nm = #{ teamNm }
+                </if>
+                <if test = "counselNm != null and !counselNm.equals('')">
+                    AND usr_nm = #{ counselNm }
+                </if>
+            GROUP BY usr_nm, cntr_nm, team_nm
+            ORDER BY cntr_nm, team_nm, usr_nm
+        )
+        UNION ALL
+        SELECT 
+         '총계' AS team_nm
+                    , '' AS usr_nm
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '일반',1 , 0))) AS gnrl_act <!-- 일반 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '상담후호전환',1 , 0))) AS apnt_act <!-- 상담후호전환 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '자동저장',1 , 0))) AS voc_reg <!-- 자동저장 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '호전환',1 , 0))) AS callbck_reg <!-- 호전환 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '인바운드',1 , 0))+sum(decode(CALL_TELCAT, '아웃바운드',1 , 0))) AS trt_scnt <!-- 전체건수 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '인바운드',1 , 0))) AS INBOUND <!-- 인바운드 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '아웃바운드',1 , 0))) AS OUTBOUND <!-- 아웃바운드 -->
+            , CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS trt_scnt_rate <!-- 비율 -->
+            , CHANGENUMBERFORMAT(sum(decode(CALL_HSC, '완료',1 , 0))) AS act_scnt <!-- 완료건수 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_HSC, '미완료',1 , 0))) AS impf_scnt <!-- 미완료 -->
+                , CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_HSC, '완료',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS act_rate <!-- 처리완료율 -->
+                , GETSECONDTOTIME(SUM(ACW_TM)) AS tota_acw_tm <!-- 총 후처리시간 -->
+                , GETSECONDTOTIME(sum(CALLING_TM)) AS tota_call_tm <!-- 총상담시간 -->
+        FROM V_CALLLAW
+        WHERE 1 = 1
+            <if test="term != null and !term.equals('')">
+                AND CALL_DT like  #{ term } || '%'
+            </if>
+            <if test="term == null or term.equals('')">
+                AND CALL_DT between #{ startDate } AND #{ endDate }
+            </if>
+            <if test = "centerNm != null and !centerNm.equals('')">
+                AND cntr_nm = #{ centerNm }
+            </if>
+            <if test = "teamNm != null and !teamNm.equals('')">
+                AND team_nm = #{ teamNm }
+            </if>
+            <if test = "counselNm != null and !counselNm.equals('')">
+                AND usr_nm = #{ counselNm }
+            </if>
+    </select>
+    
+    <select id = "unCheckedListsel" parameterType="map" resultType="map">
+        SELECT
+                team_nm <!-- 소속 -->
+                , usr_nm <!-- 사용자명 -->
+                , wrk_dt <!-- 날짜 -->
+                , gnrl_act <!-- 일반 -->
+                ,  apnt_act <!-- 상담후호전환 -->
+                , voc_reg <!-- 자동저장 -->
+                , callbck_reg <!-- 호전환 -->
+                , trt_scnt <!-- 전체건수 -->
+                , INBOUND <!-- 인바운드 -->
+                , OUTBOUND <!-- 아웃바운드 -->
+                , trt_scnt_rate <!-- 비율 -->
+                , act_scnt <!-- 완료건수 -->
+                , impf_scnt <!-- 미완료 -->
+                , act_rate <!-- 접수비율 -->
+                , tota_acw_tm <!-- 총 후처리시간 -->
+                , tota_call_tm <!-- 총상담시간 -->
+        FROM
+        (
+            SELECT CASE WHEN team_nm is null THEN cntr_nm ELSE cntr_nm || ' / ' || team_nm END AS team_nm
+                , usr_nm
+                , to_char(to_date(CALL_DT, 'yyyymmdd'), '${ termType }')AS wrk_dt
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '일반',1 , 0))) AS gnrl_act <!-- 일반 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '상담후호전환',1 , 0))) AS apnt_act <!-- 상담후호전환 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '자동저장',1 , 0))) AS voc_reg <!-- 자동저장 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '호전환',1 , 0))) AS callbck_reg <!-- 호전환 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '인바운드',1 , 0))+sum(decode(CALL_TELCAT, '아웃바운드',1 , 0))) AS trt_scnt <!-- 전체건수 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '인바운드',1 , 0))) AS INBOUND <!-- 인바운드 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '아웃바운드',1 , 0))) AS OUTBOUND <!-- 아웃바운드 -->
+                , CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS trt_scnt_rate
+                , CHANGENUMBERFORMAT(sum(decode(CALL_HSC, '완료',1 , 0))) AS act_scnt <!-- 완료건수 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_HSC, '미완료',1 , 0))) AS impf_scnt <!-- 미완료 -->
+                , CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_HSC, '완료',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS act_rate <!-- 접수비율 -->
+                , GETSECONDTOTIME(SUM(ACW_TM)) AS tota_acw_tm <!-- 총 후처리시간 -->
+                , GETSECONDTOTIME(sum(CALLING_TM)) AS tota_call_tm <!-- 총상담시간 -->
+            FROM V_CALLLAW
+            WHERE 1 = 1
+                <if test="term != null and !term.equals('')">
+                    AND CALL_DT like  #{ term } || '%'
+                </if>
+                <if test="term == null or term.equals('')">
+                    AND CALL_DT between #{ startDate } AND #{ endDate }
+                </if>
+                <if test = "centerNm != null and !centerNm.equals('')">
+                    AND cntr_nm = #{ centerNm }
+                </if>
+                <if test = "teamNm != null and !teamNm.equals('')">
+                    AND team_nm = #{ teamNm }
+                </if>
+                <if test = "counselNm != null and !counselNm.equals('')">
+                    AND usr_nm = #{ counselNm }
+                </if>
+            GROUP BY usr_nm, to_char(to_date(CALL_DT, 'yyyymmdd'), '${ termType }'), cntr_nm, team_nm
+            ORDER BY  to_char(to_date(CALL_DT, 'yyyymmdd'), '${ termType }'), cntr_nm, team_nm, usr_nm 
+        )
+        UNION ALL
+              SELECT 
+              '총계' AS team_nm
+            , '' AS usr_nm
+            , '' AS wrk_dt
+            , CHANGENUMBERFORMAT(sum(decode(CHCC, '일반',1 , 0))) AS gnrl_act <!-- 일반 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '상담후호전환',1 , 0))) AS apnt_act <!-- 상담후호전환 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '자동저장',1 , 0))) AS voc_reg <!-- 자동저장 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '호전환',1 , 0))) AS callbck_reg <!-- 호전환 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '인바운드',1 , 0))+sum(decode(CALL_TELCAT, '아웃바운드',1 , 0))) AS trt_scnt <!-- 전체건수 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '인바운드',1 , 0))) AS INBOUND <!-- 인바운드 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '아웃바운드',1 , 0))) AS OUTBOUND <!-- 아웃바운드 -->
+            , CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS trt_scnt_rate
+            , CHANGENUMBERFORMAT(sum(decode(CALL_HSC, '완료',1 , 0))) AS act_scnt <!-- 완료건수 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_HSC, '미완료',1 , 0))) AS impf_scnt <!-- 미완료 -->
+                , CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_HSC, '완료',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS act_rate <!-- 접수비율 -->
+                , GETSECONDTOTIME(SUM(ACW_TM)) AS tota_acw_tm <!-- 총 후처리시간 -->
+                , GETSECONDTOTIME(sum(CALLING_TM)) AS tota_call_tm <!-- 총상담시간 -->
+        FROM V_CALLLAW
+        WHERE 1 = 1
+            <if test="term != null and !term.equals('')">
+                AND CALL_DT like  #{ term } || '%'
+            </if>
+            <if test="term == null or term.equals('')">
+                AND CALL_DT between #{ startDate } AND #{ endDate }
+            </if>
+            <if test = "centerNm != null and !centerNm.equals('')">
+                AND cntr_nm = #{ centerNm }
+            </if>
+            <if test = "teamNm != null and !teamNm.equals('')">
+                AND team_nm = #{ teamNm }
+            </if>
+            <if test = "counselNm != null and !counselNm.equals('')">
+                AND usr_nm = #{ counselNm }
+            </if>
+    </select>
+    
+    <select id = "unCheckedListsdz" parameterType="map" resultType="map">
+        SELECT *
+        FROM
+        (
+            SELECT 
+                 CASE WHEN cntr_nm is null THEN '합계' ELSE cntr_nm || ' / ' || team_nm END AS team_nm <!-- 소속 -->
+                ,CASE WHEN usr_nm is null THEN '합계' ELSE usr_nm END AS usr_nm <!-- 사용자명 -->
+                ,CASE WHEN substr(CALL_TM,0,2) is null THEN '소계' ELSE substr(CALL_TM,0,2) || '시' END AS wrk_dt <!-- 시간 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '일반',1 , 0))) AS gnrl_act <!-- 일반 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '상담후호전환',1 , 0))) AS apnt_act <!-- 상담후호전환 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '자동저장',1 , 0))) AS voc_reg <!-- 자동저장 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '호전환',1 , 0))) AS callbck_reg <!-- 호 전환 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '인바운드',1 , 0))+sum(decode(CALL_TELCAT, '아웃바운드',1 , 0))) AS trt_scnt <!-- 전체건수 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '인바운드',1 , 0))) AS INBOUND <!-- 인바운드 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '아웃바운드',1 , 0))) AS OUTBOUND <!-- 아웃바운드 -->
+                , CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS trt_scnt_rate
+                , CHANGENUMBERFORMAT(sum(decode(CALL_HSC, '완료',1 , 0))) AS act_scnt <!-- 완료건수 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_HSC, '미완료',1 , 0))) AS impf_scnt <!-- 미완료 -->
+                , CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_HSC, '완료',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS act_rate <!-- 접수비율 -->
+                , GETSECONDTOTIME(SUM(ACW_TM)) AS tota_acw_tm <!-- 총 후처리시간 -->
+                , GETSECONDTOTIME(sum(CALLING_TM)) AS tota_call_tm <!-- 총상담시간 -->
+            FROM V_CALLLAW 
+            WHERE 1 = 1
+                AND CALL_DT between #{ startDate } AND #{ endDate }
+            <if test = "centerNm != null and !centerNm.equals('')">
+                AND cntr_nm = #{ centerNm }
+            </if>
+            <if test = "teamNm != null and !teamNm.equals('')">
+                AND team_nm = #{ teamNm }
+            </if>
+            <if test = "counselNm != null and !counselNm.equals('')">
+                AND usr_nm = #{ counselNm }
+            </if>
+            GROUP BY team_nm,cntr_nm,usr_nm,substr(CALL_TM,0,2)
+            ORDER BY substr(CALL_TM,0,2),cntr_nm, team_nm, usr_nm
+        )
+        UNION ALL
+        SELECT '총계' AS team_nm
+            , '' AS usr_nm
+            , '' AS wrk_dt
+            , CHANGENUMBERFORMAT(sum(decode(CHCC, '일반',1 , 0))) AS gnrl_act <!-- 일반 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '상담후호전환',1 , 0))) AS apnt_act <!-- 상담후호전환 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '자동저장',1 , 0))) AS voc_reg <!-- 자동저장 -->
+                , CHANGENUMBERFORMAT(sum(decode(CHCC, '호전환',1 , 0))) AS callbck_reg <!-- 호전환 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '인바운드',1 , 0))+sum(decode(CALL_TELCAT, '아웃바운드',1 , 0))) AS trt_scnt <!-- 전체건수 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '인바운드',1 , 0))) AS INBOUND <!-- 인바운드 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_TELCAT, '아웃바운드',1 , 0))) AS OUTBOUND <!-- 아웃바운드 -->
+            , CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS trt_scnt_rate
+            , CHANGENUMBERFORMAT(sum(decode(CALL_HSC, '완료',1 , 0))) AS act_scnt <!-- 완료건수 -->
+                , CHANGENUMBERFORMAT(sum(decode(CALL_HSC, '미완료',1 , 0))) AS impf_scnt <!-- 미완료 -->
+                , CASE WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) = 0 THEN '0.00' WHEN  SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) is null THEN null ELSE ROUND( SUM(decode(CALL_HSC, '완료',1 , 0)) / ( SUM(decode(CALL_TELCAT, '인바운드',1 , 0)) +  SUM(decode(CALL_TELCAT, '아웃바운드',1 , 0))) * 100, 2) || '%' END AS act_rate <!-- 접수비율 -->
+                , GETSECONDTOTIME(SUM(ACW_TM)) AS tota_acw_tm <!-- 총 후처리시간 -->
+                , GETSECONDTOTIME(sum(CALLING_TM)) AS tota_call_tm <!-- 총상담시간 -->
+        FROM V_CALLLAW
+        WHERE 1=1
+            AND CALL_DT between #{ startDate } AND #{ endDate }
+        <if test = "centerNm != null and !centerNm.equals('')">
+            AND cntr_nm = #{ centerNm }
+        </if>
+        <if test = "teamNm != null and !teamNm.equals('')">
+            AND team_nm = #{ teamNm }
+        </if>
+        <if test = "counselNm != null and !counselNm.equals('')">
+            AND usr_nm = #{ counselNm }
+        </if>
+    </select>
+    
+    <!-- 월별 업무보고 -->
+     <select id="dayReportMonthList" parameterType="map" resultType="map">
+                 select
+                  substr(CALL_DT,7,2) as de,
+                  to_char(to_date(CALL_DT,'yyyymmdd'),'dy','NLS_DATE_LANGUAGE=KOREAN') as week,
+                  (sum(decode( LARGE_CN, '관광지',1 , 0)) - (sum(decode(MIDDLE_CN, '레저'||chr(44)||' 체험',1 , 0))+sum(decode(MIDDLE_CN, '행사'||chr(38)||'축제',1 , 0))+sum(decode( SMALL_CN, '일정별여행',1 , 0))+sum(decode( MIDDLE_CN, '시티투어',1 , 0))+sum(decode( SMALL_CN, '휠체어',1 , 0)))) as trrsrt,
+                  sum(decode(MIDDLE_CN, '레저'||chr(44)||' 체험',1 , 0)) as exrpn,
+                  sum(decode(MIDDLE_CN, '행사'||chr(38)||'축제',1 , 0)) as fstvl,
+                  sum(decode( SMALL_CN, '일정별여행',1 , 0)) as schdul,
+                  sum(decode( MIDDLE_CN, '시티투어',1 , 0)) as tour_bus,
+                  sum(decode( SMALL_CN, '휠체어',1 , 0)) AS wheel_chair,
+                  (sum(decode( LARGE_CN, '교통',1 , 0))-sum(decode( MIDDLE_CN, '위치안내',1 , 0))) as transport,
+                  sum(decode( MIDDLE_CN, '위치안내',1 , 0)) as lc,
+                  sum(decode( LARGE_CN, '숙박',1 , 0)) as stayng,
+                  sum(decode( LARGE_CN, '음식',1 , 0))+sum(decode( LARGE_CN, '쇼핑',1 , 0)) as fd,
+                  sum(decode( LARGE_CN, '불편민원접수',1 , 0)) as incnvnnc_sttemnt,
+                  ((sum(decode( LARGE_CN, '현장출동',1 , 0))+sum(decode( LARGE_CN, '기타',1 , 0)))-(sum(decode( MIDDLE_CN, '날씨',1 , 0))+sum(decode( SMALL_CN, '담당자연결',1 ,0))+sum(decode( SMALL_CN, '홍보물',1 , 0))))+(sum(decode( SMALL_CN, '담당자연결',1 , 0))-(sum(decode( SMALL_CN, '담당자연결',1 , 0))-sum(decode( MIDDLE_CN, '공주시청컨텍센터',1 , 0)))) as etc,
+                  sum(decode( SMALL_CN, '홍보물',1 , 0)) as pr,
+                  sum(decode( MIDDLE_CN, '날씨',1 , 0)) as wethr,
+                  sum(decode( lang_cd, '한국어',0 , 1)) as lang,
+                  (sum(decode( SMALL_CN, '담당자연결',1 , 0))-sum(decode( MIDDLE_CN, '공주시청컨텍센터',1 , 0))) as tel_cnvrs,
+                  ((sum(decode( LARGE_CN, '관광지',1 , 0)) - (sum(decode(MIDDLE_CN, '레저'||chr(44)||' 체험',1 , 0))+sum(decode(MIDDLE_CN, '행사'||chr(38)||'축제',1 , 0))+sum(decode( SMALL_CN, '일정별여행',1 , 0))+sum(decode( MIDDLE_CN, '시티투어',1 , 0))+sum(decode( SMALL_CN, '휠체어',1 , 0))))+sum(decode(MIDDLE_CN, '레저'||chr(44)||' 체험',1 , 0))+sum(decode(MIDDLE_CN, '행사'||chr(38)||'축제',1 , 0))+sum(decode( SMALL_CN, '일정별여행',1 , 0))+sum(decode( MIDDLE_CN, '시티투어',1 , 0))+sum(decode( SMALL_CN, '휠체어',1 , 0))+(sum(decode( LARGE_CN, '교통',1 , 0))-sum(decode( MIDDLE_CN, '위치안내',1 , 0)))+sum(decode( MIDDLE_CN, '위치안내',1 , 0))+sum(decode( LARGE_CN, '숙박',1 , 0))+sum(decode( LARGE_CN, '음식',1 , 0))+sum(decode( LARGE_CN, '쇼핑',1 , 0))+sum(decode( LARGE_CN, '불편민원접수',1 , 0))+((sum(decode( LARGE_CN, '현장출동',1 , 0))+sum(decode( LARGE_CN, '기타',1 , 0)))-(sum(decode( MIDDLE_CN, '날씨',1 , 0))+sum(decode( SMALL_CN, '담당자연결',1 ,0))+sum(decode( SMALL_CN, '홍보물',1 , 0))))+sum(decode( SMALL_CN, '홍보물',1 , 0))+sum(decode( MIDDLE_CN, '날씨',1 , 0))+sum(decode( lang_cd, '한국어',0 , 1))+sum(decode( SMALL_CN, '담당자연결',1 ,0))) as result_call
+                  from V_CALLLAW
+                  where 1=1
+                  <if test = "chkRetire">
+                    and TO_CHAR(TO_DATE(CALL_DT), 'D')  NOT IN ('1','7')
+                  </if>
+                   <if test = "callbound != null and !callbound.equals('') and !callbound.equals('all')">
+                   		<if test = "callbound.equals('in')">
+            		  		AND CALL_TELCAT = '인바운드'
+            		  	</if>
+            		  	 <if test = "callbound.equals('out')">
+            		  		AND CALL_TELCAT = '아웃바운드'
+            		  	</if>
+       			  </if>
+          	<if test="!srchVal.equals('')">
+                 AND CALL_DT LIKE #{srchVal} || '%'
+            </if>
+            group by CALL_DT
+            union
+            select
+                  '합계' as de,
+                  '' as week,
+                  (sum(decode( LARGE_CN, '관광지',1 , 0)) - (sum(decode(MIDDLE_CN, '레저'||chr(44)||' 체험',1 , 0))+sum(decode(MIDDLE_CN, '행사'||chr(38)||'축제',1 , 0))+sum(decode( SMALL_CN, '일정별여행',1 , 0))+sum(decode( MIDDLE_CN, '시티투어',1 , 0))+sum(decode( SMALL_CN, '휠체어',1 , 0)))) as trrsrt,
+                  sum(decode(MIDDLE_CN, '레저'||chr(44)||' 체험',1 , 0)) as exrpn,
+                  sum(decode(MIDDLE_CN, '행사'||chr(38)||'축제',1 , 0)) as fstvl,
+                  sum(decode( SMALL_CN, '일정별여행',1 , 0)) as schdul,
+                  sum(decode( MIDDLE_CN, '시티투어',1 , 0)) as tour_bus,
+                  sum(decode( SMALL_CN, '휠체어',1 , 0)) AS wheel_chair,
+                  (sum(decode( LARGE_CN, '교통',1 , 0))-sum(decode( MIDDLE_CN, '위치안내',1 , 0))) as transport,
+                  sum(decode( MIDDLE_CN, '위치안내',1 , 0)) as lc,
+                  sum(decode( LARGE_CN, '숙박',1 , 0)) as stayng,
+                  sum(decode( LARGE_CN, '음식',1 , 0))+sum(decode( LARGE_CN, '쇼핑',1 , 0)) as fd,
+                  sum(decode( LARGE_CN, '불편민원접수',1 , 0)) as incnvnnc_sttemnt,
+                  ((sum(decode( LARGE_CN, '현장출동',1 , 0))+sum(decode( LARGE_CN, '기타',1 , 0)))-(sum(decode( MIDDLE_CN, '날씨',1 , 0))+sum(decode( SMALL_CN, '담당자연결',1 ,0))+sum(decode( SMALL_CN, '홍보물',1 , 0))))+(sum(decode( SMALL_CN, '담당자연결',1 , 0))-(sum(decode( SMALL_CN, '담당자연결',1 , 0))-sum(decode( MIDDLE_CN, '공주시청컨텍센터',1 , 0)))) as etc,
+                  sum(decode( SMALL_CN, '홍보물',1 , 0)) as pr,
+                  sum(decode( MIDDLE_CN, '날씨',1 , 0)) as wethr,
+                  sum(decode( lang_cd, '한국어',0 , 1)) as lang,
+                  (sum(decode( SMALL_CN, '담당자연결',1 , 0))-sum(decode( MIDDLE_CN, '공주시청컨텍센터',1 , 0))) as tel_cnvrs,
+                  ((sum(decode( LARGE_CN, '관광지',1 , 0)) - (sum(decode(MIDDLE_CN, '레저'||chr(44)||' 체험',1 , 0))+sum(decode(MIDDLE_CN, '행사'||chr(38)||'축제',1 , 0))+sum(decode( SMALL_CN, '일정별여행',1 , 0))+sum(decode( MIDDLE_CN, '시티투어',1 , 0))+sum(decode( SMALL_CN, '휠체어',1 , 0))))+sum(decode(MIDDLE_CN, '레저'||chr(44)||' 체험',1 , 0))+sum(decode(MIDDLE_CN, '행사'||chr(38)||'축제',1 , 0))+sum(decode( SMALL_CN, '일정별여행',1 , 0))+sum(decode( MIDDLE_CN, '시티투어',1 , 0))+sum(decode( SMALL_CN, '휠체어',1 , 0))+(sum(decode( LARGE_CN, '교통',1 , 0))-sum(decode( MIDDLE_CN, '위치안내',1 , 0)))+sum(decode( MIDDLE_CN, '위치안내',1 , 0))+sum(decode( LARGE_CN, '숙박',1 , 0))+sum(decode( LARGE_CN, '음식',1 , 0))+sum(decode( LARGE_CN, '쇼핑',1 , 0))+sum(decode( LARGE_CN, '불편민원접수',1 , 0))+((sum(decode( LARGE_CN, '현장출동',1 , 0))+sum(decode( LARGE_CN, '기타',1 , 0)))-(sum(decode( MIDDLE_CN, '날씨',1 , 0))+sum(decode( SMALL_CN, '담당자연결',1 ,0))+sum(decode( SMALL_CN, '홍보물',1 , 0))))+sum(decode( SMALL_CN, '홍보물',1 , 0))+sum(decode( MIDDLE_CN, '날씨',1 , 0))+sum(decode( lang_cd, '한국어',0 , 1))+sum(decode( SMALL_CN, '담당자연결',1 ,0))) as result_call
+                  from V_CALLLAW
+                  where 1=1
+                 <if test = "chkRetire">
+                    and TO_CHAR(TO_DATE(CALL_DT), 'D')  NOT IN ('1','7')
+                  </if>
+                 <if test = "callbound != null and !callbound.equals('') and !callbound.equals('all')">
+                   		<if test = "callbound.equals('in')">
+            		  		AND CALL_TELCAT = '인바운드'
+            		  	</if>
+            		  	 <if test = "callbound.equals('out')">
+            		  		AND CALL_TELCAT = '아웃바운드'
+            		  	</if>
+       			  </if>
+             <if test="!srchVal.equals('')">
+                 AND CALL_DT LIKE #{srchVal} || '%'
+            </if>
+            <if test="sidx != null and sord != null">
+                ORDER BY ${sidx} ${sord}
+            </if>
+    </select>
+</mapper>

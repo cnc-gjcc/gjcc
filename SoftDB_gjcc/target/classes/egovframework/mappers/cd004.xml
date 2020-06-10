@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="cd004">
+
+	<select id="getCustCntctInfm" parameterType="map" resultType="map">
+		SELECT
+				cust_id
+			,	ch_gb_cd
+			,	cntct_infm
+		FROM cd004
+		WHERE 1 = 1
+			<if test="use_yn != null and !use_yn.equals('')">
+			and use_yn = #{use_yn}
+			</if>
+			<if test="use_yn == null or use_yn.equals('')">
+			and use_yn = 'Y'
+			</if>
+			and cust_id = #{cust_id}
+	</select>
+	
+	<select id="checkCntctInfm" parameterType="map" resultType="map">
+		SELECT cntct_infm
+		FROM cd004
+		WHERE 1 = 1
+			AND cust_id = #{cust_id}
+			AND ch_gb_cd = #{ ch_gb_cd }
+			AND cntct_infm = #{ cntct_infm }
+	</select>
+	
+	<insert id = "insertCntct" parameterType="map">
+		INSERT INTO cd004
+		VALUES
+		(
+				#{ cust_id }
+			,	#{ ch_gb_cd }
+			,	#{ cntct_infm }
+			,	'Y'
+			,	to_char(sysdate, 'yyyymmdd')
+			,	to_char(sysdate, 'hh24miss')
+			,	#{login_usr_id}
+			,	to_char(sysdate, 'yyyymmdd')
+			,	to_char(sysdate, 'hh24miss')
+			,	#{login_usr_id}
+		)
+	</insert>
+	
+	<insert id = "deleteCntct" parameterType="map">
+		DELETE FROM cd004
+		WHERE
+			cust_id = #{ cust_id }
+			AND ch_gb_cd = #{ch_gb_cd}
+			AND cntct_infm = #{cntct_infm}
+	</insert>
+	
+</mapper>

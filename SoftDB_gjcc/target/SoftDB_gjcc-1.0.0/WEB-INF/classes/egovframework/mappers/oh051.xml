@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="oh051">
+<select id="waterList" parameterType="map" resultType="map">
+	<if test="rows != null and page != null">
+	SELECT *
+	FROM
+	(
+		SELECT A1.*
+			,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+			,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+			,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+		FROM
+		(
+	</if>                                                     
+			SELECT
+				M_GU,	
+				M_KEY,
+				성명 AS NM,
+				주소 AS ADDR,
+				상호 AS PART,
+				전화번호 AS TEL,
+				휴대폰번호 AS HP,
+				상수업종 AS H_TYPE,
+				하수업종 AS L_TYPE, 
+				지하업종 AS U_TYPE, 
+				상수조정코드 AS H_CODE,
+				상수세대수 AS H_PART,
+				상수구경 AS H_SIZE,
+				지하조정코드 AS L_CODE,
+				지하세대수 AS L_PART,
+				지하구경 AS L_SIZE,
+				지하요금방식 AS L_PAY_TYPE, 
+				지하인원수 AS L_P_SIZE,
+				지하계량기종류 AS L_M_TYPE,
+				계량기고유번호 AS METER_NO,
+				교체사유코드 AS CHG_RSN,
+				상수교체일자 AS H_CHG_DT,
+				상수설치일자 AS H_REG_DT,
+				가상계좌 AS VA,
+				전자수용가번호 AS EV_KEY,
+				자동이체구분 AS DEBIT_YN,
+				자동이체계좌 AS DEBIT_NO,
+				우편발송여부 AS POST_YN,
+				우편성명 AS POST_NM,
+				우편주소1 AS ADDR1,
+				우편주소2 AS ADDR2,
+				(SELECT LISTAGG(감면코드,',') within group (order by 감면코드) name FROM SUDO3.FVIEWGAGAM WHERE MGA_KEY = M.M_KEY AND 종료년월>TO_CHAR(SYSDATE, 'YYYYMM') GROUP BY MGA_KEY) AS GAGAM
+			FROM SUDO3.fviewmaster M
+			WHERE 1=1
+		<if test="srchName != null and !srchName.equals('')">
+				AND 성명 LIKE '%'||#{srchName}||'%'
+		</if>
+		<if test="srchAddr != null and !srchAddr.equals('')">
+				AND 주소 LIKE '%'||#{srchAddr}||'%'
+		</if>
+		<if test="srchMKey != null and !srchMKey.equals('all')">
+				AND M_KEY=#{srchMKey}
+		</if>
+		<if test="sidx != null and sord != null">
+			ORDER BY ${sidx} ${sord}
+		</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>
+</select>
+	 
+<select id="waterChenab" parameterType="map" resultType="map">
+	SELECT COUNT(1) AS CHENAB_CNT, NVL(SUM(체납금액),0) AS CHENAB_AMT, NVL(SUM(상수도),0) AS H_AMT,
+	    NVL(SUM(하수도),0) AS L_AMT, NVL(SUM(지하수),0) AS U_AMT,NVL(SUM(물부담),0) AS W_AMT
+	FROM SUDO3.fviewmaster M, SUDO3.FVIEWCHENAB C
+	WHERE 1=1
+		AND M_GU = CHEGU
+		AND M_KEY = CHEKEY
+		AND M.성명 = C.성명
+		AND M.M_KEY=#{m_key}
+		AND 수납일 IS NULL 
+	ORDER BY CHEYYMM
+</select>
+
+<select id="waterNujukY" parameterType="map" resultType="map">	
+	SELECT SUBSTR(TYYMM,0,4) AS NUJUK_Y, COUNT(1) AS NUJUK_CNT
+	FROM sudo3.FVIEWNUJUK@SUDOVIEW
+	WHERE 1=1
+		AND TKEY = #{tkey}
+	GROUP BY SUBSTR(TYYMM,0,4)
+	ORDER BY SUBSTR(TYYMM,0,4) DESC 
+</select>
+
+<!-- 누적목록 -->	
+<select id="waterAccrueList" parameterType="map" resultType="map">	
+	<if test="rows != null and page != null">
+	SELECT *
+	FROM
+	(
+		SELECT A1.*
+			,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+			,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+			,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+		FROM
+		(
+	</if> 			
+			SELECT 
+				TGU AS TGU,
+				TKEY AS TKEY,
+				TYYMM AS TYYMM,
+				TYYMM1 AS TYYMM1,
+				구분 AS 구분,
+				검침원 AS 검침원,
+				업종 AS 업종,
+				검침일자 AS 검침일자,
+				상수지침 AS 상수지침,
+				상수인정 AS 상수인정,
+				가감2 AS 가감2,
+				상사용량 AS 상사용량,
+				상수당월합계 AS 상수당월합계,
+				상수중_가산금합계 AS 상수중_가산금합계,
+				상수합계 AS 상수합계,
+				상수정산 AS 상수정산,
+				하수사용량 AS 하수사용량,
+				하수당월합계 AS 하수당월합계,
+				하수중_가산금합계 AS 하수중_가산금합계,
+				하수합계 AS 하수합계,
+				하수정산 AS 하수정산,
+				지하수요금방식 AS 지하수요금방식,
+				지하수당월지침 AS 지하수당월지침,
+				지하수인정 AS 지하수인정,
+				지사용량 AS 지사용량,
+				지하수당월합계 AS 지하수당월합계,
+				지하수중_가산금합계 AS 지하수중_가산금합계,
+				지하수합계 AS 지하수합계,
+				지하정산 AS 지하정산,
+				물부담당월합계 AS 물부담당월합계,
+				물부담중_가산금합계 AS 물부담중_가산금합계,
+				물부담합계 AS 물부담합계,
+				물정산 AS 물정산,
+				전체합계 AS 전체합계,
+				이체여부 AS 이체여부,
+				수납기관 AS 수납기관,
+				수납일자 AS 수납일자,
+				소인일자 AS 소인일자,
+				수납구분 AS 수납구분,
+				수납여부 AS 수납여부,
+				상수도료 AS 상수도료,
+				정액료 AS 정액료,
+				상수가산 AS 상수가산,
+				손료가산 AS 손료가산,
+				상중가산 AS 상중가산,
+				하수도료 AS 하수도료,
+				하가산금 AS 하가산금,
+				하중가산 AS 하중가산,
+				물부담금 AS 물부담금,
+				물가산금 AS 물가산금,
+				상납기내 AS 상납기내,
+				하납기내 AS 하납기내,
+				상납기후 AS 상납기후,
+				하납기후 AS 하납기후,
+				하사용량 AS 하사용량,
+				상가산계 AS 상가산계,
+				하가산계 AS 하가산계,
+				전체가산 AS 전체가산,
+				상수연체료 AS 상수연체료,
+				하수연체료 AS 하수연체료,
+				지하연체료 AS 지하연체료,
+				물부담연체료 AS 물부담연체료,
+				이체할인액 AS 이체할인액,
+                NVL((SELECT DECODE(성명,M.성명,'본인',성명) FROM sudo3.FVIEWCHENAB WHERE CHEGU = TGU AND CHEKEY = TKEY AND CHEYYMM = TYYMM),'본인') AS 소유주
+			FROM SUDO3.FVIEWNUJUK N, SUDO3.fviewmaster M
+			WHERE N.TGU = M.M_GU AND N.TKEY = M.M_KEY
+				AND  TKEY=#{tkey}		
+	<if test="tyyyy != null and !tyyyy.equals('')">
+				AND SUBSTR(TYYMM, 0,4) = #{tyyyy}
+	</if>		
+				ORDER BY ${sidx} ${sord}
+	<if test="rows != null and page != null">
+		) A1
+	)
+	WHERE PAGENUM = #{page}
+	</if>		
+</select>
+	
+<!-- <select id="taxUser" parameterType="map" resultType="map">
+	SELECT REG_NM, ADDR FROM (
+	    SELECT D_MODIFY, REG_NM, ADDR
+	    FROM v_ttprcon1@ltis
+	    WHERE REG_NO = LTIS.F_TTPR030@ltis(#{tpr_no})
+	    UNION ALL
+	    SELECT D_MODIFY, REG_NM, ADDR
+	    FROM v_ttprcon1@ltisj
+	    WHERE REG_NO = LTIS.F_TTPR030@ltisj(#{tpr_no})
+	    UNION ALL
+	    SELECT D_MODIFY, REG_NM, ADDR
+	    FROM v_ttprcon1@ltiss
+	    WHERE REG_NO = LTIS.F_TTPR030@ltiss(#{tpr_no})
+	    ORDER BY D_MODIFY DESC 
+	) WHERE ROWNUM =1	
+</select> -->
+
+<select id="selectAdministrationHistory" parameterType="map" resultType="map">
+	<if test="rows != null and page != null">
+	SELECT *
+	FROM
+	(
+		SELECT A1.*
+			,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+			,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+			,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+		FROM
+		(
+	</if>
+		SELECT  
+				INQR_ID,
+				TCKT_ID,
+				DECODE(LNK_STM_CD, '100000', '상수도 업무', '200000', '지방세', '300000', '주정차과태료', '400000', '세외수입', '400001', '체납', '400002', '과오납') AS LNK_STM_CD,
+				GETFORMATDATE(REQ_DT) ||' ' || GETFORMATTIME(REQ_TM) AS REQ_DTM,
+				INQR_SCR,
+				INQR_COND,
+				ANS_TM,
+				RSLT_CD,
+				RSLT,
+        		DECODE(RSLT_CD, '00000', '성공', '00001', '실패') AS RSLT_GB,<!-- 수정필요함 -->
+				USE_YN,
+				GETFORMATDATE(CRT_DT) ||' ' || GETFORMATTIME(CRT_TM) AS CRT_DTM,
+				CRT_USR_ID,
+				GETFORMATDATE(MOD_DT) ||' ' || GETFORMATTIME(MOD_TM) AS MOD_DTM,
+				MOD_USR_ID
+		FROM OH051 
+		where 
+			1 = 1
+			<if test="inqr_scr1 != null and !inqr_scr1.equals('')">
+		    	AND INQR_SCR LIKE '%'||#{inqr_scr1}||'%'
+			</if>
+			<if test="inqr_scr2 != null and !inqr_scr2.equals('')">
+		    	AND INQR_SCR LIKE '%'||#{inqr_scr2}||'%'
+			</if>
+			<if test="rslt1 != null and !rslt1.equals('')">
+		    	AND RSLT LIKE '%'||#{rslt1}||'%'
+			</if>
+			<if test="rslt2 != null and !rslt2.equals('')">
+		    	AND RSLT LIKE '%'||#{rslt2}||'%'
+			</if>
+			<if test="rslt3 != null and !rslt3.equals('')">
+		    	AND RSLT LIKE '%'||#{rslt3}||'%'
+			</if>
+	<if test="rows != null and page != null">
+		) A1
+		<if test="sidx != null and !sidx.equals('')">
+		ORDER BY ${sidx} ${sord}
+		</if>			
+	)
+	WHERE PAGENUM = #{page}
+	</if>
+</select>
+
+<insert id="insertAdministrationHistory" parameterType="map">
+		INSERT INTO OH051 
+		(
+			INQR_ID, 
+			TCKT_ID, 
+			LNK_STM_CD, 
+			REQ_DT, 
+			REQ_TM, 
+			INQR_SCR, 
+			INQR_COND, 
+			ANS_TM, 
+			RSLT_CD, 
+			RSLT,
+			CRT_DT, 
+			CRT_TM,
+			CRT_USR_ID,
+			MOD_DT,
+			MOD_TM,
+			MOD_USR_ID
+		)
+		VALUES (
+			SOH051.NEXTVAL, 
+			#{tckt_id}, 
+			#{lnk_stm_cd},  
+			TO_CHAR(SYSDATE,'YYYYMMDD'), 
+			TO_CHAR(SYSDATE,'HH24MISS'), 
+			#{inqr_scr}, 
+			#{inqr_cond}, 
+			#{ans_tm}, 
+			#{rslt_cd}, 
+			#{rslt},
+			TO_CHAR(SYSDATE,'YYYYMMDD'), 
+			TO_CHAR(SYSDATE,'HH24MISS'), 
+			#{login_usr_id}, 
+			TO_CHAR(SYSDATE,'YYYYMMDD'), 
+			TO_CHAR(SYSDATE,'HH24MISS'), 
+			#{login_usr_id}
+		)		            
+</insert>		    
+</mapper>        

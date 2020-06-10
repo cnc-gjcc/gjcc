@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="or002">
+
+	<select id = "usrAuthList" resultType="map" parameterType="map">
+		SELECT  
+				or2.auth_cd AS auth_cd
+			, 	sm2.cd_nm AS cd_nm
+			, 	or2.use_yn AS use_yn
+		FROM or002 or2
+		JOIN (SELECT * FROM sm002 WHERE tp_cd = '90006' and use_yn = 'Y') sm2
+		ON or2.auth_cd = sm2.cd
+		where	1 = 1 
+		<if test = "usr_id != null">
+			AND usr_id = #{ usr_id }
+		</if>
+		<if test = "chkNotUse == false">
+			AND or2.use_yn = 'Y'
+		</if>
+		<if test="grdMode != null and !grdMode.equals('')">
+			AND TO_NUMBER((SELECT usr_grd_cd FROM om001 WHERE usr_id = #{usr_id})) >= TO_NUMBER(or2.auth_cd)		
+		</if>
+	</select>
+	
+	<select id = "useAuthList" resultType="map" parameterType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				SELECT  
+					  sm2.cd_nm AS cd_nm
+					, or2.auth_cd AS cd
+					, or2.use_yn AS use_yn_dn
+				FROM or002 or2
+				JOIN sm002 sm2
+				ON or2.auth_cd = sm2.cd
+				WHERE 1 = 1 
+					AND sm2.use_yn = 'Y'
+				<if test = "tp_cd != null">
+					AND sm2.tp_cd = #{ tp_cd }
+				</if>
+				<if test = "usr_id != null"> 
+					AND or2.usr_id = #{ usr_id } 
+				</if>
+				<if test = "chkNotUse == false">
+					AND or2.use_yn = 'Y'
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>
+	
+	<update id = "userAuthUpdate" parameterType="map">
+		MERGE INTO or002
+		USING dual
+		ON (usr_id = #{ usr_id } and auth_cd = #{ cd })
+		WHEN MATCHED THEN
+			UPDATE
+			SET
+				  mod_dt = to_char(sysdate,'yyyymmdd') 
+				, mod_tm = to_char(sysdate,'hh24miss') 
+				, use_yn = #{ use_yn } 
+				, mod_usr_id = #{ login_usr_id }   
+		WHEN NOT MATCHED THEN
+			INSERT 
+			(
+				  usr_id
+				, auth_cd
+				, use_yn
+				, crt_dt
+				, crt_tm
+				, crt_usr_id
+				, mod_dt
+				, mod_tm
+				, mod_usr_id
+			)
+			VALUES
+			(
+				  #{ usr_id }
+				, #{ cd }
+				, #{ use_yn }
+				, to_char(sysdate, 'yyyymmdd')
+				, to_char(sysdate, 'hh24mmss')
+				, #{ login_usr_id }
+				, to_char(sysdate, 'yyyymmdd')
+				, to_char(sysdate, 'hh24mmss')
+				, #{ login_usr_id }
+			)
+	</update>
+</mapper>

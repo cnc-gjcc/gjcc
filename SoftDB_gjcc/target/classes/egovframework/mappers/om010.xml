@@ -1,0 +1,1703 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="om010">
+    
+    <!-- 2016.11.17 jghwang DataType이 CLOB일 경우 jdbcType을 설정 -->
+    <resultMap id="boardSearchResult" type="map" >
+        <result property="TBBS_CNTN" column="TBBS_CNTN" jdbcType="CLOB" javaType="java.lang.String" />
+    </resultMap>
+    
+		<update id="changeDeptCharger" parameterType="map">
+        UPDATE om010
+        SET
+        	<if test="cntr_nm != null and !cntr_nm.equals('')">
+        	CNTR_NM = #{cntr_nm},
+        	</if>
+        	<if test="rspn_prsn != null and !rspn_prsn.equals('')">
+        	RSPN_PRSN = #{rspn_prsn},
+        	</if>
+        	<if test="rspn_tel_no != null and !rspn_tel_no.equals('')">
+        	RSPN_TEL_NO = #{rspn_tel_no},
+        	</if>
+        	   mod_dt = to_char(sysdate, 'yyyymmdd')
+            ,   mod_tm = to_char(sysdate, 'hh24miss')
+            ,   mod_usr_id = #{sendingUid}        	
+           where tbbs_id = #{tbbs_id}
+		</update>
+		
+		<select id="civilcheckContent" parameterType="map" resultType="map">
+	       <!-- select decode(TBBS_TTL,' ','1','0') as ttl from om010  where tbbs_id = #{tbbs_id} -->
+	        select NVL2((select TBBS_TTL from om010  where tbbs_id = #{tbbs_id}),1,0) as ttl
+ 			from dual
+	    </select>
+
+
+		<update id="jisikApprUpdate" parameterType="map">
+        UPDATE om010
+        SET CC_APPR_YN = 'P'
+           where tbbs_id = #{tbbs_id}
+		</update>
+
+
+	    <update id="civilUpdate" parameterType="map">
+        UPDATE om010
+        <if test="use_yn == null">
+        SET tbbs_ttl = #{tbbs_ttl}
+            ,   tbbs_cont_c = #{tbbs_cntn, jdbcType = CLOB}
+            <if test="emrg_yn != null and !emrg_yn.equals('')">
+            ,   emrg_yn = #{emrg_yn}
+            </if>
+            <if test="tbbs_strt_dt != null and !tbbs_strt_dt.equals('')">
+            ,   tbbs_strt_dt = #{tbbs_strt_dt}
+            </if>
+            <if test="tbbs_end_dt != null and !tbbs_end_dt.equals('')">
+            ,   tbbs_end_dt = #{tbbs_end_dt}
+            </if>
+            ,   mod_dt = to_char(sysdate, 'yyyymmdd')
+            ,   mod_tm = to_char(sysdate, 'hh24miss')
+            ,   mod_usr_id = #{sendingUid}
+        </if>
+        <if test="use_yn != null">
+            SET     use_yn = #{use_yn}
+                ,   mod_dt = to_char(sysdate, 'yyyymmdd')
+                ,   mod_tm = to_char(sysdate, 'hh24miss')
+                ,   mod_usr_id = #{sendingUid}
+        </if>   
+            WHERE
+            <if test="ids != null">
+                tbbs_id IN 
+                <foreach collection="ids" item="tbbs_id" open="(" close=")" separator=", ">
+                    #{tbbs_id}
+                </foreach>
+            </if> -->
+            <if test="ids == null"> 
+                tbbs_id = #{tbbs_id}
+            </if>
+        </update>
+
+
+
+    <insert id="civilInsert" parameterType="map">
+    {call
+        declare
+        begin       
+            INSERT INTO om010
+            (
+                    tbbs_id
+				,   cntr_nm
+                ,   usr_id
+                ,   usr_nm	         
+                ,   tbbs_gb_cd
+                ,   emrg_yn
+                ,   tbbs_cont_c
+                ,   tbbs_ttl
+                ,   tbbs_strt_dt
+                ,   tbbs_end_dt
+                ,   tbbs_inqr_cnt
+                ,   use_yn
+                ,   crt_dt
+                ,   crt_tm
+                ,   crt_usr_id
+                ,   mod_dt
+                ,   mod_tm
+                ,   mod_usr_id
+            )
+            VALUES
+            (
+                    #{tbl_pk}
+				,   (select OU from om061 where UID_ = #{sendingUid})
+                ,   #{sendingUid} 
+                ,   (select DISPLAYNAME from om061 where UID_ = #{sendingUid})
+                ,   #{tbbs_cl_cd}
+                <if test="emrg_yn != null and !emrg_yn.equals('')">
+                ,   #{emrg_yn}
+                </if>
+                <if test="emrg_yn == null">
+                ,   'N'
+                </if>
+                , 	Empty_Clob()
+                ,   #{tbbs_ttl}
+                <if test="tbbs_strt_dt != null and !tbbs_strt_dt.equals('')">
+                ,   #{tbbs_strt_dt}
+                </if>
+                <if test="tbbs_strt_dt == null">
+                ,   ''
+                </if>
+                <if test="tbbs_end_dt != null and !tbbs_end_dt.equals('')">
+                ,   #{tbbs_end_dt}
+                </if>
+                <if test="tbbs_end_dt == null">
+                ,   ''
+                </if>
+                ,   0
+                ,   'Y'
+                ,   to_char(sysdate, 'yyyymmdd')
+                ,   to_char(sysdate, 'hh24miss')
+                ,   #{sendingUid}
+                ,   to_char(sysdate, 'yyyymmdd')
+                ,   to_char(sysdate, 'hh24miss')
+                ,   #{sendingUid}    
+            );
+            
+            UPDATE om010
+                  SET tbbs_cont_c = #{tbbs_cntn, jdbcType = CLOB}
+             WHERE tbbs_id = #{tbl_pk} ;
+             
+        end
+    }
+	</insert>
+
+    <select id="civilSelect" parameterType="map" resultMap="boardSearchResult">
+        SELECT  A.tbbs_id
+        ,   A.parnt_tbbs_id
+        ,   A.cntr_nm
+        ,   A.team_nm
+        ,   A.usr_id
+        ,   A.usr_nm
+        ,   A.tbbs_gb_cd
+        ,   CASE WHEN A.emrg_yn = 'Y' THEN '긴급' ELSE '일반' END AS emrg_yn
+        , 	A.tbbs_cont_c  AS TBBS_CNTN 
+        ,   A.tbbs_ttl
+        ,   getFormatDate(A.tbbs_strt_dt) AS tbbs_strt_dt_format
+        ,   getFormatDate(A.tbbs_end_dt) AS tbbs_end_dt_format
+        ,   A.tbbs_inqr_cnt
+        ,   A.use_yn
+        ,   getFormatDate(A.crt_dt) AS crt_dt_format
+        ,   getFormatTime(A.crt_tm) AS crt_tm_format
+        ,   A.crt_usr_id
+        ,   getFormatDate(A.mod_dt) AS mod_dt_format
+        ,   getFormatTime(A.mod_tm) AS mod_tm_format
+        ,   B.DISPLAYNAME AS mod_usr_nm
+        ,   CASE WHEN A.usr_id = #{sendingUid} then 'Y' else 'N' END AS is_own
+        ,   C.comm_num
+        FROM    om010 A ,  om061 B, (SELECT COUNT(comm_id) AS comm_num FROM om013 WHERE tbbs_id = #{tbbs_id} AND use_yn = 'Y') C
+        WHERE A.tbbs_id = #{tbbs_id}
+        AND A.TBBS_GB_CD='050100'
+        AND A.mod_usr_id = B.UID_
+    </select>
+
+
+
+    <select id="civilSelectList" parameterType="map" resultType="map"> 
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+                SELECT  DISTINCT A.tbbs_id as tbbs_id
+                        ,   A.parnt_tbbs_id
+                        ,   A.cntr_nm as cntr_nm
+                        ,   A.team_nm as team_nm
+                        ,   A.usr_id as usr_id
+                        ,   A.usr_nm as usr_nm
+                        ,   A.tbbs_gb_cd as tbbs_gb_cd
+                        ,   CASE WHEN A.emrg_yn = 'Y' THEN '긴급' ELSE '일반' END AS emrg_yn
+                        ,   DBMS_LOB.SUBSTR(A.tbbs_cont_c, 100, 1) AS tbbs_cntn  
+                        ,   A.tbbs_ttl as tbbs_ttl
+                        ,   getFormatDate(A.tbbs_strt_dt) AS tbbs_strt_dt_format
+                        ,   getFormatDate(A.tbbs_end_dt) AS tbbs_end_dt_format 
+                        ,   A.tbbs_inqr_cnt as tbbs_inqr_cnt
+                        ,   A.use_yn as use_yn
+                        ,   getFormatDate(A.crt_dt) AS crt_dt_format
+                        ,   getFormatTime(A.crt_tm) AS crt_tm_format
+                        ,   A.crt_usr_id
+                        ,   nvl((select orgfullname from om061 where UID_= A.mod_usr_id),'') as civilorgnm
+                        ,   getFormatDate(A.mod_dt) AS mod_dt_format
+                        ,   getFormatTime(A.mod_tm) AS mod_tm_format
+                        ,   A.mod_usr_id
+                        ,   A.usr_nm AS mod_usr_nm
+                        ,   CASE WHEN A.usr_id = #{sendingUid} then 'Y' else 'N' END AS is_own 
+                        ,   CASE WHEN b.fl_num IS NULL THEN ' ' ELSE b.fl_num END AS fl_num
+                        ,   CASE WHEN A.TBBS_ID IN (SELECT TBBS_ID FROM OM011 WHERE USR_ID = #{sendingUid}) THEN '확인' ELSE '미확인' END as usr_rd
+                FROM om010 A LEFT JOIN (SELECT tbl_pk, TO_CHAR(COUNT(fl_id)) AS fl_num FROM om019 GROUP BY tbl_pk) B
+                ON b.tbl_pk = to_char(a.tbbs_id) 
+               	LEFT JOIN om061 D on ( D.UID_ = A.MOD_USR_ID)
+                WHERE 1 = 1
+                
+                <if test="sendingOuCode != null and !sendingOuCode.equals('')">
+                AND D.OUCODE =#{sendingOuCode} 
+                </if>
+                AND A.TBBS_GB_CD='050100'
+                AND A.use_yn = 'Y'
+                AND A.tbbs_gb_cd = #{tbbs_cl_cd} 
+<!--             <if test="read_status != null and !read_status.equals('')">
+                <if test="read_status.equals('N')">
+                AND A.TBBS_ID NOT IN ( SELECT TBBS_ID FROM OM011 WHERE USR_ID = #{sendingUid})
+                </if>
+                <if test="read_status.equals('Y')">
+                AND A.TBBS_ID IN ( SELECT TBBS_ID FROM OM011 WHERE USR_ID = #{sendingUid})
+                </if>
+            </if> -->    
+            
+        <if test="srchval != null and !srchval.equals('')">
+            <if test="srchtype.equals('ttl')">
+                AND upper(A.tbbs_ttl) like '%' || upper(#{srchval}) || '%'
+            </if>
+             <if test="srchtype.equals('cntn')">
+                AND upper(A.tbbs_cont_c) like '%' || upper(#{srchval}) || '%' 
+            </if>
+            <if test="srchtype.equals('ttlCntn')">
+                AND ( upper(A.tbbs_ttl) like '%' || upper(#{srchval}) || '%' 
+                   OR upper(A.tbbs_cont_c) like '%' || upper(#{srchval}) || '%' )
+            </if>
+            <if test="srchtype.equals('usrNm')">
+                AND upper(D.displayname) like '%' || upper(#{srchval}) || '%'
+            </if>
+        </if>
+        <if test="tbbs_strt_dt != null and !tbbs_strt_dt.equals('') and tbbs_end_dt != null and !tbbs_end_dt.equals('')">
+            AND ( ( to_date(#{tbbs_strt_dt}, 'yyyymmdd') <![CDATA[>=]]> to_date(A.tbbs_strt_dt, 'yyyymmdd') 
+                   AND  to_date(#{tbbs_strt_dt}, 'yyyymmdd') <![CDATA[<=]]>  to_date(A.tbbs_end_dt, 'yyyymmdd') )
+                 OR ( to_date(#{tbbs_strt_dt}, 'yyyymmdd') <![CDATA[<=]]> to_date(A.tbbs_end_dt, 'yyyymmdd')
+                 AND to_date(#{tbbs_end_dt}, 'yyyymmdd') <![CDATA[>=]]>  to_date(A.tbbs_strt_dt, 'yyyymmdd') ) )
+        </if>
+        <if test="sidx != null and sord != null">
+            ORDER BY ${sidx} ${sord}
+        </if>
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+    </select>
+
+
+
+    <insert id="counselDbconfmDetail" parameterType="map">
+     <selectKey resultType="string" keyProperty="Khist_ord" order="BEFORE">
+       select NVL((select sum((select max(hist_ord) as max from oh015 where TBBS_ID= #{tbbs_id} group by tbbs_id)+1) as max
+       from dual), 0) from dual  
+    </selectKey>  
+       {	call
+        	declare
+       		begin
+       		
+       		insert into oh015
+	      			(
+	      					HIST_ORD
+	      				,	TBBS_ID
+	      				, 	ORG_FUL_NM
+	      				<if test="org_usr_id != null and !org_usr_id.equals('')">
+	      				,	ORG_USR_ID
+	      				</if>
+	      				,	CDB_ACT_ST_CD
+	      				,  	RTN_RSN
+	      				,	USE_YN 	
+	      				,	CRT_DT
+	      				,	CRT_TM
+	      				,	CRT_USR_ID
+	      				,	MOD_DT
+	      				,	MOD_TM
+	      				,	MOD_USR_ID
+	      			)
+	      			values
+	      			(
+	       					#{Khist_ord} 
+	       				,	#{tbbs_id} 
+	      				, 	'공주컨텍센터'
+	       				<if test="org_usr_id != null and !org_usr_id.equals('')">
+	      				,	#{org_usr_id}
+	      				</if>
+	      				,	#{cdb_act_st_cd}
+	      				,	#{rtn_rsn}
+	      				,	'Y'
+	                    ,	to_char(sysdate, 'yyyymmdd')
+	      				,	to_char(sysdate, 'hh24miss')
+	      				,	#{login_usr_id}
+	                    ,	to_char(sysdate, 'yyyymmdd')
+	      				,	to_char(sysdate, 'hh24miss')
+	      				,	#{login_usr_id}
+	      			);
+       
+				      <!--   UPDATE om010 
+				        SET CC_APPR_YN = #{cc_appr_yn}
+				        WHERE tbbs_id = #{tbbs_id}; -->
+       	 end
+    	}  
+    </insert>
+    
+    <insert id="counselDbinsertDetail" parameterType="map">
+     <selectKey resultType="string" keyProperty="Khist_ord" order="BEFORE">
+       select NVL((select sum((select max(hist_ord) as max from oh015 where TBBS_ID= #{tbbs_id} group by tbbs_id)+1) as max
+       from dual), 0) from dual  
+    </selectKey>  
+       {	call
+        	declare
+       		begin
+       		
+       		insert into oh015
+	      			(
+	      					HIST_ORD
+	      				,	TBBS_ID
+	      				<if test="org_usr_id != null and !org_usr_id.equals('')">
+	      				,	ORG_USR_ID
+	      				</if>
+	      				,	CDB_ACT_ST_CD
+	      				,  	RTN_RSN
+	      				,	USE_YN 	
+	      				,	CRT_DT
+	      				,	CRT_TM
+	      				,	CRT_USR_ID
+	      				,	MOD_DT
+	      				,	MOD_TM
+	      				,	MOD_USR_ID
+	      			)
+	      			values
+	      			(
+	       					#{Khist_ord} 
+	       				,	#{tbbs_id} 
+	       				<if test="org_usr_id != null and !org_usr_id.equals('')">
+	      				,	#{org_usr_id}
+	      				</if>
+	      				,	#{cdb_act_st_cd}
+	      				,	#{rtn_rsn}
+	      				,	'Y'
+	                    ,	to_char(sysdate, 'yyyymmdd')
+	      				,	to_char(sysdate, 'hh24miss')
+	      				,	#{login_usr_id}
+	                    ,	to_char(sysdate, 'yyyymmdd')
+	      				,	to_char(sysdate, 'hh24miss')
+	      				,	#{login_usr_id}
+	      			);
+	      			
+		INSERT INTO om010
+            (
+                    tbbs_id
+                , 	cntr_nm
+                ,   usr_id
+                ,   usr_nm
+                ,   tbbs_gb_cd
+                ,   cdb_gb_cd
+                ,   emrg_yn
+                ,   tbbs_ttl
+                ,   tbbs_cont_c
+                ,   tbbs_inqr_cnt
+                ,   ctg_lg_cd
+                ,   ctg_md_cd
+                , 	ctg_sm_cd
+                ,   use_yn
+                ,   RSPN_PRSN
+                ,   RSPN_TEL_NO
+                ,	CC_APPR_YN
+                <if test="ntuse_desc != null and !ntuse_desc.equals('')">
+                ,   unuse_rsn
+                 </if> 
+                ,   crt_dt
+                ,   crt_tm
+                ,   crt_usr_id
+                ,   mod_dt
+                ,   mod_tm
+                ,   mod_usr_id
+            )VALUES (
+                    #{tbl_pk}
+                ,   NVL(NVL((select OU from om061 where UID_ = #{sendingUid}),getCodeNM((select cntr_cd from om001 where usr_id = #{sendingUid}),'90002')),'')
+                ,   #{sendingUid}
+                ,   NVL(NVL((select DISPLAYNAME from om061 where UID_ = #{sendingUid}),(select USR_NM from om001 where USR_ID = #{sendingUid})),'')     
+                ,   '040100'
+                ,   #{cdb_gb_cd}
+                ,   'N'
+                ,   #{tbbs_ttl}
+                , 	Empty_Clob()
+                ,   0
+                ,   #{intv_lg_cd}
+                ,   #{intv_md_cd}
+                ,   #{intv_sm_cd}
+                ,   #{use_yn}
+                ,	NVL(NVL((select DISPLAYNAME from om061 where UID_ = #{sendingUid}),(select USR_NM from om001 where USR_ID = #{sendingUid})),'') 
+                ,   NVL(NVL((select TELEPHONENUMBER from om061 where UID_ = #{sendingUid}),(select EXTN_NO from om001 where USR_ID = #{sendingUid})),'') 
+	            ,	#{cc_appr_yn}
+	            <if test="ntuse_desc != null and !ntuse_desc.equals('')">
+	                ,   #{ntuse_desc}
+	            </if>   
+                ,   to_char(sysdate, 'yyyymmdd')
+                ,   to_char(sysdate, 'hh24miss')
+                ,   #{sendingUid}
+                ,   to_char(sysdate, 'yyyymmdd')
+                ,   to_char(sysdate, 'hh24miss')
+                ,   #{sendingUid}
+            );
+            
+            UPDATE om010
+                  SET tbbs_cont_c = #{tbbs_cntn, jdbcType = CLOB}
+             WHERE tbbs_id = #{tbl_pk};
+		
+       	 end
+    	}  
+    </insert>
+    <update id="counselDbupdateDetail" parameterType="map">
+     <selectKey resultType="string" keyProperty="Khist_ord" order="BEFORE">
+       select NVL((select sum((select max(hist_ord) as max from oh015 where TBBS_ID= #{tbbs_id} group by tbbs_id)+1) as max
+       from dual), 0) from dual  
+    </selectKey>  
+       {	call
+        	declare
+       		begin
+       		
+       		insert into oh015
+	      			(
+	      					HIST_ORD
+	      				,	TBBS_ID
+	      				<if test="org_usr_id != null and !org_usr_id.equals('')">
+	      				,	ORG_USR_ID
+	      				</if>
+	      				,	CDB_ACT_ST_CD
+	      				,  	RTN_RSN
+	      				,	USE_YN 	
+	      				,	CRT_DT
+	      				,	CRT_TM
+	      				,	CRT_USR_ID
+	      				,	MOD_DT
+	      				,	MOD_TM
+	      				,	MOD_USR_ID
+	      			)
+	      			values
+	      			(
+	       					#{Khist_ord} 
+	       				,	#{tbbs_id} 
+	       				<if test="org_usr_id != null and !org_usr_id.equals('')">
+	      				,	#{org_usr_id}
+	      				</if>
+	      				,	#{cdb_act_st_cd}
+	      				,	#{rtn_rsn}
+	      				,	'Y'
+	                    ,	to_char(sysdate, 'yyyymmdd')
+	      				,	to_char(sysdate, 'hh24miss')
+	      				,	#{login_usr_id}
+	                    ,	to_char(sysdate, 'yyyymmdd')
+	      				,	to_char(sysdate, 'hh24miss')
+	      				,	#{login_usr_id}
+	      			);
+       
+				        UPDATE om010 
+				        SET CC_APPR_YN = #{cc_appr_yn}
+				        WHERE tbbs_id = #{tbbs_id};
+       	 end
+    	}  
+    </update>
+
+
+    <select id="selectList" parameterType="map" resultType="map"> 
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+                SELECT  DISTINCT A.tbbs_id as tbbs_id
+                        ,  (select 	count(*) FROM  om012 C, sm002 B WHERE C.tbbs_id = A.TBBS_ID AND C.team_cd = B.cd AND B.tp_cd = '90003') as notify
+                        ,   A.parnt_tbbs_id
+                        ,   A.cntr_nm as cntr_nm
+                        ,   A.team_nm as team_nm
+                        ,   A.usr_id as usr_id
+                        ,   A.usr_nm as usr_nm
+                        ,   A.tbbs_gb_cd as tbbs_gb_cd
+                        ,   decode(A.tbbs_gb_cd,'020100','콜센터공지','공무원공지') as tbbs_gb_cd_nm
+                        ,   CASE WHEN A.emrg_yn = 'Y' THEN '긴급' ELSE '일반' END AS emrg_yn
+                        ,   DBMS_LOB.SUBSTR(A.tbbs_cont_c, 100, 1) AS tbbs_cntn  -- 100자리까지만 조회
+                        ,   A.tbbs_ttl as tbbs_ttl
+                        ,   getFormatDate(A.tbbs_strt_dt) AS tbbs_strt_dt_format
+                        ,   getFormatDate(A.tbbs_end_dt) AS tbbs_end_dt_format 
+                        ,   A.tbbs_inqr_cnt as tbbs_inqr_cnt
+                        ,   A.use_yn as use_yn
+                        ,   getFormatDate(A.crt_dt) AS crt_dt_format
+                        ,   getFormatTime(A.crt_tm) AS crt_tm_format
+                        ,   A.crt_usr_id as 
+                        ,   getFormatDate(A.mod_dt) AS mod_dt_format
+                        ,   getFormatTime(A.mod_tm) AS mod_tm_format
+                        ,   A.mod_usr_id
+                        ,   A.usr_nm AS mod_usr_nm
+                        ,   CASE WHEN A.usr_id = #{login_usr_id} then 'Y' else 'N' END AS is_own 
+                        ,   CASE WHEN b.fl_num IS NULL THEN ' ' ELSE b.fl_num END AS fl_num
+                        ,   CASE WHEN A.TBBS_ID IN ( SELECT TBBS_ID FROM OM011 WHERE USR_ID = #{login_usr_id}) THEN '확인' ELSE '미확인' END as usr_rd
+                FROM om010 A 
+                LEFT JOIN (SELECT tbl_pk, TO_CHAR(COUNT(fl_id)) AS fl_num FROM om019 GROUP BY tbl_pk) B
+                ON b.tbl_pk = to_char(a.tbbs_id) 
+                left join om012 C
+                 on A.tbbs_id = C.tbbs_id
+               	LEFT JOIN om001 D 
+                   on ( D.USR_ID = C.MOD_USR_ID and D.team_cd = C.team_cd OR c.team_cd ='all')
+                WHERE 1 = 1
+               <if test="showAll != 'all'">                      
+                  AND (SELECT cntr_cd FROM om001 WHERE usr_id = #{login_usr_id}) = C.cntr_cd
+                  AND (SELECT team_cd FROM om001 WHERE usr_id = #{login_usr_id}) = C.team_cd 
+               </if>      
+                AND A.use_yn = 'Y'
+               <if test="tbbs_cl_cd != null and !tbbs_cl_cd.equals('')">
+             	AND A.tbbs_gb_cd = #{tbbs_cl_cd} 
+              </if>
+                <if test="tbbs_cl_cd_one != null and !tbbs_cl_cd_one.equals('')">
+                AND A.tbbs_gb_cd IN ( #{tbbs_cl_cd_one} ,#{tbbs_cl_cd_two} ) 
+				</if> 
+            <if test="read_status != null and !read_status.equals('')">
+                <if test="read_status.equals('N')">
+                AND A.TBBS_ID NOT IN ( SELECT TBBS_ID FROM OM011 WHERE USR_ID = #{login_usr_id})
+                </if>
+                <if test="read_status.equals('Y')">
+                AND A.TBBS_ID IN ( SELECT TBBS_ID FROM OM011 WHERE USR_ID = #{login_usr_id})
+                </if>
+            </if>    
+            
+        <if test="srchval != null and !srchval.equals('')">
+            <if test="srchtype.equals('ttl')">
+                AND upper(A.tbbs_ttl) like '%' || upper(#{srchval}) || '%'
+            </if>
+             <if test="srchtype.equals('cntn')">
+                AND upper(A.tbbs_cont_c) like '%' || upper(#{srchval}) || '%' 
+            </if>
+            <if test="srchtype.equals('ttlCntn')">
+                AND ( upper(A.tbbs_ttl) like '%' || upper(#{srchval}) || '%' 
+                   OR upper(A.tbbs_cont_c) like '%' || upper(#{srchval}) || '%' )
+            </if>
+            <if test="srchtype.equals('usrNm')">
+                AND upper(D.displayname) like '%' || upper(#{srchval}) || '%'
+            </if>
+        </if>
+        <if test="tbbs_strt_dt != null and !tbbs_strt_dt.equals('') and tbbs_end_dt != null and !tbbs_end_dt.equals('')">
+            AND ( ( to_date(#{tbbs_strt_dt}, 'yyyymmdd') <![CDATA[>=]]> to_date(A.tbbs_strt_dt, 'yyyymmdd') 
+                   AND  to_date(#{tbbs_strt_dt}, 'yyyymmdd') <![CDATA[<=]]>  to_date(A.tbbs_end_dt, 'yyyymmdd') )
+                 OR ( to_date(#{tbbs_strt_dt}, 'yyyymmdd') <![CDATA[<=]]> to_date(A.tbbs_end_dt, 'yyyymmdd')
+                 AND to_date(#{tbbs_end_dt}, 'yyyymmdd') <![CDATA[>=]]>  to_date(A.tbbs_strt_dt, 'yyyymmdd') ) )
+        </if>
+        <if test="sidx != null and sord != null">
+            ORDER BY ${sidx} ${sord}
+        </if>
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+    </select>
+    
+    
+    
+    
+    <!-- <select id="select" parameterType="map" resultType="map"> -->
+    <select id="select" parameterType="map" resultMap="boardSearchResult">
+        SELECT  A.tbbs_id
+        ,   A.parnt_tbbs_id
+        ,   A.cntr_nm
+        ,   A.team_nm
+        ,   A.usr_id
+        ,   A.usr_nm
+        ,   A.tbbs_gb_cd
+        ,   CASE WHEN A.emrg_yn = 'Y' THEN '긴급' ELSE '일반' END AS emrg_yn
+        , 	A.tbbs_cont_c  AS TBBS_CNTN 
+        ,   A.dtls
+        ,   A.tbbs_ttl
+        ,   getFormatDate(A.tbbs_strt_dt) AS tbbs_strt_dt_format
+        ,   getFormatDate(A.tbbs_end_dt) AS tbbs_end_dt_format
+        ,   A.tbbs_inqr_cnt
+        ,   A.use_yn
+        ,   getFormatDate(A.crt_dt) AS crt_dt_format
+        ,   getFormatTime(A.crt_tm) AS crt_tm_format
+        ,   A.crt_usr_id
+        ,   getFormatDate(A.mod_dt) AS mod_dt_format
+        ,   getFormatTime(A.mod_tm) AS mod_tm_format
+        ,   B.usr_nm AS mod_usr_nm
+        ,   CASE WHEN A.usr_id = #{login_usr_id} then 'Y' else 'N' END AS is_own
+        ,   C.comm_num
+        FROM    om010 A 
+            ,	(select usr_id, usr_nm from om001 union select UID_, DISPLAYNAME from om061) B
+            ,	(SELECT COUNT(comm_id) AS comm_num FROM om013 WHERE tbbs_id = #{tbbs_id} AND use_yn = 'Y') C
+        WHERE A.tbbs_id = #{tbbs_id}
+        AND A.mod_usr_id = B.usr_id
+    </select>
+    
+    <select id="getNoticeListForMain" parameterType="map" resultType="map">
+        select
+                tbbs_id
+            ,   emrg_yn
+            ,   case when length(tbbs_ttl) > 30 then substr(tbbs_ttl, 0, 30) || '...' else tbbs_ttl end as tbbs_ttl
+            ,   tbbs_gb_cd 
+        from
+        (
+        	select  distinct 
+                    a1.tbbs_id
+                ,   a1.emrg_yn
+                ,   a1.tbbs_ttl
+                ,   a1.crt_dt || a1.crt_tm
+                ,   a1.tbbs_gb_cd 
+             from om010 a1             --board
+                    left join om012 t1 --team
+                           on t1.tbbs_id = a1.tbbs_id
+                    left join om001 t2 --agent
+                          on ( t2.cntr_cd = t1.cntr_cd and t2.team_cd = t1.team_cd OR t2.team_cd ='all' )
+            where 1=1
+                and a1.use_yn = 'Y'
+<!--                 and a1.tbbs_gb_cd = '020100'  -->
+                and a1.tbbs_gb_cd IN ('020100','050100') 
+                and to_char(sysdate, 'yyyymmdd') between a1.tbbs_strt_dt and a1.tbbs_end_dt
+                <!-- and t2.USR_GRD_CD  = #{usr_grd_cd} -->
+                and t2.team_cd  = #{team_cd}
+                and t2.usr_id = #{usr_id}   
+             
+            order by a1.emrg_yn desc, a1.crt_dt || a1.crt_tm desc
+        )
+        <![CDATA[
+        where rownum < 8
+        ]]>
+    </select>
+     
+    <select id="nextval" parameterType="map" resultType="map">
+        SELECT  som010.NEXTVAL tbbs_id
+          FROM  dual
+    </select>
+    
+  <select id="selectExcel" parameterType="map" resultType="map">
+  		SELECT     
+				<!--(SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = ctg_ex_cd AND ctg_lvl = '1') AS ctg_lg_nm
+			,	(SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = ctg_lg_cd AND ctg_lvl = '2') AS ctg_lg_nm-->
+            	(SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = ctg_lg_cd AND ctg_lvl = '1') AS ctg_lg_nm
+			,   (SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = ctg_md_cd AND ctg_lvl = '2') AS ctg_md_nm
+			,   (SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = ctg_sm_cd AND ctg_lvl = '3') AS ctg_sm_nm
+			,	tbbs_ttl   
+			,  	concat(tbbs_inqr_cnt,'') as tbbs_inqr_cnt  
+			, 	GETFORMATDATE(CRT_DT) as CRT_DT
+       		, 	NVL((select b.DISPLAYNAME from om061 b where b.UID_ = a.CRT_USR_ID),(select  USR_NM from om001  where usr_id =a.CRT_USR_ID)) as CRT_USR_ID
+        	, 	GETFORMATDATE(MOD_DT) as MOD_DT
+       		, 	NVL((select b.DISPLAYNAME from om061 b where b.UID_ = a.MOD_USR_ID),(select  USR_NM from om001  where usr_id =a.MOD_USR_ID)) as MOD_USR_ID
+			FROM om010 a
+			WHERE 1= 1
+			AND	tbbs_gb_cd = '040100'
+			AND 	use_yn = 'Y'
+		 <if test="cdb_gb_cd != null and !cdb_gb_cd.equals('all') and !cdb_gb_cd.equals('')">
+                AND cdb_gb_cd = #{cdb_gb_cd}
+            </if>
+            <!--
+            <if test="ctg_ex_cd != null and !ctg_ex_cd.equals('all') and !ctg_ex_cd.equals('')">
+                AND ctg_ex_cd = #{ctg_ex_cd}
+            </if>
+            -->
+            <if test="ctg_lg_cd != null and !ctg_lg_cd.equals('all') and !ctg_lg_cd.equals('')">
+                AND ctg_lg_cd = #{ctg_lg_cd}
+            </if>
+            <if test="ctg_md_cd != null and !ctg_md_cd.equals('all') and !ctg_md_cd.equals('')">
+                AND ctg_md_cd = #{ctg_md_cd}
+            </if> 
+             <if test="ctg_sm_cd != null and !ctg_sm_cd.equals('all') and !ctg_sm_cd.equals('')">
+                AND ctg_sm_cd = #{ctg_sm_cd}
+            </if>     
+            <if test="frm_mod_dt != null and !frm_mod_dt.equals('') and frm_mod_dt != null and !frm_mod_dt.equals('')">
+                AND crt_dt BETWEEN #{frm_mod_dt} AND #{to_mod_dt}
+            </if>             
+            <if test="srch_val != null and !srch_val.equals('')">
+            	<if test="srch_type.equals('ttl')">
+					and upper(tbbs_ttl) LIKE '%' || #{srch_val}  || '%' 
+				</if>
+				<if test="srch_type.equals('cntn')">
+					and DBMS_LOB.INSTR(tbbs_cont_c,#{srch_val})<![CDATA[ > 0 ]]>
+				</if>
+				<if test="srch_type.equals('ttlCntn')">
+					 and ( upper(tbbs_ttl) LIKE '%' || #{srch_val}  || '%' OR DBMS_LOB.INSTR(tbbs_cont_c,#{srch_val})<![CDATA[ > 0 ]]>)
+				</if>
+			</if>               
+				ORDER BY CRT_DT desc ,ctg_lg_cd, ctg_md_cd ,ctg_sm_cd  
+    </select>    
+    
+    <insert id="insert" parameterType="map">
+    {call
+        declare
+        begin
+        
+            INSERT INTO om010
+            (
+                    tbbs_id
+                ,   parnt_tbbs_id
+	            ,   cntr_nm
+                ,   team_nm
+                ,   usr_id
+                ,   usr_nm 
+                ,   tbbs_gb_cd
+                ,   emrg_yn
+                ,   tbbs_cont_c
+                ,   tbbs_ttl
+                ,   tbbs_strt_dt
+                ,   tbbs_end_dt
+                ,   tbbs_inqr_cnt
+                ,   use_yn
+                ,   crt_dt
+                ,   crt_tm
+                ,   crt_usr_id
+                ,   mod_dt
+                ,   mod_tm
+                ,   mod_usr_id
+            )
+            VALUES
+            (
+                    #{tbl_pk}
+                <if test="parnt_tbbs_id != null and !parnt_tbbs_id.equals('')">
+                ,   #{parnt_tbbs_id}
+                </if>
+                <if test="parnt_tbbs_id == null">
+                ,   ''
+                </if>
+    	       ,   (select cd_nm from sm002 where tp_cd = '90002' and cd = (select cntr_cd from om001 where usr_id = #{login_usr_id}))
+                ,   (select cd_nm from sm002 where tp_cd = '90003' and cd = (select team_cd from om001 where usr_id =   #{login_usr_id}))       
+                ,   #{login_usr_id}
+                ,   #{login_usr_nm}
+                ,   #{tbbs_cl_cd}
+                <if test="emrg_yn != null and !emrg_yn.equals('')">
+                ,   #{emrg_yn}
+                </if>
+                <if test="emrg_yn == null">
+                ,   'N'
+                </if>
+                , 	Empty_Clob()
+                ,   #{tbbs_ttl}
+                <if test="tbbs_strt_dt != null and !tbbs_strt_dt.equals('')">
+                ,   #{tbbs_strt_dt}
+                </if>
+                <if test="tbbs_strt_dt == null">
+                ,   ''
+                </if>
+                <if test="tbbs_end_dt != null and !tbbs_end_dt.equals('')">
+                ,   #{tbbs_end_dt}
+                </if>
+                <if test="tbbs_end_dt == null">
+                ,   ''
+                </if>
+                ,   0
+                ,   'Y'
+                ,   to_char(sysdate, 'yyyymmdd')
+                ,   to_char(sysdate, 'hh24miss')
+                ,   #{login_usr_id}
+                ,   to_char(sysdate, 'yyyymmdd')
+                ,   to_char(sysdate, 'hh24miss')
+                ,   #{login_usr_id}     
+            );
+            
+            UPDATE om010
+                  SET tbbs_cont_c = #{tbbs_cntn, jdbcType = CLOB}
+             WHERE tbbs_id = #{tbl_pk} ;
+             
+        end
+    }
+        
+    </insert>
+    
+    <update id="update" parameterType="map">
+        UPDATE om010
+        <if test="use_yn == null">
+        SET tbbs_ttl = #{tbbs_ttl}
+            ,   tbbs_cont_c = #{tbbs_cntn, jdbcType = CLOB}
+            <if test="emrg_yn != null and !emrg_yn.equals('')">
+            ,   emrg_yn = #{emrg_yn}
+            </if>
+            <if test="tbbs_strt_dt != null and !tbbs_strt_dt.equals('')">
+            ,   tbbs_strt_dt = #{tbbs_strt_dt}
+            </if>
+            <if test="tbbs_end_dt != null and !tbbs_end_dt.equals('')">
+            ,   tbbs_end_dt = #{tbbs_end_dt}
+            </if>
+            ,   mod_dt = to_char(sysdate, 'yyyymmdd')
+            ,   mod_tm = to_char(sysdate, 'hh24miss')
+            ,   mod_usr_id = #{login_usr_id}
+        </if>
+        <if test="use_yn != null">
+            SET     use_yn = #{use_yn}
+                ,   mod_dt = to_char(sysdate, 'yyyymmdd')
+                ,   mod_tm = to_char(sysdate, 'hh24miss')
+                ,   mod_usr_id = #{login_usr_id}
+        </if>   
+            WHERE
+            <if test="ids != null">
+                tbbs_id IN 
+                <foreach collection="ids" item="tbbs_id" open="(" close=")" separator=", ">
+                    #{tbbs_id}
+                </foreach>
+            </if>
+            <if test="ids == null">
+                tbbs_id = #{tbbs_id}
+            </if>
+        </update>
+    
+    <select id="selectJisikList" parameterType="map" resultType="map">
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+                SELECT  A.tbbs_id
+                        ,   A.parnt_tbbs_id
+                        ,   A.cntr_nm
+                        ,   A.rspn_prsn
+                        ,   A.rspn_tel_no
+                        ,   A.team_nm
+                        ,   A.usr_id
+                        ,   A.usr_nm
+                        ,   A.TBBS_GB_CD
+                        ,   getCodeNM(cdb_gb_cd, '90303') AS CDB_GB_NM
+                        , 	decode(CC_APPR_YN,'P','처리중','N','미승인','Y','승인') as ARR_YN
+                        <!--,   DBMS_LOB.SUBSTR(A.TBBS_CONT_C, 100, 1) AS TBBS_CNTN-->
+                        ,   A.TBBS_TTL
+                        ,   A.TBBS_INQR_CNT
+                        ,   A.INST_CD
+                        <!--,   A.CTG_EX_CD AS INTV_EX_CD-->
+                        ,   A.CTG_LG_CD AS INTV_LG_CD
+                        ,   A.CTG_MD_CD  AS INTV_MD_CD            
+                        ,   A.CTG_SM_CD AS INTV_SM_CD   
+                        <!--,   (SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_ex_cd AND ctg_lvl = '1') AS intv_ex_cd_nm
+                        ,   (SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_lg_cd AND ctg_lvl = '2') AS intv_lg_cd_nm
+                        ,   (SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_md_cd AND ctg_lvl = '3') AS intv_mg_cd_nm
+                        ,   (SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_sm_cd AND ctg_lvl = '4') AS intv_sd_cd_nm-->
+                        ,   (SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_lg_cd AND ctg_lvl = '1') AS intv_lg_cd_nm
+                        ,   (SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_md_cd AND ctg_lvl = '2') AS intv_mg_cd_nm
+                        ,   (SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_sm_cd AND ctg_lvl = '3') AS intv_sd_cd_nm
+                        <!--,   ((SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_ex_cd AND ctg_lvl = '1')
+                            || (SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_lg_cd AND ctg_lvl = '2')
+                            || (SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_md_cd AND ctg_lvl = '3')
+                            || (SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_sm_cd AND ctg_lvl = '4')
+                            ) AS intv_nm-->
+                        ,   ((SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_lg_cd AND ctg_lvl = '1')
+                              || (SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_md_cd AND ctg_lvl = '2')
+                              || (SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_sm_cd AND ctg_lvl = '3')
+                            ) AS intv_nm
+                        ,   A.use_yn
+                        ,   getFormatdate(A.crt_dt)||' '||getFormatTime(A.crt_tm) AS crt_dttm
+                        ,   getFormatDate(A.crt_dt) AS crt_dt_format
+                        ,   getFormatTime(A.crt_tm) AS crt_tm_format
+                        ,   A.crt_usr_id
+                        ,   getFormatdate(A.mod_dt)||' '||getFormatTime(A.mod_tm) AS mod_dttm
+                        ,   getFormatDate(A.mod_dt) AS mod_dt_format
+                        ,   getFormatTime(A.mod_tm) AS mod_tm_format
+                        ,   A.mod_usr_id
+                FROM om010 A
+                WHERE 1= 1
+                    AND     A.tbbs_gb_cd = '040100'
+            <if test="!show_all">   
+                    AND A.use_yn = 'Y'
+            </if>
+            <if test="notinorg">   
+                    AND A.cntr_nm not in (select ou from om060)
+            </if>
+            <if test="cdb_gb_cd != null and !cdb_gb_cd.equals('all') and !cdb_gb_cd.equals('')">
+                    AND A.cdb_gb_cd = #{cdb_gb_cd}
+            </if>
+            <if test="chkNotUsetype != null and !chkNotUsetype.equals('all') and !chkNotUsetype.equals('')">
+                    AND A.CC_APPR_YN = #{chkNotUsetype}
+            </if>
+            <!--
+             <if test="ctg_ex_cd != null and !ctg_ex_cd.equals('all') and !ctg_ex_cd.equals('')">
+                    AND A.ctg_ex_cd = #{ctg_ex_cd}
+            </if>
+            -->
+            <if test="ctg_lg_cd != null and !ctg_lg_cd.equals('all') and !ctg_lg_cd.equals('')">
+                    AND A.ctg_lg_cd = #{ctg_lg_cd}
+            </if>
+            <if test="ctg_md_cd != null and !ctg_md_cd.equals('all') and !ctg_md_cd.equals('')">
+                    AND A.ctg_md_cd = #{ctg_md_cd}
+            </if> 
+            <if test="ctg_sm_cd != null and !ctg_sm_cd.equals('all') and !ctg_sm_cd.equals('')">
+                    AND A.ctg_sm_cd = #{ctg_sm_cd}
+            </if>   
+            <if test="frm_mod_dt != null and !frm_mod_dt.equals('') and frm_mod_dt != null and !frm_mod_dt.equals('')">
+                    AND A.crt_dt BETWEEN #{frm_mod_dt} AND #{to_mod_dt}
+            </if> 
+            <if test="srch_val != null and !srch_val.equals('')">
+                <if test="srch_type.equals('ttl')">
+                    AND A.tbbs_ttl LIKE '%' || #{srch_val}  || '%' 
+                </if>
+                <if test="srch_type.equals('cntn')">
+                    AND DBMS_LOB.INSTR(A.tbbs_cont_c,#{srch_val})<![CDATA[ > 0 ]]>
+                </if>
+                <if test="srch_type.equals('ttlCntn')">
+                    AND ( A.tbbs_ttl LIKE '%' || #{srch_val}  || '%' OR DBMS_LOB.INSTR(A.tbbs_cont_c,#{srch_val})<![CDATA[ > 0 ]]>)
+                </if>
+                <if test="srch_type.equals('cntrNm')">
+                    AND A.CNTR_NM LIKE '%' || #{srch_val}  || '%'
+                </if>
+                <if test="srch_type.equals('rspn')">
+                    AND A.RSPN_PRSN LIKE '%' || #{srch_val}  || '%'
+                </if>
+            </if>
+            <if test="sidx != null and sord != null">
+                ORDER BY ${sidx} ${sord}
+            </if> 
+            <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+    </select>
+    
+    <select id="selectJisik" parameterType="map" resultMap="boardSearchResult">
+        SELECT  tbbs_id
+                ,   cntr_nm
+                ,   team_nm
+                ,   usr_id
+                ,   usr_nm
+                ,   tbbs_gb_cd
+                ,   cdb_gb_cd
+                , 	decode(CC_APPR_YN,'P','처리중','N','미승인','Y','승인') as ARR_YN
+                ,	CC_APPR_YN
+                , 	getCodeNM(cdb_gb_cd, '90303') AS CDB_GB_NM
+                ,   tbbs_cont_c AS TBBS_CNTN
+                ,   dtls
+                ,   tbbs_ttl
+                ,   tbbs_inqr_cnt
+                ,   inst_cd
+                <!--,	ctg_ex_cd AS INTV_EX_CD-->
+                ,   ctg_lg_cd AS INTV_LG_CD
+                ,   ctg_md_cd AS INTV_MD_CD            
+                ,   ctg_sm_cd AS INTV_SM_CD   
+				<!--,	(
+					(SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_ex_cd AND ctg_lvl = '1')
+					|| (SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_lg_cd AND ctg_lvl = '2') 
+					|| (SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_md_cd AND ctg_lvl = '3')
+					|| (SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_sm_cd AND ctg_lvl = '4')
+					) AS intv_nm-->
+                ,	(
+                    (SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_lg_cd AND ctg_lvl = '1')
+                    || (SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_md_cd AND ctg_lvl = '2')
+                    || (SELECT ' > ' || ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_sm_cd AND ctg_lvl = '3')
+                    ) AS intv_nm
+                ,    (SELECT NVL(usr_nm,'') FROM om001 WHERE usr_id = A.RSPN_PRSN) AS respon_prsn 
+                ,   rspn_prsn
+                ,   NVL(RSPN_TEL_NO,'') as respon_tel
+                ,   use_yn
+                ,   unuse_rsn AS NTUSE_DESC
+                ,   NVL((select OU from om061 BB where bb.UID_ = A.CRT_USR_ID),getCodeNM((select CNTR_CD from om001  where USR_ID =A.CRT_USR_ID), '90002'))as CRT_USR_DEPT
+                ,   NVL((select OU from om061 BB where bb.UID_ = A.MOD_USR_ID),getCodeNM((select CNTR_CD from om001  where USR_ID =A.MOD_USR_ID), '90002'))as MOD_USR_DEPT
+                ,  	NVL((select DISPLAYNAME from om061 BB where bb.UID_ = A.MOD_USR_ID),(select  USR_NM from om001  where usr_id =A.MOD_USR_ID)) as MOD_USR_NM
+                ,   NVL((select DISPLAYNAME from om061 BB where bb.UID_ = A.CRT_USR_ID),(select  USR_NM from om001  where usr_id =A.CRT_USR_ID)) as CRT_USR_NM
+                ,   getFormatDate(crt_dt) AS crt_dt_format
+                ,   getFormatTime(crt_tm) AS crt_tm_format
+                ,   crt_usr_id
+<!--                 ,   (SELECT usr_nm FROM om001 WHERE usr_id = A.crt_usr_id) AS crt_usr_nm -->
+                ,   getFormatDate(mod_dt) AS mod_dt_format
+                ,   getFormatTime(mod_tm) AS mod_tm_format
+                ,   mod_usr_id
+<!--                 ,   (select usr_nm from om001 where usr_id = A.mod_usr_id) as mod_usr_nm -->
+        FROM om010 A
+        WHERE tbbs_id = #{tbbs_id}
+        
+
+    </select>
+    
+    
+    <insert id="insertJisik" parameterType="map">
+  	<selectKey resultType="string" keyProperty="WRK_ID" order="BEFORE">
+       	     select NVL((select sum((select max(to_number(WRK_ID))+1 as max from oh013)) as max from dual), 0) from dual
+    </selectKey>	
+  	{call
+        declare
+        begin   
+            INSERT INTO om010
+            (
+                    tbbs_id
+                ,   usr_id
+                ,   usr_nm
+                ,   tbbs_gb_cd
+                ,   cdb_gb_cd
+                ,   emrg_yn
+                ,   tbbs_ttl
+                ,   tbbs_cont_c
+                ,   tbbs_inqr_cnt
+                <!--,	ctg_ex_cd-->
+                ,   ctg_lg_cd
+                ,   ctg_md_cd
+                , 	ctg_sm_cd
+                ,   use_yn
+                <if test="cntr_nm != null and !cntr_nm.equals('')">
+                ,   cntr_nm
+                ,   RSPN_PRSN
+                ,   RSPN_TEL_NO
+                </if>
+                ,	CC_APPR_YN
+                <if test="ntuse_desc != null and !ntuse_desc.equals('')">
+                ,   unuse_rsn
+                 </if> 
+                ,   crt_dt
+                ,   crt_tm
+                ,   crt_usr_id
+                ,   mod_dt
+                ,   mod_tm
+                ,   mod_usr_id
+            )VALUES (
+                    #{tbl_pk}
+<!--                 ,   (select ORGFULLNAME from om061 where UID_ = #{sendingUid}) -->
+                ,   #{sendingUid} 
+                ,   NVL(NVL((select DISPLAYNAME from om061 where UID_ = #{sendingUid}),(select USR_NM from om001 where USR_ID = #{sendingUid})),'')     
+                ,   '040100'
+                ,   #{cdb_gb_cd}
+                ,   'N'
+                ,   #{tbbs_ttl}
+                , 	Empty_Clob()
+                ,   0
+                <!--,   #{intv_ex_cd}-->
+                ,   #{intv_lg_cd}
+                ,   #{intv_md_cd}
+                ,   #{intv_sm_cd}
+                ,   #{use_yn}
+                <if test="cntr_nm != null and !cntr_nm.equals('')">
+				,   #{cntr_nm}     
+				,   #{rspn_prsn}
+				,   #{rspn_tel_no} 
+				</if> 
+	            ,	#{cc_appr_yn}
+	            <if test="ntuse_desc != null and !ntuse_desc.equals('')">
+	                ,   #{ntuse_desc}
+	            </if>   
+                ,   to_char(sysdate, 'yyyymmdd')
+                ,   to_char(sysdate, 'hh24miss')
+                ,   #{sendingUid}
+                ,   to_char(sysdate, 'yyyymmdd')
+                ,   to_char(sysdate, 'hh24miss')
+                ,   #{sendingUid}
+            );
+            
+            UPDATE om010
+                  SET tbbs_cont_c = #{tbbs_cntn, jdbcType = CLOB}
+             WHERE tbbs_id = #{tbl_pk};
+             <if test="onappr != null and onappr">
+             UPDATE oh013
+             SET CC_APPR_YN = #{cc_appr_yn, jdbcType = CLOB}
+             WHERE REQ_ID = #{req_id};
+             </if>
+             <if test="onappr != null and !onappr">
+             INSERT INTO oh013
+		(
+		WRK_ID
+		, TBBS_ID
+		, REQ_ID
+		, WRK_DT
+		, WRK_TM
+		, WRK_CL
+		, tbbs_gb_cd
+		, cdb_gb_cd
+		, CC_APPR_YN
+		, TBBS_TTL
+		, TBBS_CONT_C
+		, ctg_lg_cd
+		, ctg_md_cd
+		, ctg_sm_cd
+		, USE_YN
+		, cntr_nm
+		, RSPN_PRSN
+		, RSPN_TEL_NO
+		, CRT_DT
+		, CRT_TM
+		, CRT_USR_ID
+		, MOD_DT
+		, MOD_TM
+		, MOD_USR_ID
+		)VALUES (
+		 #{WRK_ID}
+		, #{tbl_pk}
+		, #{req_id}
+		, to_char(sysdate, 'yyyymmdd')
+		, to_char(sysdate, 'hh24miss')
+		, #{wrk_cl}
+		, '040101'
+		, #{cdb_gb_cd}
+		, #{cc_appr_yn}
+		, #{tbbs_ttl}
+		, Empty_Clob()
+		, #{intv_lg_cd}
+		, #{intv_md_cd}
+		, #{intv_sm_cd}
+		, #{use_yn}
+		, #{cntr_nm}     
+		, #{rspn_prsn}
+		, #{rspn_tel_no}  
+		, to_char(sysdate, 'yyyymmdd')
+		, to_char(sysdate, 'hh24miss')
+		, #{sendingUid}
+		, to_char(sysdate, 'yyyymmdd')
+		, to_char(sysdate, 'hh24miss')
+		, #{sendingUid}
+		);
+
+		UPDATE oh013
+		SET TBBS_CONT_C = #{tbbs_cntn, jdbcType = CLOB}
+		WHERE WRK_ID = #{WRK_ID};
+             </if>
+        end
+    }
+        
+    </insert>
+    
+    <update id="updateJisik" parameterType="map">
+     <selectKey resultType="string" keyProperty="WRK_ID" order="BEFORE">
+       	     select NVL((select sum((select max(to_number(WRK_ID))+1 as max from oh013)) as max from dual), 0) from dual
+    </selectKey>	
+  	{call
+        declare
+        begin    
+        
+        UPDATE om010 
+        SET     tbbs_ttl = #{tbbs_ttl}
+            ,   tbbs_cont_c = #{tbbs_cntn, jdbcType = CLOB}
+            ,	cdb_gb_cd =#{cdb_gb_cd}
+            <!--,   ctg_ex_cd = #{intv_ex_cd}-->
+            ,   ctg_lg_cd = #{intv_lg_cd}
+            ,   ctg_md_cd = #{intv_md_cd}
+            ,   ctg_sm_cd = #{intv_sm_cd}
+            <if test="cntr_nm != null and !cntr_nm.equals('')">
+            ,   cntr_nm = #{cntr_nm}     
+            ,   RSPN_PRSN = #{rspn_prsn}
+            ,   RSPN_TEL_NO = #{rspn_tel_no}   
+            </if>
+            <if test="cc_appr_yn != null and !cc_appr_yn.equals('')">
+            , 	cc_appr_yn = #{cc_appr_yn}
+            </if>
+            <if test="use_yn != null and !use_yn.equals('')">
+            ,   use_yn = #{use_yn}
+            </if>
+            <if test="ntuse_desc != null and !ntuse_desc.equals('')">
+            ,   unuse_rsn = #{ntuse_desc}
+            </if>
+            <if test="cdb_req_gb_cd =='new'">
+            ,   crt_dt = to_char(sysdate, 'yyyymmdd')
+            ,   crt_tm = to_char(sysdate, 'hh24miss')
+            ,   crt_usr_id = #{sendingUid}
+            </if> 
+            ,   mod_dt = to_char(sysdate, 'yyyymmdd')
+            ,   mod_tm = to_char(sysdate, 'hh24miss')
+            ,   mod_usr_id = #{sendingUid}
+        	WHERE tbbs_id = #{tbl_pk};
+        
+             <if test="onappr != null and onappr">
+             UPDATE oh013
+             SET CC_APPR_YN = #{cc_appr_yn, jdbcType = CLOB}
+             WHERE REQ_ID = #{req_id};
+             </if>
+             <if test="onappr != null and !onappr">
+             INSERT INTO oh013
+		(
+		WRK_ID
+		, TBBS_ID
+		, REQ_ID
+		, WRK_DT
+		, WRK_TM
+		, WRK_CL
+		, tbbs_gb_cd
+		, cdb_gb_cd
+		, CC_APPR_YN
+		, TBBS_TTL
+		, TBBS_CONT_C
+		, ctg_lg_cd
+		, ctg_md_cd
+		, ctg_sm_cd
+		, USE_YN
+		<if test="cntr_nm != null and !cntr_nm.equals('')">
+		, cntr_nm
+		, RSPN_PRSN
+		, RSPN_TEL_NO
+		</if>
+		, CRT_DT
+		, CRT_TM
+		, CRT_USR_ID
+		, MOD_DT
+		, MOD_TM
+		, MOD_USR_ID
+		)VALUES (
+		 #{WRK_ID}
+		, #{tbl_pk}
+		, #{req_id}
+		, to_char(sysdate, 'yyyymmdd')
+		, to_char(sysdate, 'hh24miss')
+		, #{wrk_cl}
+		, '040101'
+		, #{cdb_gb_cd}
+		, #{cc_appr_yn}
+		, #{tbbs_ttl}
+		, Empty_Clob()
+		, #{intv_lg_cd}
+		, #{intv_md_cd}
+		, #{intv_sm_cd}
+		, #{use_yn}
+		<if test="cntr_nm != null and !cntr_nm.equals('')">
+		, #{cntr_nm}     
+		, #{rspn_prsn}
+		, #{rspn_tel_no}  
+		</if>
+		, to_char(sysdate, 'yyyymmdd')
+		, to_char(sysdate, 'hh24miss')
+		, #{sendingUid}
+		, to_char(sysdate, 'yyyymmdd')
+		, to_char(sysdate, 'hh24miss')
+		, #{sendingUid}
+		);
+		
+		UPDATE oh013
+		SET TBBS_CONT_C = #{tbbs_cntn, jdbcType = CLOB}
+		WHERE WRK_ID = #{WRK_ID};
+             </if>
+          end
+    }   
+        
+    </update>
+    
+  <!-- 상담DB (CounselDb) SQL -->
+  <select id="selectCounselDb" parameterType="map" resultMap="boardSearchResult">
+    SELECT  A.tbbs_id
+    , A.tbbs_gb_cd
+    , A.tbbs_cont  
+    , A.tbbs_ttl
+    , A.tbbs_inqr_cnt
+    , A.unuse_rsn
+    , A.use_yn
+    , getFormatDate(A.crt_dt) AS crt_dt_format
+    , getFormatTime(A.crt_tm) AS crt_tm_format
+    , (select displayname from om061 where org_usr_id = A.crt_usr_id) AS crt_usr_nm
+    , getFormatDate(A.mod_dt) AS mod_dt_format
+    , getFormatTime(A.mod_tm) AS mod_tm_format
+    , (select displayname from om061 where org_usr_id = A.mod_usr_id) AS mod_usr_nm
+    FROM  om010 A 
+    WHERE A.tbbs_id = #{tbbs_id}
+  </select> 
+  
+  <insert id="insertCounselDB" parameterType="map">
+  {call
+    declare
+    begin 
+      INSERT INTO om010
+      (
+          tbbs_id
+        , cntr_nm
+        , usr_id
+        , usr_nm
+        , tbbs_gb_cd
+        , tbbs_ttl
+        , tbbs_cont_c
+        , dtls
+        , tbbs_inqr_cnt
+        , inst_cd
+        , ctg_lg_cd
+        , ctg_md_cd
+        , ctg_sm_cd
+        , RSPN_PRSN
+        , use_yn
+        , unuse_rsn
+        , crt_dt
+        , crt_tm
+        , crt_usr_id
+        , mod_dt
+        , mod_tm
+        , mod_usr_id
+      )
+      VALUES
+      (
+          #{tbl_pk}
+        , (SELECT cd_nm FROM sm002 WHERE tp_cd = '90002' AND cd = #{cntr_cd})
+        , #{login_usr_id}
+        , #{login_usr_nm}
+        , #{tbbs_cl_cd}   /* '050100' */        
+        , #{tbbs_ttl}
+        , Empty_Clob()
+        , #{dtls}
+        , 0
+        , #{inst_cd}
+        , #{intv_lg_cd}
+        , #{intv_md_cd}
+        , #{intv_sm_cd}
+        , #{org_usr_id}
+        , #{use_yn}
+      <if test="ntuse_desc != null and ntuse_desc.equals('')">
+        , #{ntuse_desc}
+      </if> 
+      <if test="ntuse_desc == null">
+        , ''
+      </if>
+        , to_char(sysdate, 'yyyymmdd')
+        , to_char(sysdate, 'hh24miss')
+        , #{login_usr_id}
+        , to_char(sysdate, 'yyyymmdd')
+        , to_char(sysdate, 'hh24miss')
+        , #{login_usr_id} 
+      );
+      
+      
+      UPDATE om010
+         SET tbbs_cont_c = #{tbbs_cntn, jdbcType = CLOB}
+       WHERE tbbs_id = #{tbl_pk} ;
+       
+      
+      UPDATE OM15
+         SET REQ_GB_CD = #{reg_gb_cd}
+           , ORG_USR_ID = #{org_usr_id}
+           , ACT_DT = to_char(sysdate, 'yyyymmdd')
+           , ACT_TM = to_char(sysdate, 'hh24miss')
+           , ACT_ST_CD = #{act_st_cd}
+           , MOD_DT = to_char(sysdate, 'yyyymmdd')
+           , MOD_TM = to_char(sysdate, 'hh24miss')
+           , MOD_USR_ID = #{login_usr_id}  
+       WHERE CDB_ID = #{cdb_id} ;
+    end
+  }    
+  </insert>  
+
+  <update id="updateCounselDB" parameterType="map">
+    UPDATE om010 
+    SET cntr_nm = (SELECT cd_nm FROM sm002 WHERE tp_cd = '90002' AND cd = #{cntr_cd})
+      , usr_id = #{login_usr_id}
+      , usr_nm = #{login_usr_nm}
+      , tbbs_ttl = #{tbbs_ttl}
+      , tbbs_cont_c = #{tbbs_cntn, jdbcType = CLOB}
+      , dtls = #{dtls}
+      , inst_cd = #{inst_cd}
+      , ctg_lg_cd = #{intv_lg_cd}
+      , ctg_md_cd = #{intv_md_cd}
+      , ctg_sm_cd = #{intv_sm_cd}        
+      <if test="respon_prsn != null and !respon_prsn.equals('')">
+      , RSPN_PRSN = #{respon_prsn}
+      </if>
+      <if test="use_yn != null and !use_yn.equals('')">
+      , use_yn = #{use_yn}
+      </if>
+      <if test="ntuse_desc != null and !ntuse_desc.equals('')">
+      , unuse_rsn = #{ntuse_desc}
+      </if>
+      , mod_dt = to_char(sysdate, 'yyyymmdd')
+      , mod_tm = to_char(sysdate, 'hh24miss')
+      , mod_usr_id = #{login_usr_id}
+    WHERE tbbs_id = #{tbl_pk}
+  </update>
+  
+
+     <!-- 게시판 총 토탈 -->
+    <select id="civilGetNoticeCount" parameterType="map" resultType="map">
+        SELECT 
+            RS.TOTAL AS total
+          , RS.readnotice AS readnotice
+          , RS.TOTAL - RS.readnotice AS notreadnotice
+       FROM(
+        SELECT
+         (
+           SELECT 
+                COUNT(*) AS CNT
+           FROM      OM010 A
+          			 left join om012 C
+                	 on A.tbbs_id = C.tbbs_id
+           WHERE     A.USE_YN = 'Y'
+           AND       A.tbbs_gb_cd IN ('020100', '050100')                  
+<!--            <if test="showAll != 'all'"> -->
+            AND (SELECT cntr_cd FROM om001 WHERE usr_id = #{login_usr_id}) = C.cntr_cd
+           AND (SELECT team_cd FROM om001 WHERE usr_id = #{login_usr_id}) = C.team_cd
+<!--             </if>  -->
+           AND to_date(#{tbbs_strt_dt}, 'yyyymmdd') <![CDATA[<=]]> to_date(A.tbbs_end_dt, 'yyyymmdd')
+           AND to_date(#{tbbs_end_dt}, 'yyyymmdd') <![CDATA[>=]]> to_date(A.tbbs_strt_dt, 'yyyymmdd')
+         ) AS total,
+        (
+      SELECT 
+            COUNT(*) AS CNT
+      FROM      OM010 A
+                 left join om012 C
+                 on A.tbbs_id = C.tbbs_id 
+      WHERE     A.USE_YN = 'Y'
+      AND       A.tbbs_gb_cd IN ('020100', '050100')                      
+      <if test="showAll != 'all'">
+      AND 	(SELECT cntr_cd FROM om001 WHERE usr_id = #{login_usr_id}) = C.cntr_cd
+      AND 	(SELECT team_cd FROM om001 WHERE usr_id = #{login_usr_id}) = C.team_cd  
+      </if>
+      AND to_date(#{tbbs_strt_dt}, 'yyyymmdd') <![CDATA[<=]]> to_date(A.tbbs_end_dt, 'yyyymmdd')
+      AND to_date(#{tbbs_end_dt}, 'yyyymmdd') <![CDATA[>=]]> to_date(A.tbbs_strt_dt, 'yyyymmdd')
+      AND       A.TBBS_ID IN ( SELECT TBBS_ID FROM OM011 WHERE USR_ID = #{login_usr_id})
+      ) AS readnotice
+        FROM DUAL
+        )RS
+   </select> 
+
+  
+     <!-- 게시판 총 토탈 -->
+    <select id="getNoticeCount" parameterType="map" resultType="map">
+        SELECT 
+            RS.TOTAL AS total
+          , RS.readnotice AS readnotice
+          , RS.TOTAL - RS.readnotice AS notreadnotice
+       FROM(
+        SELECT
+         (
+           SELECT 
+                COUNT(*) AS CNT
+           FROM      OM010 
+           WHERE     USE_YN = 'Y'
+           AND       tbbs_gb_cd = '020100'
+           AND to_date(#{tbbs_strt_dt}, 'yyyymmdd') <![CDATA[<=]]> to_date(tbbs_end_dt, 'yyyymmdd')
+           AND to_date(#{tbbs_end_dt}, 'yyyymmdd') <![CDATA[>=]]> to_date(tbbs_strt_dt, 'yyyymmdd')
+         ) AS total,
+        (
+      SELECT 
+            COUNT(*) AS CNT
+      FROM      OM010 
+      WHERE     USE_YN = 'Y'
+      AND       tbbs_gb_cd = '020100'
+      AND to_date(#{tbbs_strt_dt}, 'yyyymmdd') <![CDATA[<=]]> to_date(tbbs_end_dt, 'yyyymmdd')
+      AND to_date(#{tbbs_end_dt}, 'yyyymmdd') <![CDATA[>=]]> to_date(tbbs_strt_dt, 'yyyymmdd')
+      AND       TBBS_ID IN ( SELECT TBBS_ID FROM OM011 WHERE USR_ID = #{login_usr_id})
+      ) AS readnotice
+        FROM DUAL
+        )RS
+   </select> 
+    <select id="dselectList" parameterType="map" resultType="map"> 
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+              select
+                  usr_nm as USR_NM
+                  ,sum(decode(NEW_YN,'Y',1,0)) as NEW_YNY
+                  ,count(NEW_YN) as NEW_YNALL
+                  from mi001
+               where 1 = 1
+         <if test="usr_nm != null and !usr_nm.equals('')">
+             <if test="usr_nm != all and !usr_nm.equals('all')">
+                AND usr_id like #{usr_nm} || '%'
+             </if>
+        </if>
+        <if test="tbbs_strt_dt != null and !tbbs_strt_dt.equals('')">
+            AND crt_dt between #{tbbs_strt_dt} and #{tbbs_end_dt}
+        </if>
+            group by usr_nm
+        <if test="sidx != null and sord != null">
+            ORDER BY ${sidx} ${sord}
+        </if>
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+    </select>
+     <select id="malignancyList" parameterType="map" resultType="map"> 
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+              SELECT
+                           <!--(SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_ex_cd AND ctg_lvl = '1') AS CTG_EX_NM
+                        ,  (SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_lg_cd AND ctg_lvl = '2') AS CTG_LG_NM
+                        ,  (SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_md_cd AND ctg_lvl = '3') AS CTG_MD_NM
+                        ,  (SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_sm_cd AND ctg_lvl = '4') AS CTG_SM_NM-->
+                         (SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_lg_cd AND ctg_lvl = '1') AS CTG_LG_NM
+                         ,  (SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_md_cd AND ctg_lvl = '2') AS CTG_MD_NM
+                         ,  (SELECT ctg_cd_nm FROM om020 WHERE ctg_cd = A.ctg_sm_cd AND ctg_lvl = '3') AS CTG_SM_NM
+                        ,   SUM(DECODE(a.USE_YN, 'Y',DECODE(case when a.CRT_DT=a.MOD_DT then a.CRT_TM - a.MOD_TM else a.CRT_DT - a.MOD_DT end, 0, 1, 0),0)) AS INSERT_CNT
+                        ,   SUM(DECODE(a.USE_YN, 'Y',DECODE(case when a.CRT_DT=a.MOD_DT then a.CRT_TM - a.MOD_TM else a.CRT_DT - a.MOD_DT end, 0, 0, 1),0)) as UPDATE_CNT
+                        ,   SUM(DECODE(a.USE_YN, 'N', 1, 0)) AS NOTUSE_CNT
+                        ,  (SUM(DECODE(a.USE_YN, 'Y',DECODE(case when a.CRT_DT=a.MOD_DT then a.CRT_TM - a.MOD_TM else a.CRT_DT - a.MOD_DT end, 0, 1, 0),0))+
+                            SUM(DECODE(a.USE_YN, 'Y',DECODE(case when a.CRT_DT=a.MOD_DT then a.CRT_TM - a.MOD_TM else a.CRT_DT - a.MOD_DT end, 0, 0, 1),0))+
+                            SUM(DECODE(a.USE_YN, 'N', 1, 0))) AS TOT_CNT
+               FROM om010 A
+               WHERE 1= 1  
+                AND A.tbbs_gb_cd = '040100'
+<!--                 and a.crt_dt != '20170727'
+  				and a.crt_tm != '090000' -->
+        <if test="usr_nm != null and !usr_nm.equals('') and usr_nm != all and !usr_nm.equals('all')">
+                AND a.USR_ID = #{usr_nm}
+        </if>
+        <if test="tbbs_strt_dt != null and !tbbs_strt_dt.equals('')">
+                AND a.MOD_DT BETWEEN #{tbbs_strt_dt} AND #{tbbs_end_dt}
+        </if>
+              <!--GROUP BY a.CTG_EX_CD, a.CTG_LG_CD, a.CTG_MD_CD, a.CTG_SM_CD-->
+              GROUP BY a.CTG_LG_CD, a.CTG_MD_CD, a.CTG_SM_CD
+        <if test="sidx != null and sord != null">
+              <!--ORDER BY CTG_EX_NM, CTG_LG_NM , CTG_MD_NM , CTG_SM_NM ASC-->
+              ORDER BY CTG_LG_NM , CTG_MD_NM , CTG_SM_NM ASC
+        </if>        
+        
+        
+<!--         
+               SELECT 
+                DECODE(OM.ctg_lg_cd,NULL,'',LG.CTG_CD_NM) || DECODE(OM.ctg_md_cd,NULL,'',' > '||MD.CTG_CD_NM) || DECODE(NVL(OM.ctg_sm_cd,'all'),'all','',' > '||SM.CTG_CD_NM)   AS intv_nm,
+                sum(decode((OM.mod_dt-OM.crt_dt),0,1,0)) as nc_day,
+                sum(decode(OM.use_yn,'N',1,0)) as n_staus,
+                sum(decode((OM.mod_dt-OM.crt_dt),0,0,1)) as c_day
+                ,(sum(decode((OM.mod_dt-OM.crt_dt),0,1,0))+sum(decode(OM.use_yn,'N',1,0))+sum(decode((OM.mod_dt-OM.crt_dt),0,0,1))) as resultDay
+               FROM OM010  OM
+                LEFT OUTER JOIN OM020 LG ON OM.ctg_lg_cd = LG.CTG_CD and LG.USE_YN ='Y' and LG.ctg_lvl = '1'
+                LEFT OUTER JOIN OM020 MD ON OM.ctg_md_cd = MD.CTG_CD and MD.USE_YN ='Y' and MD.ctg_lvl = '2'
+                LEFT OUTER JOIN OM020 SM ON OM.ctg_sm_cd = SM.CTG_CD and SM.USE_YN ='Y' and SM.ctg_lvl = '3'
+                WHERE 1= 1 
+                 and LG.CTG_CD_NM is not null
+         <if test="usr_nm != null and !usr_nm.equals('')">
+             <if test="usr_nm != all and !usr_nm.equals('all')">
+                AND om.usr_id like #{usr_nm} || '%'
+             </if>
+        </if>
+        <if test="tbbs_strt_dt != null and !tbbs_strt_dt.equals('')">
+            AND OM.crt_dt between #{tbbs_strt_dt} and #{tbbs_end_dt}
+        </if>
+            group by  DECODE(OM.ctg_lg_cd,NULL,'',LG.CTG_CD_NM) || DECODE(OM.ctg_md_cd,NULL,'',' > '||MD.CTG_CD_NM) || DECODE(NVL(OM.ctg_sm_cd,'all'),'all','',' > '||SM.CTG_CD_NM)
+        <if test="sidx != null and sord != null">
+            ORDER BY DECODE(OM.ctg_lg_cd,NULL,'',LG.CTG_CD_NM) || DECODE(OM.ctg_md_cd,NULL,'',' > '||MD.CTG_CD_NM) || DECODE(NVL(OM.ctg_sm_cd,'all'),'all','',' > '||SM.CTG_CD_NM) asc
+        </if>
+ -->        
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+    </select>
+    
+     <!-- 교육콘텐츠 관리 리스트 조회 -->
+    <select id="eduCntntList" parameterType="map" resultType="map"> 
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>              
+               SELECT TBBS_TTL
+                    , GETCODENM(CDB_GB_CD, '92022') AS CDB_GB_NM
+                    , CDB_GB_CD
+                    , DECODE(TEAM_NM, 'all', '전체', GETCODENM(TEAM_NM, '90003')) AS TEAM_NM
+                    , TEAM_NM AS TEAM_CD
+                    , GETFORMATDATE(MOD_DT) AS MOD_DT 
+                    , TBBS_ID 
+                FROM OM010 
+               WHERE 1 = 1
+                 AND USE_YN = 'Y'
+                 AND TBBS_GB_CD = '92022'     /*교육콘텐츠 코드*/
+               
+          <if test="cdb_gb_cd != null and !cdb_gb_cd.equals('all')">
+                AND CDB_GB_CD = #{cdb_gb_cd} 
+          </if>
+          
+          <choose>
+              <when test="usrGrdCd != null and usrGrdCd.equals('010100')" >
+                  AND (TEAM_NM = #{team_nm} OR TEAM_NM = 'all')
+              </when>
+              <when test="usrGrdCd != null and !usrGrdCd.equals('010100') and !team_nm.equals('all')" >
+                  AND TEAM_NM = #{team_nm}
+              </when>                            
+          </choose>
+         
+          <if test="tbbs_ttl != null and !tbbs_ttl.equals('')">
+                AND TBBS_TTL LIKE '%' || #{tbbs_ttl} || '%'
+          </if>
+          
+          <if test="sidx != null and sord != null">
+            ORDER BY ${sidx} ${sord}
+          </if>
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+    </select>     
+    
+    <!-- 교육콘텐츠 관리 상세 조회 -->
+    <select id="selectEduCntnt" parameterType="map" resultMap="boardSearchResult">
+        SELECT A.TBBS_ID
+             , A.CNTR_NM
+             , A.TEAM_NM
+             , A.TBBS_TTL
+             , A.TBBS_CONT_C AS TBBS_CNTN 
+             , A.USE_YN
+          FROM OM010 A 
+         WHERE A.tbbs_id = #{tbbs_id}
+           AND A.USE_YN = 'Y'
+    </select>
+    
+    <!-- 교육콘텐츠 등록 -->
+    <insert id="insertEduCntnt" parameterType="map">
+    {call
+        declare
+        begin
+        
+            INSERT INTO om010
+            (
+                    TBBS_ID
+                ,   CNTR_NM
+                ,   TEAM_NM
+                ,   USR_ID
+                ,   USR_NM
+                ,   TBBS_GB_CD
+                ,   CDB_GB_CD
+                ,   EMRG_YN
+                ,   TBBS_CONT_C
+                ,   TBBS_TTL
+                ,   TBBS_INQR_CNT
+                ,   USE_YN
+                ,   CRT_DT
+                ,   CRT_TM
+                ,   CRT_USR_ID
+                ,   MOD_DT
+                ,   MOD_TM
+                ,   MOD_USR_ID
+            )
+            VALUES
+            (
+                    #{tbl_pk}
+                ,   #{cntr_nm}
+                ,   #{team_nm}       
+                ,   #{login_usr_id}
+                ,   #{login_usr_nm}
+                ,   #{tbbs_cl_cd}
+                ,   #{cdb_gb_cd}
+                ,   'N'
+                ,   Empty_Clob()
+                ,   #{tbbs_ttl}
+                ,   0
+                ,   'Y'
+                ,   to_char(sysdate, 'yyyymmdd')
+                ,   to_char(sysdate, 'hh24miss')
+                ,   #{login_usr_id}
+                ,   to_char(sysdate, 'yyyymmdd')
+                ,   to_char(sysdate, 'hh24miss')
+                ,   #{login_usr_id}     
+            );
+            
+            UPDATE om010
+                  SET TBBS_CONT_C = #{tbbs_cntn, jdbcType = CLOB}
+             WHERE TBBS_ID = #{tbl_pk} ;
+             
+        end
+    }
+        
+    </insert>
+    
+    <!-- 교육콘텐츠 관리 수정 -->
+    <update id="updateEduCntnt" parameterType="map">
+        UPDATE om010
+           SET TBBS_TTL = #{tbbs_ttl}
+            ,  TBBS_CONT_C = #{tbbs_cntn, jdbcType = CLOB}
+            ,  TEAM_NM = #{team_nm}
+            ,  CDB_GB_CD = #{cdb_gb_cd}
+            ,  MOD_DT = to_char(sysdate, 'yyyymmdd')
+            ,  MOD_TM = to_char(sysdate, 'hh24miss')
+            ,  MOD_USR_ID = #{login_usr_id}
+         WHERE TBBS_ID = #{tbbs_id}
+    </update>    
+        
+</mapper>

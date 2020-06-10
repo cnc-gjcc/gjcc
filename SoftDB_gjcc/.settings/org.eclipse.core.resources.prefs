@@ -1,0 +1,9 @@
+eclipse.preferences.version=1
+encoding//src/main/java=UTF-8
+encoding//src/main/resources=utf-8
+encoding//src/main/resources/egovframework/property/globals.properties=UTF-8
+encoding//src/test/java=UTF-8
+encoding//webapp/WEB-INF/jsp/main/CallMain.jsp=UTF-8
+encoding//webapp/WEB-INF/jsp/main/login/mINotiboard.jsp=UTF-8
+encoding//webapp/WEB-INF/jsp/main/login/scheduleList.jsp=UTF-8
+encoding/<project>=utf-8

@@ -1,0 +1,1174 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="cm003">
+
+	<select id="getCustInfo" parameterType="map" resultType="map">
+		SELECT
+		      cust_id                                                     /* 고객ID */
+		    , corp_nm
+		    , cust_nm
+		    , gndr																												/* 성별 */
+		    , ages_cd																											/* 연렫대 */
+		    , idn_no                                                      /* 고객식별번호 */
+		    , cust_gb_cd
+		    , getCodeNM(cust_gb_cd, '90043') AS cst_type_nm               /* 고객구분 */
+		    , cst_comp_cd as cst_comp
+		    , getCodeNM(cst_comp_cd, '90048') AS CST_COMP_NM              /* 고객성향 */
+		    , nvl(cst_comp_cd2,'all') as cst_comp2
+		    , getCodeNM(cst_comp_cd2, '90901') AS CST_COMP_NM2            /* 고객성향2  */
+		    , post_no
+		    , rd_nm_addr1                                                 /* 도로명 주소 기본 */
+		    , rd_nm_addr2                                                 /* 도로명 주소 상세 */
+		    , infm_yn                                                     /* 개인정보동의여부 */
+		    , infm_dtm                                                    /* 개인정보동의일시 */
+            , case WHEN cm3.infm_dtm is not null then TO_CHAR(TO_DATE(cm3.infm_dtm, 'yyyyMMddhh24miss'), 'yyyy-MM-dd') else '' end as INFM_DT_FORMAT
+            , case WHEN cm3.infm_dtm is not null then TO_CHAR(TO_DATE(cm3.infm_dtm, 'yyyyMMddhh24miss'), 'hh24:mi:ss') else '' end as INFM_TM_FORMAT
+		    , eml_yn                                                      /* EMail 수신동의 */
+		    , sms_yn                                                      /* SMS수신동의 */
+		    , fax_yn                                                      /* FAX수신동의 */
+		    , tel_yn                                                      /* 전화수신동의 */
+		    , sns_yn                                                      /* SNS 동의 */
+		    , loc_yn                                                      -- 위치 동의
+		    , (SELECT MAX(TO_CHAR(TO_DATE((OH023.AGR_DT||OH023.AGR_TM), 'yyyyMMddhh24miss'), 'yyyy-MM-dd hh24:mi:ss'))  FROM OH023 WHERE OH023.cust_id = cm3.cust_id AND AGR_YN='Y') as loc_dtm
+		    , memo
+		    , crt_usr_id
+		    , (SELECT om1.usr_nm FROM om001 om1 WHERE om1.usr_id = cm3.crt_usr_id) AS crt_usr_nm
+		    , crt_dt
+		    , crt_tm
+		    , TO_CHAR(TO_DATE((crt_dt||crt_tm), 'yyyyMMddhh24miss'), 'yyyy-MM-dd hh24:mi:ss')  as crt_dtm
+		    , mod_usr_id
+		    , NVL((SELECT om1.usr_nm FROM om001 om1 WHERE om1.usr_id = cm3.mod_usr_id), '') AS mod_usr_nm
+		    , mod_dt
+		    , mod_tm
+		    , TO_CHAR(TO_DATE((mod_dt||mod_tm), 'yyyyMMddhh24miss'), 'yyyy-MM-dd hh24:mi:ss') as mod_dtm
+			, (select cntct_infm from cd004 where cust_id = cm3.cust_id and ch_gb_cd = '11000' and use_yn = 'Y') as phone_num
+			, (select cntct_infm from cd004 where cust_id = cm3.cust_id and ch_gb_cd = '11003' and use_yn = 'Y') as cell_num
+			, (select cntct_infm from cd004 where cust_id = cm3.cust_id and ch_gb_cd = '13000' and use_yn = 'Y') as fax_num
+			, (select cntct_infm from cd004 where cust_id = cm3.cust_id and ch_gb_cd = '14000' and use_yn = 'Y') as email_addr
+		  FROM cm003 cm3
+		 WHERE 1 = 1
+		<if test="use_yn != null and !use_yn.equals('')">
+		 and use_yn = #{use_yn}
+		</if>
+		<if test="use_yn == null or use_yn.equals('')">
+		 and use_yn = 'Y'
+		</if>
+		<if test="cntct_infm != null and !cntct_infm.equals('')">
+			and cust_id in (select cust_id from cd004 where cntct_infm = #{cntct_infm})
+		</if>
+		<if test="cust_id != null and !cust_id.equals('')">
+			and cust_id = #{cust_id}
+		</if>
+	</select>
+	
+	<select id="getInstantCustInfo" parameterType="map" resultType="map">
+			 select cm3.cust_id, cm3.cust_nm, cd4.cntct_infm, cm3.memo
+	          , cm3.cust_gb_cd
+	          , getCodeNM(cm3.cust_gb_cd, '90043') AS cst_type_nm               /* 고객구분 */
+	          , cm3.cst_comp_cd as cst_comp
+	          , getCodeNM(cm3.cst_comp_cd, '90048') AS CST_COMP_NM              /* 고객성향 */
+	          , nvl(cm3.cst_comp_cd2,'all') as cst_comp2
+	          , getCodeNM(cm3.cst_comp_cd2, '90901') AS CST_COMP_NM2            /* 고객성향2  */
+			from cd004 cd4
+	    left join cm003 cm3 on cd4.cust_id = cm3.cust_id 
+	    where 1=1
+	    	and cm3.USE_YN = 'Y'
+		<if test="cntct_infm != null and !cntct_infm.equals('')">
+			and cd4.cntct_infm = #{cntct_infm} 
+		</if>
+		<if test="cust_id != null and !cust_id.equals('')">
+			and cd4.cust_id= #{cust_id}
+		</if>
+		
+	</select>
+	
+	<select id="getCustId" parameterType="map" resultType="map">
+		SELECT scm003.nextval as cust_id
+		FROM dual
+	</select>
+	
+	<!--  고객 저장 쿼리  -->
+	<insert id="insertCustInfo" parameterType="map">
+		{call
+	    	declare
+	    	begin
+				INSERT INTO cm003
+				(
+						cust_id			 /*고객id*/
+					,	cust_nm 		 /*고객명*/
+					,	gndr 			 /*성별*/
+					,	ages_cd 			 /*연령대*/
+					,	idn_no	 		 /*고객식별번호*/
+					,	cust_gb_cd 		 /*고객구분코드*/
+					,	cst_comp_cd 	 /*고객성향*/
+					,   cst_comp_cd2     /*고객성향*/
+					,	post_no 		 /*우편번호*/
+					,	rd_nm_addr1  	 /*도로명기본주소*/
+					,	rd_nm_addr2 	 /*도로명상세주소*/
+					<if test="infm_yn != null">
+					,   infm_yn
+					,   infm_dtm
+					</if>
+					,	eml_yn 			/*이메일수신여부*/
+					,	sms_yn 			/*sms수신여부*/
+					,	tel_yn 			/*전화수신여부*/
+					,	fax_yn 			/*팩스수신여부*/
+					,	use_yn 			/*사용여부*/
+					, loc_yn 			/*위치동의*/
+					,	memo 			/*메모*/
+					,	crt_dt 			/*생성일자*/
+					,	crt_tm 			/*생성시각*/
+					,	crt_usr_id 		/*생성사용자id*/
+					,	mod_dt 			/*수정일자*/
+					,	mod_tm 			/*수정시각*/
+					,	mod_usr_id 		/*수정사용자id*/
+					<if test="mrg_yn != null and !mrg_yn.equals('')">
+					,	mrg_yn
+					</if>
+				)
+				VALUES
+				(
+				/*고객id*/
+					<if test="cust_id != null">
+						#{cust_id}
+					</if>
+					<if test="cust_id == null">
+						scm003.nextval
+					</if>					
+					,	#{cust_nm}  /*고객명*/
+					
+					/* 성별 */
+					<if test="gndr != null">
+					,	#{gndr}
+					</if>
+					<if test="gndr == null">
+					,	''
+					</if>
+					/*연령대*/
+					<if test="ages_cd != null">
+					,	#{ages_cd}
+					</if>
+					<if test="ages_cd == null">
+					,	''
+					</if>
+					/*고객 식별 번호*/
+					<if test="idn_no != null">
+					,	#{idn_no}
+					</if>
+					<if test="idn_no == null">
+					,	''
+					</if>
+					
+					,	#{cust_gb_cd} /*고객 구분 코드*/
+					,	#{cst_comp}   /*고객성향*/
+					,   #{cst_comp2}  /*고객성향2*/
+
+					/*우편번호*/
+					<if test="post_no != null">
+					,	#{post_no}
+					</if>
+					<if test="post_no == null">
+					,	''
+					</if>
+					
+					/*도로명 기본 주소*/
+					<if test="rd_nm_addr1 != null">
+					,	#{rd_nm_addr1}
+					</if>
+					<if test="rd_nm_addr1 == null">
+					,	''
+					</if>
+					
+					/*도로명상세주소*/
+					<if test="rd_nm_addr2 != null">
+					,	#{rd_nm_addr2}
+					</if>
+					<if test="rd_nm_addr2 == null">
+					,	''
+					</if>
+					<if test="infm_yn != null">
+					, #{infm_yn}
+					, to_char(sysdate, 'yyyymmddhh24miss')
+					</if>
+					
+					/*이메일 수신여부*/
+					<if test="eml_yn != null">
+					,	#{eml_yn}
+					</if>
+					<if test="eml_yn == null">
+					,	'N'
+					</if>
+					
+					/*sms 수신여부*/
+					<if test="sms_yn != null">
+					,	#{sms_yn}
+					</if>
+					<if test="sms_yn == null">
+					,	'N'
+					</if>
+					
+					/*전화수신여부*/
+					<if test="tel_yn != null">
+					,	#{tel_yn}
+					</if>
+					<if test="tel_yn == null">
+					,	'N'
+					</if>
+
+					/*fax 수신여부*/
+					<if test="fax_yn != null">
+					,	#{fax_yn}
+					</if>
+					<if test="fax_yn == null">
+					,	'N'
+					</if>
+																			
+					/*사용여부*/
+					<if test="use_yn != null">
+					,	#{use_yn}
+					</if>
+					<if test="use_yn == null">
+					,	'Y'
+					</if>
+					<if test="loc_yn != null">
+					,	#{loc_yn} /*위치동의*/
+					</if>		
+					<if test="loc_yn == null">
+					,	'N'
+					</if>
+					<if test="memo != null">
+					,	#{memo} /*메모*/
+					</if>		
+					<if test="memo == null">
+					,	''
+					</if>								
+					,	to_char(sysdate, 'yyyymmdd')	/*생성일자*/
+					,	to_char(sysdate, 'hh24miss') 	/*생성시각*/
+					,	#{login_usr_id}                	/*생성사용자id*/
+					,	to_char(sysdate, 'yyyymmdd') 	/*수정일자*/
+					,	to_char(sysdate, 'hh24miss') 	/*수정시각*/
+					,	#{login_usr_id} 					/*수정사용자id*/
+					<if test="mrg_yn != null and !mrg_yn.equals('')">
+					,	#{mrg_yn}
+					</if>
+				);
+				
+				<!-- 고객 생성 이력 생성 -->
+				INSERT INTO ch003
+				(
+						wrk_id
+					,	wrk_dt
+					,	wrk_tm
+					,	wrk_cl
+					,	cust_id
+					,	mod_cont
+					,	use_yn
+					,	crt_dt
+					,	crt_tm
+					,	crt_usr_id
+					,	mod_dt
+					,	mod_tm
+					,	mod_usr_id
+				)
+				VALUES
+				(
+						sch003.nextval
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	'INSERT'
+					,	#{cust_id}
+					,	'${cust_id}||${cust_nm}||${corp_nm}||${cust_gb_cd}||${cst_comp}||${cst_comp2}||${celphone_num}||${phone_num}||${home_tel_num}||${email_addr}||${fax_no}||${memo}||${farm_no}||${addr_no}'
+					,	'Y'
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+				);
+
+			<if test="phone_num != null and !phone_num.equals('')">
+				INSERT INTO cd004
+				(
+						cust_id
+					,	ch_gb_cd
+					,	cntct_infm
+					,	use_yn
+					,	crt_dt
+					,	crt_tm
+					,	crt_usr_id
+					,	mod_dt
+					,	mod_tm
+					,	mod_usr_id
+				)
+				VALUES
+				(
+						#{cust_id}
+					,	'11000'
+					,	#{phone_num}
+					<if test="use_yn != null">
+					,	#{use_yn}
+					</if>
+					<if test="use_yn == null">
+					,	'Y'
+					</if>
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+				);
+			</if>
+			
+			<if test="celphone_num != null and !celphone_num.equals('')">
+				INSERT INTO cd004
+				(
+						cust_id
+					,	ch_gb_cd
+					,	cntct_infm
+					,	use_yn
+					,	crt_dt
+					,	crt_tm
+					,	crt_usr_id
+					,	mod_dt
+					,	mod_tm
+					,	mod_usr_id
+				)
+				VALUES
+				(
+						#{cust_id}
+					,	'11003'
+					,	#{celphone_num}
+					<if test="use_yn != null">
+					,	#{use_yn}
+					</if>
+					<if test="use_yn == null">
+					,	'Y'
+					</if>
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+				);
+			</if>
+			
+			<if test="fax_no != null and !fax_no.equals('')">
+				INSERT INTO cd004
+				(
+						cust_id
+					,	ch_gb_cd
+					,	cntct_infm
+					,	use_yn
+					,	crt_dt
+					,	crt_tm
+					,	crt_usr_id
+					,	mod_dt
+					,	mod_tm
+					,	mod_usr_id
+				)
+				VALUES
+				(
+						#{cust_id}
+					,	'13000'
+					,	#{fax_no}
+					<if test="use_yn != null">
+					,	#{use_yn}
+					</if>
+					<if test="use_yn == null">
+					,	'Y'
+					</if>
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+				);
+			</if>
+			
+			<if test="email_addr != null and !email_addr.equals('')">
+				INSERT INTO cd004
+				(
+						cust_id
+					,	ch_gb_cd
+					,	cntct_infm
+					,	use_yn
+					,	crt_dt
+					,	crt_tm
+					,	crt_usr_id
+					,	mod_dt
+					,	mod_tm
+					,	mod_usr_id
+				)
+				VALUES
+				(
+						#{cust_id}
+					,	'14000'
+					,	#{email_addr}
+					<if test="use_yn != null">
+					,	#{use_yn}
+					</if>
+					<if test="use_yn == null">
+					,	'Y'
+					</if>
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+				);
+			</if>
+			end
+		}
+	</insert>
+	
+	<update id="updateCustInfo" parameterType="map">
+		{call
+	    	declare
+	    	begin
+				UPDATE cm003
+				SET
+						mod_dt = to_char(sysdate, 'yyyymmdd')
+					,	mod_tm = to_char(sysdate, 'hh24miss')
+					,	mod_usr_id = #{login_usr_id}
+					<if test="cust_nm != null">
+					,	cust_nm = #{cust_nm}
+					</if>
+					<if test="cust_gb_cd != null">
+					,	cust_gb_cd = #{cust_gb_cd}
+					</if>
+					<if test="cst_comp != null">
+					,	cst_comp_cd = #{cst_comp}
+					</if>
+					<if test="cst_comp2 != null">
+					,   cst_comp_cd2 = #{cst_comp2}
+					</if>
+					<if test="memo != null">
+					,	memo = #{memo}
+					</if>
+					<if test="gndr != null">
+					,	gndr = #{ gndr }
+					</if>
+					<if test="ages_cd != null">
+					, ages_cd = #{ages_cd}
+					</if>
+					<if test="use_yn != null">
+					,	use_yn = #{use_yn}
+					</if>
+					<if test="loc_yn != null">
+					,	loc_yn = #{loc_yn}
+					</if>	
+					<choose>
+					<when test="infm_yn != null">
+					,   infm_yn = #{infm_yn}
+					<if test="infm_change">
+					,   infm_dtm = to_char(sysdate, 'yyyymmddhh24miss')
+					</if>
+					</when>
+					<otherwise>
+					,   infm_yn = 'N'
+					,   infm_dtm = ''
+					</otherwise>
+					</choose>
+					<choose>
+					<when test="sms_yn != null">
+					,   sms_yn = #{sms_yn}
+					</when>
+					<otherwise>
+					,   sms_yn = 'N'
+					</otherwise>
+					</choose>
+					<choose>
+					<when test="tel_yn != null">
+					,  tel_yn = #{tel_yn}
+					</when>
+					<otherwise>
+					,  tel_yn = 'N'
+					</otherwise>
+					</choose>
+					<choose>
+					<when test="fax_yn != null">
+					,  fax_yn = #{fax_yn}
+					</when>
+					<otherwise>
+					,  fax_yn = 'N'
+					</otherwise>
+					</choose>
+					
+					<if test = "mrg_cust_id != null and !mrg_cust_id.equals('')">
+					,	mrg_cust_id = #{mrg_cust_id} /*  새로병합될 cust_id */
+					</if>
+				WHERE 1 = 1
+				<if test = "mrg_cust_id == null">
+					and cust_id = #{cust_id};
+				</if>
+				<if test = "mrg_cust_id != null and !mrg_cust_id.equals('')">
+					and (cust_id = #{cust_id} or mrg_cust_id = #{cust_id})
+					and mrg_yn != 'Y';
+				</if>
+			
+			<!-- 고객병합된 기존유저 삭제 -->
+			<if test = "mrg_cust_id != null and !mrg_cust_id.equals('')">
+				UPDATE cm003
+				SET 	use_yn = 'N'
+					, 	mrg_cust_id = #{mrg_cust_id}
+				WHERE 	cust_id = #{cust_id}
+					AND 	mrg_yn = 'Y';
+			</if>
+			
+			<!-- 고객병합 상담이력 변경 -->
+			<if test = "mrg_cust_id != null and !mrg_cust_id.equals('')">
+				UPDATE ch001
+				SET 	cust_id = #{mrg_cust_id}
+					,	mrg_cust_id = #{cust_id}
+				WHERE 	cust_id = #{cust_id}
+					AND 	mrg_yn != 'Y'; --mrg_yn is N
+			</if>
+				
+			<if test="use_yn != null and use_yn.equals('N')">
+				<!-- 고객 삭제 이력 생성 -->
+				INSERT INTO ch003 (
+						wrk_id
+					,	wrk_dt
+					,	wrk_tm
+					,	wrk_cl
+					,	cust_id
+					,	mod_cont
+					,	use_yn
+					,	crt_dt
+					,	crt_tm
+					,	crt_usr_id
+					,	mod_dt
+					,	mod_tm
+					,	mod_usr_id
+				) VALUES (
+						sch003.nextval
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	'DELETE'
+					,	#{cust_id}
+					,	''
+					,	'Y'
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+				);
+			</if>
+				
+			<if test="use_yn == null or use_yn.equals('Y')">
+				<!-- 고객 수정 이력 생성 -->
+				INSERT INTO ch003 (
+						wrk_id
+					,	wrk_dt
+					,	wrk_tm
+					,	wrk_cl
+					,	cust_id
+					,	mod_cont
+					,	use_yn
+					,	crt_dt
+					,	crt_tm
+					,	crt_usr_id
+					,	mod_dt
+					,	mod_tm
+					,	mod_usr_id
+				) VALUES (
+						sch003.nextval
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	'UPDATE'
+					,	#{cust_id}
+					,	'${cust_id}||${cust_nm}||${corp_nm}||${cust_gb_cd}||${cst_comp}||${cst_comp2}||${celphone_num}||${phone_num}||${home_tel_num}||${email_addr}||${fax_no}||${memo}||${farm_no}||${addr_no}'
+					,	'Y'
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+				);
+			</if>
+				
+				<!-- 전화 -->
+				MERGE INTO cd004
+				USING dual
+				ON (cust_id = #{cust_id} AND ch_gb_cd = '11000')
+				WHEN MATCHED THEN
+					UPDATE SET 	
+						mod_dt = to_char(sysdate, 'yyyymmdd')
+					,	mod_tm = to_char(sysdate, 'hh24miss')
+					,	mod_usr_id = #{login_usr_id}
+				<if test="phone_num != null and !phone_num.equals('')">
+					,	cntct_infm = #{phone_num}
+			  	,	use_yn = 'Y'
+				</if>
+				<!-- <if test="use_yn != null and !use_yn.equals('')">
+					,	use_yn = #{use_yn}
+				</if> -->
+				<if test="phone_num == null or phone_num.equals('')">
+				    ,	use_yn = 'N' 
+				;
+				</if>	
+				<if test="phone_num != null and !phone_num.equals('')">	
+				WHEN NOT MATCHED THEN
+					INSERT (
+						cust_id
+					,	ch_gb_cd
+					,	cntct_infm
+					,	use_yn
+					,	crt_dt
+					,	crt_tm
+					,	crt_usr_id
+					,	mod_dt
+					,	mod_tm
+					,	mod_usr_id
+					) VALUES (
+						#{cust_id}
+					,	'11000'
+					,	#{phone_num}
+					<if test="use_yn != null and !use_yn.equals('')">
+					,	use_yn = #{use_yn}
+					</if>
+					<if test="use_yn == null">
+					,	'Y'
+					</if>
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+				);
+				</if>
+				
+				<!-- 핸드폰 -->
+				MERGE INTO cd004
+				USING dual
+				ON (cust_id = #{cust_id} AND ch_gb_cd = '11003')
+				WHEN MATCHED THEN
+					UPDATE SET 	
+						mod_dt = to_char(sysdate, 'yyyymmdd')
+					,	mod_tm = to_char(sysdate, 'hh24miss')
+					,	mod_usr_id = #{login_usr_id}
+				<if test="celphone_num != null and !celphone_num.equals('')">
+					,	cntct_infm = #{celphone_num}
+					,	use_yn = 'Y'
+				</if>
+				<!-- <if test="use_yn != null and !use_yn.equals('')">
+					,	use_yn = #{use_yn}
+				</if> -->
+				<if test="celphone_num == null or celphone_num.equals('')">
+				   ,	use_yn = 'N' 
+				;
+				</if>	
+				<if test="celphone_num != null and !celphone_num.equals('')">	
+				WHEN NOT MATCHED THEN
+					INSERT (
+						cust_id
+					,	ch_gb_cd
+					,	cntct_infm
+					,	use_yn
+					,	crt_dt
+					,	crt_tm
+					,	crt_usr_id
+					,	mod_dt
+					,	mod_tm
+					,	mod_usr_id
+					) VALUES (
+						#{cust_id}
+					,	'11003'
+					,	#{celphone_num}
+					<if test="use_yn != null and !use_yn.equals('')">
+					,	use_yn = #{use_yn}
+					</if>
+					<if test="use_yn == null">
+					,	'Y'
+					</if>
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+				);
+				</if>
+				
+				<!-- 팩스 -->
+				MERGE INTO cd004
+				USING dual
+				ON (cust_id = #{cust_id} AND ch_gb_cd = '13000')
+				WHEN MATCHED THEN
+					UPDATE SET 	
+					 	mod_dt = to_char(sysdate, 'yyyymmdd')
+					,	mod_tm = to_char(sysdate, 'hh24miss')
+					,	mod_usr_id = #{login_usr_id}
+				<if test="fax_no != null and !fax_no.equals('')">
+					,	cntct_infm = #{fax_no}
+					,	use_yn = 'Y'
+				</if>
+				<!-- <if test="use_yn != null and !use_yn.equals('')">
+					,	use_yn = #{use_yn}
+				</if> -->
+				<if test="fax_no == null or fax_no.equals('')">
+				  ,	use_yn = 'N'  
+				;
+				</if>	
+				<if test="fax_no != null and !fax_no.equals('')">	
+				WHEN NOT MATCHED THEN
+					INSERT (
+						cust_id
+					,	ch_gb_cd
+					,	cntct_infm
+					,	use_yn
+					,	crt_dt
+					,	crt_tm
+					,	crt_usr_id
+					,	mod_dt
+					,	mod_tm
+					,	mod_usr_id
+					) VALUES (
+						#{cust_id}
+					,	'13000'
+					,	#{fax_no}
+					<if test="use_yn != null and !use_yn.equals('')">
+					,	use_yn = #{use_yn}
+					</if>
+					<if test="use_yn == null">
+					,	'Y'
+					</if>
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+					,	to_char(sysdate, 'yyyymmdd')
+					,	to_char(sysdate, 'hh24miss')
+					,	#{login_usr_id}
+				);
+				</if>
+			end
+		}
+	</update>
+	
+	<update id="releaseMerge" parameterType="map">
+		{call
+	    	declare
+	    		TYPE customers IS TABLE OF VARCHAR2(10)
+    			INDEX BY PLS_INTEGER;
+    			
+    			custArr customers;
+    			loopCount PLS_INTEGER;
+	    	begin
+	    		SELECT DISTINCT cust_id BULK COLLECT INTO custArr FROM cm003 WHERE mrg_yn = 'N' AND use_yn = 'N' AND mrg_cust_id = #{mrg_cust_id};
+	    		
+	    		for loopCount IN 1 .. custArr.COUNT
+	    		loop
+	    		<!-- 미사용처리된 기존 병합유저 번호정보 -->
+	    			UPDATE cd004
+	    			SET use_yn = 'Y'
+	    			WHERE cust_id = custArr(loopCount);
+	    		end loop;
+	    		
+	    		<!-- 미사용처리된 기존 병합유저 복원 -->
+				update cm003
+				set
+						mrg_cust_id = ''
+					,	use_yn = 'Y'
+					,	mod_dt = to_char(sysdate, 'yyyymmdd')
+					,	mod_tm = to_char(sysdate, 'hh24miss')
+					,	mod_usr_id = #{login_usr_id}
+				where mrg_cust_id = #{mrg_cust_id}
+					and mrg_yn = 'N'
+					and use_yn = 'N';
+				
+				<!-- 미사용처리된 기존 병합유저 상담이력 복원 -->
+				update ch001
+				set
+						cust_id = mrg_cust_id
+					,	mrg_cust_id = ''
+					,	mod_dt = to_char(sysdate, 'yyyymmdd')
+					,	mod_tm = to_char(sysdate, 'hh24miss')
+					,	mod_usr_id = #{login_usr_id}
+				where mrg_cust_id is not null
+					and cust_id = #{mrg_cust_id};
+					
+				update cm003
+				set
+						mrg_yn = 'N'
+					,	mod_dt = to_char(sysdate, 'yyyymmdd')
+					,	mod_tm = to_char(sysdate, 'hh24miss')
+					,	mod_usr_id = #{login_usr_id}
+				where cust_id = #{mrg_cust_id};						
+				
+			end
+		}
+	</update>
+	
+	<select id="cmpnCustList" resultType="map" parameterType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM (
+			SELECT 	A1.*
+					,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+					,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+					,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM (
+		</if>		
+              SELECT DISTINCT CM3.CUST_ID                                                                                         /* 고객아이디 */
+                   , CM3.CUST_NM                                                                                                  /* 고객이름 */
+                   , CM3.CUST_GB_CD                                                                                               /* 고객구분코드 */
+                   , (SELECT CD_NM FROM SM002 WHERE TP_CD = '90043' AND CD = CM3.CUST_GB_CD) AS CUST_GB_NM                        /* 고객구분 */
+                   , CM3.CST_COMP_CD                                                                                              /* 고객성향코드 */
+                   , REPLACE(CM3.CST_COMP_CD2, 'all', '') AS CST_COMP_CD2                                                         /* 고객성향코드2 */
+                   , (SELECT CD_NM FROM SM002 WHERE TP_CD = '90048' AND CD = CM3.CST_COMP_CD) AS CST_COMP_NM                      /* 고객성향 */
+                   , DECODE(REPLACE(CM3.CST_COMP_CD2, 'all', ''), ''
+                         , (SELECT CD_NM FROM SM002 WHERE TP_CD = '90048' AND CD = CM3.CST_COMP_CD)
+                         , (SELECT CD_NM FROM SM002 WHERE TP_CD = '90048' AND CD = CM3.CST_COMP_CD) || ' > ' || (SELECT CD_NM FROM SM002 WHERE TP_CD = '90901' AND CD = CM3.CST_COMP_CD2)) AS CST_COMP_NM2 /* 고객성향2 */ 
+                   , CM3.GNDR                                                                                                     /* 고객성별 */
+                   , (SELECT CD_NM FROM SM002 WHERE TP_CD = '90045' AND CD = CM3.GNDR) AS GNDR_NM                                 /* 고객성별명 */
+                   , (SELECT CNTCT_INFM FROM CD004 WHERE CUST_ID = CM3.CUST_ID AND CH_GB_CD = '11000' and use_yn = 'Y') AS TEL    /* 전화 */
+                   , (SELECT CNTCT_INFM FROM CD004 WHERE CUST_ID = CM3.CUST_ID AND CH_GB_CD = '11003' and use_yn = 'Y') AS MOBILE /* 핸드폰 */
+                   , (SELECT CNTCT_INFM FROM CD004 WHERE CUST_ID = CM3.CUST_ID AND CH_GB_CD = '13000' and use_yn = 'Y') AS FAX    /* 팩스번호 */
+                   , DECODE(CM3.TEL_YN, 'Y', '수신', '미수신') AS TEL_YN                                                          /* 전화수신여부 */
+                   , DECODE(CM3.SMS_YN, 'Y', '수신', '미수신') AS SMS_YN                                                          /* SMS수신여부 */
+                   , DECODE(CM3.FAX_YN, 'Y', '수신', '미수신') AS FAX_YN                                                          /* FAX수신여부 */
+               FROM CM003 CM3 
+               JOIN CH001 CH1 ON (CM3.CUST_ID = CH1.CUST_ID)
+              WHERE 1 = 1
+            <if test="telyn != null and !telyn.equals('')">
+                AND CM3.TEL_YN = #{telyn}    																					 /* 수신여부 확인 고객만 검색 */
+            </if>                                                                                         
+      		<if test="frdt != null and !frdt.equals('') and todt != null and !todt.equals('')">
+      				AND ch1.crt_dt between #{frdt} and #{todt}	                                                                        /* 상담일 검색조건 */
+      		</if>		
+      		<if test="custComp != null and !custComp.equals('all')">
+      				AND cm3.cst_comp_cd = #{custComp}				                                                                            /* 고객성향 검색조건 */
+      		</if>		
+      		<if test="cntctType != null and !cntctType.equals('')">
+      			<if test="cntctType.equals('all')">
+      				AND (
+      					(SELECT cntct_infm FROM cd004 WHERE cust_id = cm3.cust_id AND ch_gb_cd = '11000') LIKE '%' || #{cntctVal} || '%'	/* 일반전화 검색조건 */
+      					OR	 
+      					(SELECT cntct_infm FROM cd004 WHERE cust_id = cm3.cust_id AND ch_gb_cd = '11003') LIKE '%' || #{cntctVal} || '%'	/* 핸드폰 검색조건 */
+      				)	
+      			</if>
+      			<if test="cntctType.equals('tel')">
+      				AND (SELECT cntct_infm FROM cd004 WHERE cust_id = cm3.cust_id AND ch_gb_cd = '11000') LIKE '%' || #{cntctVal} || '%'	/* 일반전화 검색조건 */
+      			</if>
+      			<if test="cntctType.equals('mobile')">
+      				AND (SELECT cntct_infm FROM cd004 WHERE cust_id = cm3.cust_id AND ch_gb_cd = '11003') LIKE '%' || #{cntctVal} || '%'	/* 핸드폰 검색조건 */
+      			</if>
+      		</if>		
+      		<if test="intvLgCd != null and !intvLgCd.equals('all')">
+      				AND ch1.ctg_lg_cd = #{intvLgCd}	/* 상담대분류 검색조건 */
+      		</if>
+      		<if test="intvMdCd != null and !intvMdCd.equals('all')">
+      				AND ch1.ctg_Md_cd = #{intvMdCd}	/* 상담중분류 검색조건 */
+      		</if>
+      		<if test="intvSmCd != null and !intvSmCd.equals('all')">
+      				AND ch1.ctg_Sm_cd = #{intvSmCd}	/* 상담소분류 검색조건 */
+      		</if>
+      		<if test="sidx != null and sord != null">
+      				ORDER BY ${sidx} ${sord}
+      		</if>
+      		<if test="rows != null and page != null">
+  			 ) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>	
+	</select>
+	
+	<select id ="custmEmptyList" resultType="map" parameterType="map">
+	    SELECT 1
+					,	'' as corp_nm
+					,	'' as cust_nm
+					,	'' AS tel		/*전화*/
+				    ,	'' AS mobile  /*핸드폰*/
+				    ,	'' AS fax     /*팩스번호*/
+				    ,	'' AS cst_type
+				    ,	'' as cust_gb_cd
+				    ,   '' AS cst_comp /* 고객성향1 */
+				    ,	'' as cst_comp_cd	/* 고객성향1 코드 */
+				    ,   '' AS cst_comp2 /* 고객성향2 */
+				    ,	'' as cst_comp_cd2 	/* 고객성향2 코드 */
+				    ,	'' as gndr /* 성별 */
+				    ,  '미선택' as gndrNm
+				    ,	 ''  as crt_dt
+				    ,   '' AS crt_usr_nm
+				    ,	 ''  as mod_dt
+				    ,	'' AS mod_usr_nm
+					,	'' as cust_id
+					,	'' as mrg_cust_id
+					,	'' as mrg_yn
+					, '' as AGES_CD
+					, '' as INFM_YN
+					, '미동의' as infoAgree
+					, '' as loc_yn
+					, '' memo
+                    ,	1 as  PAGENUM
+				,	1 as  TOTPAGECOUNT
+				,	1 as  TOTROWCOUNT
+				FROM dual a1
+				WHERE 1 = 1
+			 
+	</select>
+	
+	<select id ="custmList" resultType="map" parameterType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT
+					A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				SELECT 1
+					,	a1.corp_nm
+					,	a1.cust_nm
+					,	(SELECT cntct_infm FROM cd004 WHERE cust_id = a1.cust_id AND ch_gb_cd = '11000' 
+					
+					<choose>
+					<when test="mode == null or mode.equals('')">
+					and use_yn = 'Y'
+					</when>
+					<otherwise>
+						<if test="!mode.equals('source')"> 
+							and use_yn = 'Y' 
+						</if>
+					</otherwise>
+					</choose>
+					
+					) AS tel		/*전화*/
+				    ,	(SELECT cntct_infm FROM cd004 WHERE cust_id = a1.cust_id AND ch_gb_cd = '11003' 
+					
+					<choose>
+					<when test="mode == null or mode.equals('')">
+					and use_yn = 'Y'
+					</when>
+					<otherwise>
+						<if test="!mode.equals('source')"> 
+							and use_yn = 'Y' 
+						</if>
+					</otherwise>
+					</choose>
+					
+					) AS mobile  /*핸드폰*/
+				    ,	(SELECT cntct_infm FROM cd004 WHERE cust_id = a1.cust_id AND ch_gb_cd = '13000' 
+					
+					<choose>
+					<when test="mode == null or mode.equals('')">
+					and use_yn = 'Y'
+					</when>
+					<otherwise>
+						<if test="!mode.equals('source')"> 
+							and use_yn = 'Y' 
+						</if>
+					</otherwise>
+					</choose>
+					
+					) AS fax     /*팩스번호*/
+				    ,	(SELECT cd_nm FROM sm002 WHERE tp_cd = '90043' AND cd = a1.cust_gb_cd) AS cst_type
+				    ,	a1.cust_gb_cd
+				    ,   (SELECT cd_nm FROM sm002 WHERE tp_cd = '90048' AND cd = a1.cst_comp_cd) AS cst_comp /* 고객성향1 */
+				    ,	a1.cst_comp_cd	/* 고객성향1 코드 */
+				    ,   (SELECT cd_nm FROM sm002 WHERE tp_cd = '90901' AND cd = a1.cst_comp_cd) AS cst_comp2 /* 고객성향2 */
+				    ,	a1.cst_comp_cd2 	/* 고객성향2 코드 */
+				    ,	a1.gndr /* 성별 */
+				    , decode(a1.gndr,'1','남','2','여','미선택') as gndrNm
+				    ,	case when crt_dt is not null then substr(a1.crt_dt, 1, 4) || '-' || substr(a1.crt_dt, 5, 2) || '-' || substr(a1.crt_dt, 7, 2) else '' end as crt_dt
+				    ,   NVL((SELECT om1.usr_nm FROM om001 om1 WHERE om1.usr_id = a1.crt_usr_id and rownum = 1), '') AS crt_usr_nm
+				    ,	case when mod_dt is not null then substr(a1.mod_dt, 1, 4) || '-' || substr(a1.mod_dt, 5, 2) || '-' || substr(a1.mod_dt, 7, 2) else '' end as mod_dt
+				    ,	NVL((SELECT om1.usr_nm FROM om001 om1 WHERE om1.usr_id = a1.mod_usr_id and rownum = 1), '') AS mod_usr_nm
+					,	a1.cust_id
+					,	a1.mrg_cust_id
+					,	a1.mrg_yn
+					, a1.AGES_CD
+					, a1.INFM_YN
+					, decode(a1.INFM_YN,'Y','동의','미동의') as infoAgree
+					, a1.loc_yn
+					, a1.memo
+				FROM cm003 a1
+				WHERE 1 = 1
+				<if test="mode == null or mode.equals('')">
+					AND	use_yn = 'Y'
+				</if>
+				<if test = "tfContact != null and !tfContact.equals('') and !tfContact.equals('all')">
+					AND cust_id IN ( SELECT cust_id FROM cd004 WHERE cntct_infm LIKE '%' || #{ tfContact} || '%' AND use_yn = 'Y')
+<!--
+					AND (cust_id in (select cust_id from cd004 where cntct_infm like '%' || #{ tfContact} || '%' AND ch_gb_cd = '11000')
+					OR cust_id in (select cust_id from cd004 where cntct_infm like '%' || #{ tfContact } || '%' AND ch_gb_cd = '11003')
+					OR cust_id in (select cust_id from cd004 where cntct_infm like '%' || #{ tfContact } || '%' AND ch_gb_cd = '13000'))
+					OR cust_id in (select cust_id from cd004 where upper(cntct_infm) like '%' || upper(#{ tfContact }) || '%' AND ch_gb_cd = '14000'))
+-->
+				</if>
+				<if test = "tfNm != null and !tfNm.equals('')">
+					AND upper(cust_nm) like '%' || upper(#{ tfNm }) || '%'
+				</if>
+				<if test = "optCustmComp != null and !optCustmComp.equals('') and !optCustmComp.equals('all')">
+					AND cst_comp_cd = #{ optCustmComp }
+				</if>
+				<if test = "tfMemo != null and !tfMemo.equals('')">
+					AND upper(memo) like '%' || upper(#{ tfMemo }) || '%'
+				</if>
+				<if test = "tfModDtStr != null and tfModDtEnd != null and !tfModDtStr.equals('') and !tfModDtEnd.equals('')">
+					AND mod_dt <![CDATA[>=]]> #{ tfModDtStr } AND mod_dt <![CDATA[<=]]> #{ tfModDtEnd }
+				</if>
+				<if test = "optCustmType != null and !optCustmType.equals('') and !optCustmType.equals('all')">
+					AND cust_gb_cd = #{ optCustmType }
+				</if>
+				<if test = "cntct_infm != null and !cntct_infm.equals('')">
+					AND cust_id in (select cust_id from cd004 where cntct_infm = #{cntct_infm})
+				</if>
+				<if test = "custId != null and !custId.equals('')">
+					AND cust_id = #{ custId }
+				</if>
+				
+				<!-- 병합관련 -->
+				<if test="mode != null and mode.equals('target')">
+					AND use_yn = 'Y' 
+					AND mrg_yn = 'Y'
+					<if test="mrg_cust_id != null and !mrg_cust_id.equals('')">
+					AND cust_id = #{mrg_cust_id}
+					</if>
+				</if>
+				
+				<if test="mode != null and mode.equals('source')">
+					AND use_yn = 'N' AND mrg_yn = 'N' AND mrg_cust_id is not null
+					<if test="mrg_cust_id != null and !mrg_cust_id.equals('')">
+						AND mrg_cust_id = #{mrg_cust_id}
+					</if>
+				</if>
+				
+				<if test="sidx != null and sord != null">
+					ORDER BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>
+	
+	<select id ="custmListExcel" resultType="map" parameterType="map">
+		SELECT 1
+		    ,	cust_nm
+		    ,	REGEXP_REPLACE(getFormatPhoneNum((SELECT cntct_infm FROM cd004 WHERE cust_id = cm3.cust_id AND ch_gb_cd = '11000' AND rownum = 1 )),substr(getFormatPhoneNum((SELECT cntct_infm FROM cd004 WHERE cust_id = cm3.cust_id AND ch_gb_cd = '11000' AND rownum = 1 )),4,length((SELECT cntct_infm FROM cd004 WHERE cust_id = cm3.cust_id AND ch_gb_cd = '11000' AND rownum = 1 ))-5),'-****-') AS tel
+		    ,	REGEXP_REPLACE(getFormatPhoneNum((SELECT cntct_infm FROM cd004 WHERE cust_id = cm3.cust_id AND ch_gb_cd = '11003' AND rownum = 1 )),substr(getFormatPhoneNum((SELECT cntct_infm FROM cd004 WHERE cust_id = cm3.cust_id AND ch_gb_cd = '11003' AND rownum = 1 )),4,length((SELECT cntct_infm FROM cd004 WHERE cust_id = cm3.cust_id AND ch_gb_cd = '11003' AND rownum = 1 ))-5),'-****-') AS mobile		    
+		    ,	REGEXP_REPLACE(getFormatPhoneNum((SELECT cntct_infm FROM cd004 WHERE cust_id = cm3.cust_id AND ch_gb_cd = '13000' AND rownum = 1 )),substr(getFormatPhoneNum((SELECT cntct_infm FROM cd004 WHERE cust_id = cm3.cust_id AND ch_gb_cd = '13000' AND rownum = 1 )),4,length((SELECT cntct_infm FROM cd004 WHERE cust_id = cm3.cust_id AND ch_gb_cd = '13000' AND rownum = 1 ))-5),'-****-') AS fax
+		    ,	(select cd_nm from sm002 where tp_cd = '90043' and cd = cm3.cust_gb_cd) as cst_type
+		    ,	case when cm3.crt_dt is not null then substr(cm3.crt_dt, 1, 4) || '-' || substr(cm3.crt_dt, 5, 2) || '-' || substr(cm3.crt_dt, 7, 2) else '' end as crt_dt
+		    ,   (SELECT om1.usr_nm FROM om001 om1 WHERE om1.usr_id = cm3.crt_usr_id) AS crt_usr_nm
+		    ,	case when cm3.mod_dt is not null then substr(cm3.mod_dt, 1, 4) || '-' || substr(cm3.mod_dt, 5, 2) || '-' || substr(cm3.mod_dt, 7, 2) else '' end as mod_dt
+		    ,	(SELECT om1.usr_nm FROM om001 om1 WHERE om1.usr_id = cm3.mod_usr_id) AS mod_usr_nm
+		    ,	concat( cm3.cust_id,'') as cust_id
+		    ,	concat( cm3.ages_cd,'') as ages_cd
+		    ,	(select cd_nm from sm002 where tp_cd = '90048' and cd = cm3.CST_COMP_CD) as CST_COMP_NM
+		    ,	cm3.infm_yn
+		    ,	cm3.loc_yn
+		    ,	(select cd_nm from sm002 where tp_cd = '90045' and cd =  cm3.gndr) as gndr
+		FROM cm003 cm3
+		WHERE 1 = 1
+			AND	use_yn = 'Y'
+		<if test = "tfContact != null and !tfContact.equals('') and !tfContact.equals('all')">
+			AND cust_id IN ( SELECT cust_id FROM cd004 WHERE cntct_infm LIKE '%' || '9999' || '%' AND use_yn = 'Y')
+<!--
+			AND (cust_id in (select cust_id from cd004 where cntct_infm like '%' || #{ tfContact } || '%' AND ch_gb_cd = '11000')
+			OR cust_id in (select cust_id from cd004 where cntct_infm like '%' || #{ tfContact } || '%' AND ch_gb_cd = '11003')
+			OR cust_id in (select cust_id from cd004 where cntct_infm like '%' || #{ tfContact } || '%' AND ch_gb_cd = '13000')
+			OR cust_id in (select cust_id from cd004 where upper(cntct_infm) like '%' || upper(#{ tfContact }) || '%' AND ch_gb_cd = '14000'))
+-->
+		</if>
+		<if test = "tfNm != null and !tfNm.equals('')">
+			AND (upper(cust_nm) like '%' || upper(#{ tfNm }) || '%'
+			OR upper(corp_nm) like '%' || upper(#{ tfNm }) || '%')
+		</if>
+		<if test = "optCustmComp != null and !optCustmComp.equals('') and !optCustmComp.equals('all')">
+		AND cst_comp_cd = #{ optCustmComp }
+		</if>
+		<if test = "tfMemo != null and !tfMemo.equals('')">
+			AND upper(memo) like '%' || upper(#{ tfMemo }) || '%'
+		</if>
+		<if test = "tfModDtStr != null and tfModDtEnd != null and !tfModDtStr.equals('') and !tfModDtEnd.equals('')">
+			AND mod_dt <![CDATA[>=]]> #{ tfModDtStr } AND mod_dt <![CDATA[<=]]> #{ tfModDtEnd }
+		</if>
+		<if test = "optCustmType != null and !optCustmType.equals('') and !optCustmType.equals('all')">
+		AND cust_gb_cd = #{ optCustmType }
+		</if>
+		<if test = "cntct_infm != null and !cntct_infm.equals('')">
+		AND cust_id in (select cust_id from cd004 where cntct_infm = #{cntct_infm})
+		</if>
+		<if test = "custId != null and !custId.equals('')">
+		AND cust_id = #{ custId }
+		</if>
+		<if test="sidx != null and sord != null">
+		ORDER BY ${sidx} ${sord}
+		</if>
+	</select>
+	
+	<select id ="malignancyList" resultType="map" parameterType="map">
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT
+                    A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+				select
+						  a1.CUST_NM
+						, a1.CUST_ID  
+						, (getFormatPhoneNum((SELECT cntct_infm FROM cd004 WHERE cust_id = a1.cust_id and ch_gb_cd= '11000' and rownum = 1))) as TELEPHONE_INFM
+						, (getFormatPhoneNum((SELECT cntct_infm FROM cd004 WHERE cust_id = a1.cust_id and ch_gb_cd= '11003' and rownum = 1))) as CELLPHONE_INFM
+						, GETCODENM(a1.cst_comp_cd,90048) AS EXT_CD
+						, GETCODENM(a1.cst_comp_cd2,90901) AS LG_CD
+						, a1.memo as MEMO
+						, (select count(1) from ch001 b where b.CUST_ID = a1.CUST_ID
+			        			<if test = "tbbs_strt_dt != null and tbbs_end_dt != null and !tbbs_strt_dt.equals('') and !tbbs_end_dt.equals('')">
+			              		 	AND b.CRT_DT between #{tbbs_strt_dt} AND #{ tbbs_end_dt}
+			        			</if>
+						  )as CALLNUM
+					from cm003 a1
+					where 1 = 1
+					and use_yn = 'Y'
+					<if test="cdbActStCds != null and !cdbActStCds.equals('all')">
+					and a1.cst_comp_cd = #{cdbActStCds}
+					</if>
+					<if test="cdbActStCds != null and cdbActStCds.equals('all')">
+					and a1.cst_comp_cd IN ('030000','040000')
+					</if>
+			        <if test = "tbbs_strt_dt != null and tbbs_end_dt != null and !tbbs_strt_dt.equals('') and !tbbs_end_dt.equals('')">
+			               AND a1.MOD_DT between #{tbbs_strt_dt} AND #{tbbs_end_dt}
+			        </if>
+			        <if test = "usr_id != null and !usr_id.equals('') and !usr_id.equals('all')">
+			               AND a1.MOD_USR_ID = #{usr_id}
+			        </if> 	
+					<if test="sidx != null and sord != null">
+			               ORDER BY ${sidx} ${sord}
+			        </if>
+			        
+        <if test="rows != null and page != null">
+            ) A1 where 1 = 1     
+             <if test="customer_tel != null and !customer_tel.equals('')">
+				AND Telephone_infm = getFormatPhoneNum(#{customer_tel}) OR cellphone_infm = getFormatPhoneNum(#{customer_tel})
+			 </if>	
+	
+        ) WHERE PAGENUM = #{page}
+        </if>
+    </select>
+</mapper>

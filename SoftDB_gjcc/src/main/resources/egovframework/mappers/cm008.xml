@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="cm008">
+
+	<update id = "resReg" parameterType="map">
+		MERGE INTO cm008
+		USING dual
+		ON
+		(
+			tckt_id = #{ ticket_id }
+			AND srvy_type_cd = #{ srvy_type_cd }
+			AND emp_id = #{ emp_id }
+		)
+		WHEN MATCHED THEN
+			UPDATE
+			SET
+				use_yn = 'Y'
+		WHEN NOT MATCHED THEN
+			INSERT
+			( 
+				tckt_id
+				, srvy_type_cd
+				, emp_id
+				, dpt_nm
+				, ps_nm
+				, usr_nm
+				, use_yn
+				, crt_dt
+				, crt_tm
+				, crt_usr_id
+				, mod_dt
+				, mod_tm
+				, mod_usr_id 
+			)
+			values
+			( 
+				#{ ticket_id }
+				, #{ srvy_type_cd }
+				, #{ emp_id }
+				, #{ dpt_nm }
+				, #{ ps_nm }
+				, #{ usr_nm }
+				, 'Y'
+				, to_char( sysdate, 'yymmdd' )
+				, to_char( sysdate, 'hh24miss' )
+				, #{ login_usr_id }
+				, to_char( sysdate, 'yymmdd' )
+				, to_char( sysdate, 'hh24miss' )
+				, #{ login_usr_id }
+			)
+	</update>
+	
+	<select id="resList" resultType="map" parameterType="map">
+		SELECT 1
+			, tckt_id
+			, emp_id
+			, dpt_nm
+			, ps_nm
+			, usr_nm
+			, 'X' AS responsible_del
+		FROM cm008
+		WHERE
+			<if test = "tckt_id.equals('')">
+			1=0
+			</if>
+			<if test = "!tckt_id.equals('')">
+			1 = 1
+			AND use_yn = 'Y'
+			AND tckt_id = #{ tckt_id }
+			AND srvy_type_cd = #{ srvy_type_cd }
+			ORDER BY crt_dt asc, crt_tm asc
+			</if>
+		
+	</select>
+	
+	<delete id = "resDelete" parameterType="map">
+		UPDATE cm008
+		SET
+			use_yn = #{use_yn}
+		WHERE
+			srvy_type_cd = #{ srvy_type_cd }
+			AND emp_id = #{ emp_id }
+			AND tckt_id = #{ tckt_id }
+	</delete>
+	
+</mapper>

@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="od042">
+  <!-- 교육과정 차수 테이블 -->
+	
+	<select id="selectEduOrd" parameterType="map" resultType="map">
+     SELECT EDU_ID
+          , EDU_ORD 
+          , GETFORMATDATE(STRT_DT_1) AS STRT_DT_1, GETFORMATDATE(END_DT_1) AS END_DT_1, STRT_TM_1, END_TM_1
+          , GETFORMATDATE(STRT_DT_2) AS STRT_DT_2, GETFORMATDATE(END_DT_2) AS END_DT_2, STRT_TM_2, END_TM_2
+          , GETFORMATDATE(STRT_DT_3) AS STRT_DT_3, GETFORMATDATE(END_DT_3) AS END_DT_3, STRT_TM_3, END_TM_3
+          , GETFORMATDATE(STRT_DT_4) AS STRT_DT_4, GETFORMATDATE(END_DT_4) AS END_DT_4, STRT_TM_4, END_TM_4
+          , GETFORMATDATE(STRT_DT_5) AS STRT_DT_5, GETFORMATDATE(END_DT_5) AS END_DT_5, STRT_TM_5, END_TM_5
+       FROM OD042
+      WHERE EDU_ID = #{edu_Id}
+        AND USE_YN = 'Y'      
+
+	</select>
+ 
+  <update id = "updateEduOrd" parameterType="map">
+    MERGE INTO OD042
+    USING dual
+    ON
+    (
+      EDU_ID  = #{edu_Id}
+    )
+    WHEN MATCHED THEN
+      UPDATE
+      SET
+           EDU_ORD     = #{edu_ord}
+         , STRT_DT_1   = #{strt_dt_1}
+         , END_DT_1    = #{end_dt_1}
+         , STRT_TM_1   = #{strt_tm_1}
+         , END_TM_1    = #{end_tm_1}
+         , STRT_DT_2   = #{strt_dt_2}
+         , END_DT_2    = #{end_dt_2}
+         , STRT_TM_2   = #{strt_tm_2}
+         , END_TM_2    = #{end_tm_2}
+         , STRT_DT_3   = #{strt_dt_3}
+         , END_DT_3    = #{end_dt_3}
+         , STRT_TM_3   = #{strt_tm_3}
+         , END_TM_3    = #{end_tm_3}
+         , STRT_DT_4   = #{strt_dt_4}
+         , END_DT_4    = #{end_dt_4}
+         , STRT_TM_4   = #{strt_tm_4}
+         , END_TM_4    = #{end_tm_4}
+         , STRT_DT_5   = #{strt_dt_5}
+         , END_DT_5    = #{end_dt_5}
+         , STRT_TM_5   = #{strt_tm_5}
+         , END_TM_5    = #{end_tm_5}
+         , USE_YN      = #{use_yn}
+         , MOD_DT      = TO_CHAR(SYSDATE, 'yyyyMMdd')
+         , MOD_TM      = TO_CHAR(SYSDATE, 'hh24miss')
+         , MOD_USR_ID  = #{login_usr_id}
+
+    WHEN NOT MATCHED THEN
+      INSERT 
+      (       EDU_ID
+            , EDU_ORD
+            , STRT_DT_1
+            , END_DT_1
+            , STRT_TM_1
+            , END_TM_1
+            , STRT_DT_2
+            , END_DT_2
+            , STRT_TM_2
+            , END_TM_2
+            , STRT_DT_3
+            , END_DT_3
+            , STRT_TM_3
+            , END_TM_3
+            , STRT_DT_4
+            , END_DT_4
+            , STRT_TM_4
+            , END_TM_4
+            , STRT_DT_5
+            , END_DT_5
+            , STRT_TM_5
+            , END_TM_5
+            , USE_YN
+            , CRT_DT
+            , CRT_TM
+            , CRT_USR_ID
+            , MOD_DT
+            , MOD_TM
+            , MOD_USR_ID
+      )
+      VALUES
+      (       #{edu_Id}
+            , #{edu_ord}
+            , #{strt_dt_1}
+            , #{end_dt_1}
+            , #{strt_tm_1}
+            , #{end_tm_1}
+            , #{strt_dt_2}
+            , #{end_dt_2}
+            , #{strt_tm_2}
+            , #{end_tm_2}
+            , #{strt_dt_3}
+            , #{end_dt_3}
+            , #{strt_tm_3}
+            , #{end_tm_3}
+            , #{strt_dt_4}
+            , #{end_dt_4}
+            , #{strt_tm_4}
+            , #{end_tm_4}
+            , #{strt_dt_5}
+            , #{end_dt_5}
+            , #{strt_tm_5}
+            , #{end_tm_5}
+            , 'Y'
+            , TO_CHAR(SYSDATE, 'yyyyMMdd')
+            , TO_CHAR(SYSDATE, 'hh24miss')
+            , #{login_usr_id}
+            , TO_CHAR(SYSDATE, 'yyyyMMdd')
+            , TO_CHAR(SYSDATE, 'hh24miss')
+            , #{login_usr_id}
+      )      
+      
+  </update>
+   
+<!--  
+	<insert id="insertEduOrd" parameterType="map">
+    INSERT INTO OD042
+    (       EDU_ID
+          , EDU_ORD
+          , STRT_DT_1
+          , END_DT_1
+          , STRT_TM_1
+          , END_TM_1
+          , STRT_DT_2
+          , END_DT_2
+          , STRT_TM_2
+          , END_TM_2
+          , STRT_DT_3
+          , END_DT_3
+          , STRT_TM_3
+          , END_TM_3
+          , STRT_DT_4
+          , END_DT_4
+          , STRT_TM_4
+          , END_TM_4
+          , STRT_DT_5
+          , END_DT_5
+          , STRT_TM_5
+          , END_TM_5
+          , USE_YN
+          , CRT_DT
+          , CRT_TM
+          , CRT_USR_ID
+          , MOD_DT
+          , MOD_TM
+          , MOD_USR_ID
+    )
+    VALUES
+    (       #{edu_id}
+          , #{edu_ord}
+          , #{strt_dt_1}
+          , #{end_dt_1}
+          , #{strt_tm_1}
+          , #{end_tm_1}
+          , #{strt_dt_2}
+          , #{end_dt_2}
+          , #{strt_tm_2}
+          , #{end_tm_2}
+          , #{strt_dt_3}
+          , #{end_dt_3}
+          , #{strt_tm_3}
+          , #{end_tm_3}
+          , #{strt_dt_4}
+          , #{end_dt_4}
+          , #{strt_tm_4}
+          , #{end_tm_4}
+          , #{strt_dt_5}
+          , #{end_dt_5}
+          , #{strt_tm_5}
+          , #{end_tm_5}
+          , 'Y'
+          , TO_CHAR(SYSDATE, 'yyyyMMdd')
+          , TO_CHAR(SYSDATE, 'hh24miss')
+          , #{login_usr_id}
+          , TO_CHAR(SYSDATE, 'yyyyMMdd')
+          , TO_CHAR(SYSDATE, 'hh24miss')
+          , #{login_usr_id}
+    )
+	</insert>
+  -->
+<!-- 	
+	<update id="updateEduOrd" parameterType="map">
+    UPDATE OD042
+       SET EDU_ORD     = #{edu_ord}
+         , STRT_DT_1   = #{strt_dt_1}
+         , END_DT_1    = #{end_dt_1}
+         , STRT_TM_1   = #{strt_tm_1}
+         , END_TM_1    = #{end_tm_1}
+         , STRT_DT_2   = #{strt_dt_2}
+         , END_DT_2    = #{end_dt_2}
+         , STRT_TM_2   = #{strt_tm_2}
+         , END_TM_2    = #{end_tm_2}
+         , STRT_DT_3   = #{strt_dt_3}
+         , END_DT_3    = #{end_dt_3}
+         , STRT_TM_3   = #{strt_tm_3}
+         , END_TM_3    = #{end_tm_3}
+         , STRT_DT_4   = #{strt_dt_4}
+         , END_DT_4    = #{end_dt_4}
+         , STRT_TM_4   = #{strt_tm_4}
+         , END_TM_4    = #{end_tm_4}
+         , STRT_DT_5   = #{strt_dt_5}
+         , END_DT_5    = #{end_dt_5}
+         , STRT_TM_5   = #{strt_tm_5}
+         , END_TM_5    = #{end_tm_5}
+         , USE_YN      = #{use_yn}
+         , MOD_DT      = TO_CHAR(SYSDATE, 'yyyyMMdd')
+         , MOD_TM      = TO_CHAR(SYSDATE, 'hh24miss')
+         , MOD_USR_ID  = #{login_usr_id}
+     WHERE EDU_ID  = #{edu_Id}
+	</update>
+ --> 
+
+  
+</mapper>

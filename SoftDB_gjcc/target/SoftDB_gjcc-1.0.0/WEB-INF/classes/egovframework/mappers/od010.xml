@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="od010">
+    
+	<insert id="insertLang" parameterType="map">
+	 {call
+        declare
+        begin   
+			MERGE 
+				INTO od010 
+				USING DUAL 
+				ON (tbbs_id = #{tbl_pk} AND lang_cd = #{lang_cd}) 
+			WHEN MATCHED THEN 
+			    UPDATE 
+			           SET 
+			           		dtls = #{dtls}
+			           	,	use_yn = #{use_yn}
+			           	,	mod_dt = to_char(sysdate, 'yyyymmdd')
+			           	,	mod_tm = to_char(sysdate, 'hh24miss') 
+			           	,	mod_usr_id = #{login_usr_id} 
+			WHEN NOT MATCHED THEN 
+			    INSERT 
+			           ( 
+			           		tbbs_id 
+			         	,	lang_cd 
+			            ,	tbbs_gb_cd
+			            ,	tbbs_cont_c
+			            ,   dtls
+			            ,   use_yn 
+			            ,   crt_dt 
+			            ,   crt_tm 
+			            ,   crt_usr_id 
+			            ,   mod_dt 
+			            ,   mod_tm  
+			            ,   mod_usr_id 
+			           )
+			           VALUES
+			           ( 
+			               #{tbl_pk} , 
+			               #{lang_cd} , 
+			               '040100' , 
+			               Empty_Clob() ,
+			               #{dtls} , 
+			               'Y' , 
+			               to_char(sysdate, 'yyyymmdd') , 
+			               to_char(sysdate, 'hh24miss') , 
+			               #{login_usr_id} , 
+			               to_char(sysdate, 'yyyymmdd') , 
+			               to_char(sysdate, 'hh24miss') , 
+			               #{login_usr_id} 
+			           );
+		           
+		     UPDATE od010
+                  SET tbbs_cont_c = #{tbbs_cntn, jdbcType = CLOB}
+             WHERE 
+             	tbbs_id = #{tbl_pk}
+             AND 
+             	lang_cd = #{lang_cd};
+		           
+		 end
+    }
+	</insert>
+</mapper>

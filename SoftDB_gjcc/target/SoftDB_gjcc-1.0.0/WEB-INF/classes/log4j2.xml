@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Configuration>
+<Configuration>
+	<!-- Appenders -->
+	<Appenders>
+		<Console name="console" target="SYSTEM_OUT">
+			<PatternLayout pattern="%d %5p [%c] %m%n" />
+		</Console>
+		<!-- 2020.05.13 log생성 -->
+		<RollingFile name="file" fileName="/softdb/apache-tomcat/logs/localhost.log" filePattern="/softdb/apache-tomcat/logs/$${date:yyyy}/$${date:MM}/localhost_%d{yyyyMMddHH}.log">
+			<PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/> 
+			<Policies> 
+				<TimeBasedTriggeringPolicy /><!-- Rotated everyday --> 
+			</Policies> 
+		</RollingFile>
+		<!-- 2020.05.13 log생성  추가 끝-->
+	</Appenders>
+	
+    <appender name="console-infolog" class="org.apache.log4j.ConsoleAppender">
+        <layout class="org.apache.log4j.PatternLayout">
+            <param name="ConversionPattern" value="%d %5p %m%n" />
+        </layout>   
+    </appender>
+     
+	<Loggers>
+		<!-- Application Loggers -->
+	    <Logger name="first" level ="ERROR" additivity="false">
+	        <appender-ref ref="console"/>
+	         <AppenderRef ref="file"/> 
+	    </Logger>
+	    <!-- Query Loggers -->
+	    <Logger name="jdbc.sqlonly"  level ="DEBUG" additivity="false">  
+	        <appender-ref ref="console-infolog"/>  
+	    </Logger>
+	    <Logger name="jdbc.resultset" level ="ERROR"  additivity="false">  
+	        <appender-ref ref="console"/>
+	         <AppenderRef ref="file"/>   
+	    </Logger>
+	    <Logger name="jdbc.resultsettable" level ="ERROR" additivity="false">  
+	        <appender-ref ref="console"/>
+	         <AppenderRef ref="file"/>   
+	    </Logger> 
+	     <Logger name="jdbc.audit" level ="ERROR" additivity="false">  
+	        <appender-ref ref="console"/>
+	         <AppenderRef ref="file"/>   
+	    </Logger>
+	      
+		<Root level="INFO">
+			<AppenderRef ref="console" />
+		</Root>
+	</Loggers>
+	
+
+</Configuration>

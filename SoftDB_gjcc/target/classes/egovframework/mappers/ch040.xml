@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="ch040">
+
+  <insert id="insert" parameterType="map">
+    INSERT  INTO ch040 (WRK_DT
+       , WRK_TM
+       , USR_ID
+       , CUST_TEL_NO
+       , CALL_GB_CD
+       , CRT_DT
+       , CRT_TM
+       , CRT_USR_ID
+       , MOD_DT
+       , MOD_TM
+       ,MOD_USR_ID
+      ) VALUES (TO_CHAR(SYSDATE, 'YYYYMMDD')
+       , TO_CHAR(SYSDATE, 'HH24MISS')
+       , #{usr_id}
+       , #{cust_tel_no}
+       , #{call_gb_cd}
+       , TO_CHAR(SYSDATE, 'YYYYMMDD')
+       , TO_CHAR(SYSDATE, 'HH24MISS')
+       , #{login_usr_id}
+       , TO_CHAR(SYSDATE, 'YYYYMMDD')
+       , TO_CHAR(SYSDATE, 'HH24MISS')
+       , #{login_usr_id}
+    )
+  </insert>
+  
+</mapper>

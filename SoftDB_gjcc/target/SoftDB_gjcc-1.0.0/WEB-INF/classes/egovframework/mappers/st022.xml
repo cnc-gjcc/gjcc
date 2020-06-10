@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="st022">
+	
+	<select id="ctgCodeList" parameterType="map" resultType="map">
+     
+    SELECT CTG_CD AS CTG_CD
+         , CTG_CD_NM AS CTG_NM
+         , CD_ORD AS CTG_ORD
+      FROM OM020
+      WHERE USE_YN   = 'Y'
+      AND CTG_LVL  = #{ctg_lvl}
+      ORDER BY CTG_ORD, CTG_CD
+
+         
+<!--      
+		SELECT CTG_CD , MAX(CTG_NM) AS CTG_NM, MAX(CTG_ORD) AS CTG_ORD
+		FROM (
+		  SELECT CTG_CD AS CD, DECODE(NVL(EXT1_CD,'Etc'),'Etc', 'Etc', 'CTG_'||EXT1_CD) CTG_CD,
+		         DECODE(NVL(EXT1_CD,'Etc'),'Etc', '기타', NVL(EXT2_CD, CTG_CD_NM)) CTG_NM,
+		         DECODE(NVL(EXT1_CD,'Etc'),'Etc', '99', EXT1_CD) AS CTG_ORD
+		  FROM OM020
+		  WHERE USE_YN   = 'Y'
+		  AND CTG_LVL  = #{ctg_lvl}
+		  ORDER BY EXT1_CD
+		)GROUP BY CTG_CD
+		ORDER BY CTG_ORD	
+ -->  
+	</select>
+	
+	<select id="stsCounselingCntDayCtg" parameterType="map" resultType="map">
+     
+
+    WITH DATA AS(
+      SELECT TASK_DT,
+        <foreach collection="gCtgCdArr" item="a" separator="," index="index">
+          NVL("${a}", 0) AS "${a}"
+        </foreach>
+        ,        
+        <foreach collection="gCtgCdArr" item="b" index="index" open="(" separator="+" close=")">
+          NVL("${b}", 0)
+        </foreach>  
+        AS TOT
+
+      FROM (
+        SELECT TASK_DT, C.CTG_CD, SCNT
+        FROM  ST022 S,
+              (
+            SELECT CTG_CD,
+                   CTG_CD_NM,
+                   CD_ORD AS CTG_ORD
+            FROM OM020
+            WHERE USE_YN   = 'Y'
+            AND CTG_LVL  = #{ctg_lvl}
+            ORDER BY CTG_ORD
+              ) C
+        WHERE S.CTG_CD = C.CTG_CD(+)
+        AND TASK_DT BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 ),'YYYYMM')||'01' AND #{schDt}
+        AND S.USE_YN = 'Y'
+        UNION ALL SELECT #{schDt}, 'Etc', 0 FROM DUAL
+        UNION ALL SELECT TO_CHAR(NEXT_DAY(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 )-1,TO_CHAR(TO_DATE(#{schDt},'YYYYMMDD'),'DAY')),'YYYYMMDD'), 'Etc', 0 FROM DUAL
+      )
+      PIVOT (
+        SUM(SCNT) FOR CTG_CD IN 
+                <foreach collection="gCtgCdArr" item="c" index="index" open="(" separator="," close=")">
+                  '${c}'  AS "${c}"
+                </foreach>
+      )
+      ORDER BY TASK_DT
+    )
+    
+    SELECT TO_CHAR(TO_DATE(#{schDt},'YYYYMMDD'),'YYYY-MM-DD') AS DAY, '건수' AS GB, TO_CHAR(TOT,'999,999') AS TOT,
+        <foreach collection="gCtgCdArr" item="d1" separator="," index="index">
+          TO_CHAR("${d1}",'999,999') AS "${d1}"
+        </foreach>    
+    FROM DATA
+    WHERE TASK_DT = #{schDt}
+    
+    UNION ALL
+    
+    SELECT '', '비율(%)', TO_CHAR(DECODE(TOT,0,0,TOT/TOT*100),'990.0'),
+        <foreach collection="gCtgCdArr" item="d2" separator="," index="index">
+          TO_CHAR(DECODE(TOT,0,0,"${d2}"/TOT*100),'990.0')
+        </foreach>
+    FROM DATA
+    WHERE TASK_DT = #{schDt}
+    
+    UNION ALL
+    
+    SELECT TO_CHAR(TO_DATE(#{schDt},'YYYYMMDD'),'YYYY-MM')||' 누계' , '건수', TO_CHAR(SUM(TOT),'999,999'), 
+        <foreach collection="gCtgCdArr" item="d3" separator="," index="index">
+          TO_CHAR(SUM("${d3}"),'999,999')
+        </foreach>    
+    FROM DATA
+    WHERE TASK_DT BETWEEN SUBSTR(#{schDt}, 0, 6)||'01' AND #{schDt}
+    
+    
+    UNION ALL
+    
+    SELECT '', '비율(%)', TO_CHAR(DECODE(SUM(TOT),0,0,SUM(TOT)/SUM(TOT)*100),'990.0'),
+        <foreach collection="gCtgCdArr" item="d4" separator="," index="index">
+          TO_CHAR(DECODE(SUM(TOT),0,0,SUM("${d4}")/SUM(TOT)*100),'990.0')
+        </foreach>    
+    FROM DATA
+    WHERE TASK_DT BETWEEN SUBSTR(#{schDt}, 0, 6)||'01' AND #{schDt}
+    
+    UNION ALL
+    
+    SELECT TO_CHAR(NEXT_DAY(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 )-1,TO_CHAR(TO_DATE(#{schDt},'YYYYMMDD'),'DAY')),'YYYY-MM-DD'), '건수', TO_CHAR(TOT,'999,999') AS TOT,
+        <foreach collection="gCtgCdArr" item="d5" separator="," index="index">
+          TO_CHAR("${d5}",'999,999') AS "${d5}"
+        </foreach>    
+    FROM DATA
+    WHERE TASK_DT = TO_CHAR(NEXT_DAY(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 )-1,TO_CHAR(TO_DATE(#{schDt},'YYYYMMDD'),'DAY')),'YYYYMMDD')
+    
+    UNION ALL
+    
+    SELECT '', '비율(%)', TO_CHAR(DECODE(TOT,0,0,TOT/TOT*100),'990.0'),
+        <foreach collection="gCtgCdArr" item="d6" separator="," index="index">
+          TO_CHAR(DECODE(TOT,0,0,"${d6}"/TOT*100),'990.0')
+        </foreach>        
+    FROM DATA
+    WHERE TASK_DT = TO_CHAR(NEXT_DAY(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 )-1,TO_CHAR(TO_DATE(#{schDt},'YYYYMMDD'),'DAY')),'YYYYMMDD')
+    
+    UNION ALL
+    
+    SELECT TO_CHAR(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 ),'YYYY-MM')||' 누계', '건수', TO_CHAR(SUM(TOT),'999,999'), 
+        <foreach collection="gCtgCdArr" item="d7" separator="," index="index">
+          TO_CHAR(SUM("${d7}"),'999,999')
+        </foreach>      
+    FROM DATA
+    WHERE TASK_DT BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 ),'YYYYMM')||'01'  AND TO_CHAR(LAST_DAY( ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 )),'YYYYMMDD')
+    
+    
+    UNION ALL
+    
+    SELECT '', '비율(%)', TO_CHAR(DECODE(SUM(TOT),0,0,SUM(TOT)/SUM(TOT)*100),'990.0'), 
+        <foreach collection="gCtgCdArr" item="d8" separator="," index="index">
+          TO_CHAR(DECODE(SUM(TOT),0,0,SUM("${d8}")/SUM(TOT)*100),'990.0')
+        </foreach>    
+    FROM DATA
+    WHERE TASK_DT BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 ),'YYYYMM')||'01'  AND TO_CHAR(LAST_DAY( ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 )),'YYYYMMDD')
+  
+    UNION ALL
+    
+    SELECT '증감', '건수', TO_CHAR(A.TOT-B.TOT,'999,999'),
+        <foreach collection="gCtgCdArr" item="tt" separator="," index="index">
+          TO_CHAR(A."${tt}"-B."${tt}",'999,999')
+        </foreach>
+    FROM 
+    (
+        SELECT TOT,
+            <foreach collection="gCtgCdArr" item="t1" separator="," index="index">
+              "${t1}"
+            </foreach>    
+        FROM DATA
+        WHERE TASK_DT = #{schDt}
+    )A,
+    (
+        SELECT TOT, 
+            <foreach collection="gCtgCdArr" item="t2" separator="," index="index">
+              "${t2}"
+            </foreach>    
+        FROM DATA
+        WHERE TASK_DT = TO_CHAR(NEXT_DAY(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 )-1,TO_CHAR(TO_DATE(#{schDt},'YYYYMMDD'),'DAY')),'YYYYMMDD')
+    )B    
+	    
+     
+<!-- 
+     		WITH DATA AS(
+		  SELECT TASK_DT,
+				<foreach collection="gCtgCdArr" item="a" separator="," index="index">
+					NVL("${a}", 0) AS "${a}"
+				</foreach>
+				,        
+				<foreach collection="gCtgCdArr" item="b" index="index" open="(" separator="+" close=")">
+					NVL("${b}", 0)
+				</foreach>	
+				AS TOT
+
+		  FROM (
+		    SELECT TASK_DT, NVL(C.CTG_CD, 'Etc') CTG_CD, SCNT
+		    FROM  ST022 S,
+		          (
+					  SELECT CTG_CD AS CD, DECODE(NVL(EXT1_CD,'Etc'),'Etc', 'Etc', 'CTG_'||EXT1_CD) CTG_CD,
+					         DECODE(NVL(EXT1_CD,'Etc'),'Etc', '기타', NVL(EXT2_CD, CTG_CD_NM)) CTG_NM,
+					         DECODE(NVL(EXT1_CD,'Etc'),'Etc', '99', EXT1_CD) AS CTG_ORD
+					  FROM OM020
+					  WHERE USE_YN   = 'Y'
+					  AND CTG_LVL  = #{ctg_lvl}
+					  ORDER BY EXT1_CD
+		          ) C
+		    WHERE S.CTG_CD = C.CD(+)
+		    AND TASK_DT BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 ),'YYYYMM')||'01' AND #{schDt}
+		    AND S.USE_YN = 'Y'
+		    UNION ALL SELECT #{schDt}, 'Etc', 0 FROM DUAL
+		    UNION ALL SELECT TO_CHAR(NEXT_DAY(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 )-1,TO_CHAR(TO_DATE(#{schDt},'YYYYMMDD'),'DAY')),'YYYYMMDD'), 'Etc', 0 FROM DUAL
+		  )
+		  PIVOT (
+		    SUM(SCNT) FOR CTG_CD IN 
+								<foreach collection="gCtgCdArr" item="c" index="index" open="(" separator="," close=")">
+									'${c}'  AS "${c}"
+								</foreach>
+		  )
+		  ORDER BY TASK_DT
+		)
+		
+		SELECT TO_CHAR(TO_DATE(#{schDt},'YYYYMMDD'),'YYYY-MM-DD') AS DAY, '건수' AS GB, TO_CHAR(TOT,'999,999') AS TOT,
+				<foreach collection="gCtgCdArr" item="d1" separator="," index="index">
+					TO_CHAR("${d1}",'999,999') AS "${d1}"
+				</foreach>		
+		FROM DATA
+		WHERE TASK_DT = #{schDt}
+		
+		UNION ALL
+		
+		SELECT '', '비율(%)', TO_CHAR(DECODE(TOT,0,0,TOT/TOT*100),'990.0'),
+				<foreach collection="gCtgCdArr" item="d2" separator="," index="index">
+					TO_CHAR(DECODE(TOT,0,0,"${d2}"/TOT*100),'990.0')
+				</foreach>
+		FROM DATA
+		WHERE TASK_DT = #{schDt}
+		
+		UNION ALL
+		
+		SELECT TO_CHAR(TO_DATE(#{schDt},'YYYYMMDD'),'YYYY-MM')||' 누계' , '건수', TO_CHAR(SUM(TOT),'999,999'), 
+				<foreach collection="gCtgCdArr" item="d3" separator="," index="index">
+					TO_CHAR(SUM("${d3}"),'999,999')
+				</foreach>		
+		FROM DATA
+		WHERE TASK_DT BETWEEN SUBSTR(#{schDt}, 0, 6)||'01' AND #{schDt}
+		
+		
+		UNION ALL
+		
+		SELECT '', '비율(%)', TO_CHAR(DECODE(SUM(TOT),0,0,SUM(TOT)/SUM(TOT)*100),'990.0'),
+				<foreach collection="gCtgCdArr" item="d4" separator="," index="index">
+					TO_CHAR(DECODE(SUM(TOT),0,0,SUM("${d4}")/SUM(TOT)*100),'990.0')
+				</foreach>		
+		FROM DATA
+		WHERE TASK_DT BETWEEN SUBSTR(#{schDt}, 0, 6)||'01' AND #{schDt}
+		
+		UNION ALL
+		
+		SELECT TO_CHAR(NEXT_DAY(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 )-1,TO_CHAR(TO_DATE(#{schDt},'YYYYMMDD'),'DAY')),'YYYY-MM-DD'), '건수', TO_CHAR(TOT,'999,999') AS TOT,
+				<foreach collection="gCtgCdArr" item="d5" separator="," index="index">
+					TO_CHAR("${d5}",'999,999') AS "${d5}"
+				</foreach>		
+		FROM DATA
+		WHERE TASK_DT = TO_CHAR(NEXT_DAY(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 )-1,TO_CHAR(TO_DATE(#{schDt},'YYYYMMDD'),'DAY')),'YYYYMMDD')
+		
+		UNION ALL
+		
+		SELECT '', '비율(%)', TO_CHAR(DECODE(TOT,0,0,TOT/TOT*100),'990.0'),
+				<foreach collection="gCtgCdArr" item="d6" separator="," index="index">
+					TO_CHAR(DECODE(TOT,0,0,"${d6}"/TOT*100),'990.0')
+				</foreach>				
+		FROM DATA
+		WHERE TASK_DT = TO_CHAR(NEXT_DAY(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 )-1,TO_CHAR(TO_DATE(#{schDt},'YYYYMMDD'),'DAY')),'YYYYMMDD')
+		
+		UNION ALL
+		
+		SELECT TO_CHAR(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 ),'YYYY-MM')||' 누계', '건수', TO_CHAR(SUM(TOT),'999,999'), 
+				<foreach collection="gCtgCdArr" item="d7" separator="," index="index">
+					TO_CHAR(SUM("${d7}"),'999,999')
+				</foreach>			
+		FROM DATA
+		WHERE TASK_DT BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 ),'YYYYMM')||'01'  AND TO_CHAR(LAST_DAY( ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 )),'YYYYMMDD')
+		
+		
+		UNION ALL
+		
+		SELECT '', '비율(%)', TO_CHAR(DECODE(SUM(TOT),0,0,SUM(TOT)/SUM(TOT)*100),'990.0'), 
+				<foreach collection="gCtgCdArr" item="d8" separator="," index="index">
+					TO_CHAR(DECODE(SUM(TOT),0,0,SUM("${d8}")/SUM(TOT)*100),'990.0')
+				</foreach>		
+		FROM DATA
+		WHERE TASK_DT BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 ),'YYYYMM')||'01'  AND TO_CHAR(LAST_DAY( ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 )),'YYYYMMDD')
+	
+		UNION ALL
+		
+		SELECT '증감', '건수', TO_CHAR(A.TOT-B.TOT,'999,999'),
+				<foreach collection="gCtgCdArr" item="tt" separator="," index="index">
+					TO_CHAR(A."${tt}"-B."${tt}",'999,999')
+				</foreach>
+		FROM 
+		(
+				SELECT TOT,
+						<foreach collection="gCtgCdArr" item="t1" separator="," index="index">
+							"${t1}"
+						</foreach>		
+				FROM DATA
+				WHERE TASK_DT = #{schDt}
+		)A,
+		(
+				SELECT TOT, 
+						<foreach collection="gCtgCdArr" item="t2" separator="," index="index">
+							"${t2}"
+						</foreach>		
+				FROM DATA
+				WHERE TASK_DT = TO_CHAR(NEXT_DAY(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 )-1,TO_CHAR(TO_DATE(#{schDt},'YYYYMMDD'),'DAY')),'YYYYMMDD')
+		)B		
+ -->  
+  	
+	</select>
+		
+</mapper>

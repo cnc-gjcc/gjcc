@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="oh022">
+	
+	<select id="selectCommList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				SELECT	a.ST_ALT_ID AS stat_alt_id
+						,	getFormatDate(a.ST_ALT_DT) as stat_alt_dt
+						,	CASE WHEN (SELECT cd_nm FROM sm002 WHERE tp_cd = '90002' AND cd = 
+												(SELECT cntr_cd FROM om001 WHERE usr_id = a.usr_id)) IS NULL 
+							THEN 
+								CASE WHEN (SELECT cd_nm FROM sm002 WHERE tp_cd = '90003' AND cd = 
+													(SELECT team_cd FROM om001 WHERE usr_id = a.usr_id)) IS NULL
+								THEN ' '
+								ELSE (SELECT cd_nm FROM sm002 WHERE tp_cd = '90003' AND cd = 
+											(SELECT team_cd FROM om001 WHERE usr_id = a.usr_id))
+								END
+							ELSE 
+								CASE WHEN (SELECT cd_nm FROM sm002 WHERE tp_cd = '90003' AND cd = 
+													(SELECT team_cd FROM om001 WHERE usr_id = a.usr_id)) IS NULL
+								THEN (SELECT cd_nm FROM sm002 WHERE tp_cd = '90002' AND cd = 
+											(SELECT cntr_cd FROM om001 WHERE usr_id = a.usr_id))
+								ELSE (SELECT cd_nm FROM sm002 WHERE tp_cd = '90002' AND cd = 
+											(SELECT cntr_cd FROM om001 WHERE usr_id = a.usr_id)) || '/' ||
+										(SELECT cd_nm FROM sm002 WHERE tp_cd = '90003' AND cd = 
+											(SELECT team_cd FROM om001 WHERE usr_id = a.usr_id))
+								END
+						END AS cntr_team_nm
+						,	a.usr_id AS usr_id
+						,	(SELECT usr_nm FROM om001 WHERE usr_id = a.usr_id) AS usr_nm
+						,	a.USR_ST_CD AS usr_stat_cd
+						,	(SELECT cd_nm FROM sm002 WHERE tp_cd = '90008' AND cd = a.USR_ST_CD) AS usr_stat_cd_nm
+						, to_char(a.ST_STRT_TM, 'HH24:MI:SS') as stat_strt_tm
+            , to_char(a.ST_END_TM, 'HH24:MI:SS') as stat_end_tm
+						,	getSecondToTime(a.ST_MNTN_TM) AS stat_mntn_tm
+				FROM oh022 a
+				WHERE	1 = 1
+			<if test="usr_id != null and !usr_id.equals('all')">
+				AND a.usr_id = #{usr_id}
+			</if>
+			<if test="usr_stat_cd != null and !usr_stat_cd.equals('all')">
+				AND a.USR_ST_CD = #{usr_stat_cd}
+			</if>
+			<if test="(stat_alt_strt_dt != null and !stat_alt_strt_dt.equals('')) and (stat_alt_end_dt != null and !stat_alt_end_dt.equals(''))">
+				AND a.ST_ALT_DT BETWEEN #{stat_alt_strt_dt} AND #{stat_alt_end_dt}
+			</if>
+			<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+			</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>
+	</select>
+	
+	<select id="selectCatgryLIst" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+			select 
+				c.usr_id
+				,(select usr_nm from om001 where usr_id=c.usr_id) as usr_nm
+				,getCodeNM((select cntr_cd from om001 where usr_id=c.usr_id), '90002') || 
+				 case when getCodeNM((select team_cd from om001 where usr_id=c.usr_id), '90003') is null 
+				 then ' '
+				 else '/' || getCodeNM((select team_cd from om001 where usr_id=c.usr_id), '90003') end as cntr_nm
+					,getsecondtotime(nvl(b.login,0) ) AS login -- 로그인
+                    ,getsecondtotime(nvl(b.eat,0) ) AS eat -- 식사
+                    ,getsecondtotime(nvl(b.edu,0) ) AS edu -- 교육
+                    ,getsecondtotime(nvl(b.work,0) ) AS work -- 업무
+                    ,getsecondtotime(nvl(b.rest,0) ) AS rest -- 휴식
+                    ,getsecondtotime(nvl(b.message,0) ) AS message -- 문자상담
+                    ,getsecondtotime(nvl(b.etc,0) ) AS etc -- 기타
+                    ,getsecondtotime(nvl(b.ready,0) ) AS ready -- 준비
+                    ,getsecondtotime(nvl(b.wait,0) ) AS wait -- 대기
+                    ,getsecondtotime(nvl(b.calling,0) ) AS calling -- 통화중
+                    ,getsecondtotime(nvl(b.post,0) ) AS post -- 후처리
+                    ,getsecondtotime(nvl(b.away,0) ) AS away -- 이석
+                    ,getsecondtotime(nvl(b.meet,0) ) AS meet -- 면담
+                    ,getsecondtotime(nvl(b.misscall,0) ) AS misscall -- 미스콜
+                    ,getsecondtotime(nvl(b.callback,0) ) AS callback -- 콜백
+                    ,getsecondtotime(nvl(b.sms,0) ) AS sms -- 문자상담
+				 from
+				(
+					select  * from (
+					    select usr_id
+					           , nvl(getCodeNM(USR_ST_CD, '90008'),USR_ST_CD) as states
+					           , sum(st_mntn_tm) as STIME 
+					           from oh022 
+					                where 1 = 1
+					                <if test="(stat_alt_strt_dt != null and !stat_alt_strt_dt.equals('')) and (stat_alt_end_dt != null and !stat_alt_end_dt.equals(''))">
+					                and crt_dt between #{stat_alt_strt_dt} and #{stat_alt_end_dt} 
+					                </if>
+					                group by usr_id, usr_st_cd
+					) pivot (
+					    sum(STIME) for states in ('기타' etc, '문자상담' message , '로그인' login, '대기' wait, '통화중' calling , '후처리' post , '이석' away, '식사' eat, '교육' edu, '면담' meet, '업무' work, '휴식' rest, '미스콜' misscall, '콜백' callback, '준비' ready, '문자상담' sms)
+					)				       
+				) b right join om001 c
+				on c.usr_id = b.usr_id 
+				where  c.cntr_cd != '990000'  
+
+				<if test="usr_id != null and !usr_id.equals('all')">
+					AND c.usr_id = #{usr_id}
+				</if>					
+				<if test="sidx != null and sord != null">
+					ORDER BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>
+	</select>
+	
+	
+	
+	
+	<insert id="insertWorkStatus" parameterType="map">
+	{call
+		declare
+			vStatId VARCHAR2(34);
+		begin
+			vStatId := NULL;
+			
+			<if test="!usr_stat_cd.equals('11000')">
+			SELECT '' || NVL(MAX(ST_ALT_ID),1) INTO vStatId 
+			  FROM oh022
+			 WHERE usr_id = #{login_usr_id}
+			   AND ST_ALT_DT = TO_CHAR(SYSDATE, 'yyyymmdd');
+			</if>
+			
+			IF (vStatId is NOT NULL) THEN
+				UPDATE oh022
+				   SET ST_END_TM = SYSDATE
+<!--				     , ST_MNTN_TM = round(((SYSTIMESTAMP - ST_STRT_TM) * 24 * 60 * 60) * 100) / 100 -->
+				      , ST_MNTN_TM = round(EXTRACT(DAY    FROM SYSTIMESTAMP - ST_STRT_TM) *24*60*60
+									+ EXTRACT(HOUR   FROM SYSTIMESTAMP - ST_STRT_TM) *60*60
+									+ EXTRACT(MINUTE FROM SYSTIMESTAMP - ST_STRT_TM) *60
+									+ EXTRACT(SECOND FROM SYSTIMESTAMP - ST_STRT_TM)) 
+				     , MOD_DT = TO_CHAR(SYSDATE, 'yyyyMMdd')
+				     , MOD_TM = TO_CHAR(SYSDATE, 'hh24miss')
+				     , MOD_USR_ID = #{login_usr_id}
+				 WHERE ST_ALT_ID = vStatId;
+			END IF;
+			
+			<if test="usr_stat_cd != null">
+			INSERT INTO oh022
+			(
+					ST_ALT_ID
+				,	ST_ALT_DT
+				,	usr_id
+				,	USR_ST_CD
+				,	ST_STRT_TM
+				,	ST_END_TM
+				,	ST_MNTN_TM
+				,	use_yn
+				,	crt_dt
+				,	crt_tm
+				,	crt_usr_id
+				,	mod_dt
+				,	mod_tm
+				,	mod_usr_id
+				, TCKT_ID
+			)
+			VALUES
+			(
+					'' || soh022.nextval
+				,	to_char(sysdate, 'yyyymmdd')
+				,	#{login_usr_id}
+<!-- 				,	#{usr_stat_cd} --> <!-- 기존 -->
+				,	(select cd from sm002 where tp_cd = '90008' and cd_nm = #{usr_stat_cd}) <!-- 수정 -->
+				,	systimestamp
+				,	systimestamp
+				,	0
+				<if test="use_yn != null">
+				,	#{use_yn}
+				</if>
+				<if test="use_yn == null">
+				,	'Y'
+				</if>
+				,	to_char(sysdate, 'yyyymmdd')
+				,	to_char(sysdate, 'hh24miss')
+				,	#{login_usr_id}
+				,	to_char(sysdate, 'yyyymmdd')
+				,	to_char(sysdate, 'hh24miss')
+				,	#{login_usr_id}
+				<if test="tckt_id != null">
+				,	#{tckt_id}
+				</if>
+				<if test="tckt_id == null">
+				,	''
+				</if>
+			);
+			</if>
+		end
+	}
+	</insert>
+</mapper>

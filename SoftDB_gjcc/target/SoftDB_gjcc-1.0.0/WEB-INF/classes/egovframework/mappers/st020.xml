@@ -1,0 +1,389 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="st020">
+	
+
+	<select id="stsCounselingCntDay" parameterType="map" resultType="map">
+
+	WITH TA AS(		
+		SELECT 'TD' GBA, TASK_CONT, ENTR_ST,
+		         NVL(MNGR,0) AS MNGR,
+		         NVL(AGT,0) AGT,
+		         NVL(DAY_OFF,0) DAY_OFF,
+		         NVL(ETC_PRSN,0) ETC_PRSN,
+		         NVL(TOTA_PRSN,0) TOTA_PRSN,
+		         NVL(IVR_IN_CALL,0) IVR_IN_CALL,
+		         NVL(IVR_ANS_CALL,0) IVR_ANS_CALL,
+		         NVL(IVR_ABND_CALL,0) IVR_ABND_CALL,
+		         ROUND(NVL(IVR_ANS_RATE,0),1) IVR_ANS_RATE0,
+		         DECODE(NVL(IVR_IN_CALL,0),0,0, ROUND( NVL(IVR_ANS_CALL,0) / NVL(IVR_IN_CALL,0) * 100 ,1 )) IVR_ANS_RATE,
+		         
+		         NVL(IN_CALL,0) IN_CALL,
+		         NVL(ANS_CALL,0) ANS_CALL,
+		         NVL(ABND_CALL,0) ABND_CALL,
+		         ROUND(NVL(ANS_RATE,0),1) ANS_RATE0,
+		         DECODE(NVL(IN_CALL,0),0,0, ROUND(NVL(ANS_CALL,0) / NVL(IN_CALL,0) * 100 ,1)) ANS_RATE,
+		         
+		         NVL(INTPT_SVC,0) INTPT_SVC,
+		         NVL(TOTA_CALL_TM,0) TOTA_CALL_TM,
+		         NVL(AVRG_CALL_TM,0) AVRG_CALL_TM,
+		         NVL(OB_SUCC_CALL,0) OB_SUCC_CALL,
+		         NVL( CNSL_PRSN,0) CNSL_PRSN,
+	             ROUND(NVL( CPH,0),1) CPH0,
+	             DECODE(NVL( CNSL_PRSN,0),0,0, ROUND((NVL(ANS_CALL,0)+NVL(OB_SUCC_CALL,0))/NVL( CNSL_PRSN,0)/8,1))  CPH,
+	             ROUND(NVL( CPD,0),1) CPD0,
+	             DECODE(NVL( CNSL_PRSN,0),0,0, ROUND((NVL(ANS_CALL,0)+NVL(OB_SUCC_CALL,0))/NVL( CNSL_PRSN,0),1)) CPD,
+		         NVL(SEC20_SUCC_CALL,0) SEC20_SUCC_CALL,
+		         ROUND(NVL(SEC20_SUCC_RATE,0),1) SEC20_SUCC_RATE0,
+		         DECODE(NVL(IN_CALL,0),0,0, ROUND(NVL(SEC20_SUCC_CALL,0) / NVL(IN_CALL,0) * 100 ,1)) SEC20_SUCC_RATE,
+		         
+		         NVL(SCNT,0) SCNT,
+		         NVL( RATE,0) RATE,
+		         NVL( RCV,0) RCV,
+		         NVL(ACT,0) ACT,
+		         ROUND(NVL(ACT_RATE,0),1) ACT_RATE0,
+		         DECODE(NVL( RCV,0),0,0, ROUND( NVL(ACT,0) / NVL( RCV,0) * 100 ,1))  ACT_RATE,
+		         
+		         NVL(SMS_SND_SCNT,0) SMS_SND_SCNT,
+		         NVL(FAX_SND_SCNT,0) FAX_SND_SCNT,
+		         NVL(DAY_ANS_CALL,0) DAY_ANS_CALL,
+		         NVL( DAY_CNSL_PRSN,0) DAY_CNSL_PRSN,
+		         ROUND(NVL(DAY_CPD,0),1) DAY_CPD0,
+		         DECODE(NVL( DAY_CNSL_PRSN,0),0,0,ROUND( NVL(DAY_ANS_CALL,0) / NVL( DAY_CNSL_PRSN,0) ,1 )) DAY_CPD
+
+		FROM ST020
+		WHERE USE_YN = 'Y'
+		AND TASK_DT = #{schDt}
+		
+		UNION ALL
+		
+		
+		SELECT 'TM' , '' TASK_CONT, '' ENTR_ST,
+		        ROUND(AVG(NVL(MNGR,0)),1) AS MNGR,
+		        ROUND(AVG(NVL(AGT,0)),1) AGT,
+		        ROUND(AVG(NVL(DAY_OFF,0)),1) DAY_OFF,
+		        ROUND(AVG(NVL(ETC_PRSN,0)),1) ETC_PRSN,
+		        ROUND(AVG(NVL(TOTA_PRSN,0)),1) TOTA_PRSN,
+		        SUM(NVL(IVR_IN_CALL,0)) IVR_IN_CALL,
+		        SUM(NVL(IVR_ANS_CALL,0)) IVR_ANS_CALL,
+		        SUM(NVL(IVR_ABND_CALL,0)) IVR_ABND_CALL,
+		        ROUND(AVG(NVL(IVR_ANS_RATE,0)),1) IVR_ANS_RATE0,
+		        DECODE(SUM(NVL(IVR_IN_CALL,0)),0,0, ROUND( SUM(NVL(IVR_ANS_CALL,0)) / SUM(NVL(IVR_IN_CALL,0)) * 100 ,1 )) IVR_ANS_RATE,
+		        
+		        SUM(NVL(IN_CALL,0)) IN_CALL,
+		        SUM(NVL(ANS_CALL,0)) ANS_CALL,
+		        SUM(NVL(ABND_CALL,0)) ABND_CALL,
+		        ROUND(AVG(NVL(ANS_RATE,0)),1) ANS_RATE0,
+		        DECODE(SUM(NVL(IN_CALL,0)),0,0, ROUND(SUM(NVL(ANS_CALL,0)) / SUM(NVL(IN_CALL,0)) * 100 ,1)) ANS_RATE,
+		        
+		        SUM(NVL(INTPT_SVC,0)) INTPT_SVC,
+		        SUM(NVL(TOTA_CALL_TM,0)) TOTA_CALL_TM,
+		        ROUND(AVG(NVL(AVRG_CALL_TM,0)),1) AVRG_CALL_TM,
+		        SUM(NVL(OB_SUCC_CALL,0)) OB_SUCC_CALL,
+		        SUM(NVL(CNSL_PRSN,0)) CNSL_PRSN,
+		         ROUND(AVG(NVL(CPH,0)),1) CPH0,            
+	             DECODE(SUM(NVL( CNSL_PRSN,0)),0,0, ROUND((SUM(NVL(ANS_CALL,0))+SUM(NVL(OB_SUCC_CALL,0)))/SUM(NVL( CNSL_PRSN,0))/8,1))  CPH,
+	             ROUND(AVG(NVL(CPD,0)),1) CPD0,
+	             DECODE(SUM(NVL( CNSL_PRSN,0)),0,0, ROUND((SUM(NVL(ANS_CALL,0))+SUM(NVL(OB_SUCC_CALL,0)))/SUM(NVL( CNSL_PRSN,0)),1)) CPD,		        
+		        SUM(NVL(SEC20_SUCC_CALL,0)) SEC20_SUCC_CALL,
+		        ROUND(AVG(NVL(SEC20_SUCC_RATE,0)),1) SEC20_SUCC_RATE0,
+		        DECODE(SUM(NVL(IN_CALL,0)),0,0, ROUND(SUM(NVL(SEC20_SUCC_CALL,0)) / SUM(NVL(IN_CALL,0)) * 100 ,1)) SEC20_SUCC_RATE,
+		        
+		        SUM(NVL(SCNT,0)) SCNT,
+		        ROUND(AVG(NVL( RATE,0)),1) RATE,
+		        SUM(NVL( RCV,0)) RCV,
+		        SUM(NVL(ACT,0)) ACT,
+		        ROUND(AVG(NVL(ACT_RATE,0)),1) ACT_RATE0,
+		        DECODE(SUM(NVL( RCV,0)),0,0, ROUND( SUM(NVL(ACT,0)) / SUM(NVL( RCV,0)) * 100 ,1)) ACT_RATE,
+		        
+		        SUM(NVL(SMS_SND_SCNT,0)) SMS_SND_SCNT,
+		        SUM(NVL(FAX_SND_SCNT,0)) FAX_SND_SCNT,
+		        SUM(NVL(DAY_ANS_CALL,0)) DAY_ANS_CALL,
+		        SUM(NVL( DAY_CNSL_PRSN,0)) DAY_CNSL_PRSN,
+		        ROUND(AVG(DECODE(DAY_CPD,0, '', DAY_CPD)),1) DAY_CPD0,
+		        DECODE(SUM(NVL( DAY_CNSL_PRSN,0)),0,0, ROUND( SUM(NVL(DAY_ANS_CALL,0)) / SUM(NVL( DAY_CNSL_PRSN,0)) ,1 )) DAY_CPD
+      
+		FROM ST020
+		WHERE USE_YN = 'Y'
+		AND TASK_DT BETWEEN SUBSTR(#{schDt}, 0, 6)||'01' AND #{schDt}
+		
+		UNION ALL
+		
+		SELECT 'YD' , '' TASK_CONT, '' ENTR_ST,
+		       
+		         NVL(MNGR,0) AS MNGR,
+		         NVL(AGT,0) AGT,
+		         NVL(DAY_OFF,0) DAY_OFF,
+		         NVL(ETC_PRSN,0) ETC_PRSN,
+		         NVL(TOTA_PRSN,0) TOTA_PRSN,
+		         NVL(IVR_IN_CALL,0) IVR_IN_CALL,
+		         NVL(IVR_ANS_CALL,0) IVR_ANS_CALL,
+		         NVL(IVR_ABND_CALL,0) IVR_ABND_CALL,
+		         ROUND(NVL(IVR_ANS_RATE,0),1) IVR_ANS_RATE0,
+		         DECODE(NVL(IVR_IN_CALL,0),0,0, ROUND( NVL(IVR_ANS_CALL,0) / NVL(IVR_IN_CALL,0) * 100 ,1 )) IVR_ANS_RATE,
+		         
+		         NVL(IN_CALL,0) IN_CALL,
+		         NVL(ANS_CALL,0) ANS_CALL,
+		         NVL(ABND_CALL,0) ABND_CALL,
+		         ROUND(NVL(ANS_RATE,0),1) ANS_RATE0,
+		         DECODE(NVL(IN_CALL,0),0,0, ROUND(NVL(ANS_CALL,0) / NVL(IN_CALL,0) * 100 ,1)) ANS_RATE,
+		         
+		         NVL(INTPT_SVC,0) INTPT_SVC,
+		         NVL(TOTA_CALL_TM,0) TOTA_CALL_TM,
+		         NVL(AVRG_CALL_TM,0) AVRG_CALL_TM,
+		         NVL(OB_SUCC_CALL,0) OB_SUCC_CALL,
+		         NVL( CNSL_PRSN,0) CNSL_PRSN,
+	             ROUND(NVL( CPH,0),1) CPH0,
+	             DECODE(NVL( CNSL_PRSN,0),0,0, ROUND((NVL(ANS_CALL,0)+NVL(OB_SUCC_CALL,0))/NVL( CNSL_PRSN,0)/8,1))  CPH,
+	             ROUND(NVL( CPD,0),1) CPD0,
+	             DECODE(NVL( CNSL_PRSN,0),0,0, ROUND((NVL(ANS_CALL,0)+NVL(OB_SUCC_CALL,0))/NVL( CNSL_PRSN,0),1)) CPD,
+		         NVL(SEC20_SUCC_CALL,0) SEC20_SUCC_CALL,
+		         ROUND(NVL(SEC20_SUCC_RATE,0),1) SEC20_SUCC_RATE0,
+		         DECODE(NVL(IN_CALL,0),0,0, ROUND(NVL(SEC20_SUCC_CALL,0) / NVL(IN_CALL,0) * 100 ,1)) SEC20_SUCC_RATE,
+		         
+		         NVL(SCNT,0) SCNT,
+		         NVL( RATE,0) RATE,
+		         NVL( RCV,0) RCV,
+		         NVL(ACT,0) ACT,
+		         ROUND(NVL(ACT_RATE,0),1) ACT_RATE0,
+		         DECODE(NVL( RCV,0),0,0, ROUND( NVL(ACT,0) / NVL( RCV,0) * 100 ,1))  ACT_RATE,
+		         
+		         NVL(SMS_SND_SCNT,0) SMS_SND_SCNT,
+		         NVL(FAX_SND_SCNT,0) FAX_SND_SCNT,
+		         NVL(DAY_ANS_CALL,0) DAY_ANS_CALL,
+		         NVL( DAY_CNSL_PRSN,0) DAY_CNSL_PRSN,
+		         ROUND(NVL(DAY_CPD,0),1) DAY_CPD0,
+		         DECODE(NVL( DAY_CNSL_PRSN,0),0,0,ROUND( NVL(DAY_ANS_CALL,0) / NVL( DAY_CNSL_PRSN,0) ,1 )) DAY_CPD
+		FROM ST020
+		WHERE USE_YN = 'Y'
+		AND TASK_DT = TO_CHAR(NEXT_DAY(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 )-1,TO_CHAR(TO_DATE(#{schDt},'YYYYMMDD'),'DAY')),'YYYYMMDD')
+		
+		UNION ALL 
+		SELECT 'YM' , '' TASK_CONT, '' ENTR_ST,
+		        ROUND(AVG(NVL(MNGR,0)),1) AS MNGR,
+		        ROUND(AVG(NVL(AGT,0)),1) AGT,
+		        ROUND(AVG(NVL(DAY_OFF,0)),1) DAY_OFF,
+		        ROUND(AVG(NVL(ETC_PRSN,0)),1) ETC_PRSN,
+		        ROUND(AVG(NVL(TOTA_PRSN,0)),1) TOTA_PRSN,
+		        SUM(NVL(IVR_IN_CALL,0)) IVR_IN_CALL,
+		        SUM(NVL(IVR_ANS_CALL,0)) IVR_ANS_CALL,
+		        SUM(NVL(IVR_ABND_CALL,0)) IVR_ABND_CALL,
+		        ROUND(AVG(NVL(IVR_ANS_RATE,0)),1) IVR_ANS_RATE0,
+		        DECODE(SUM(NVL(IVR_IN_CALL,0)),0,0, ROUND( SUM(NVL(IVR_ANS_CALL,0)) / SUM(NVL(IVR_IN_CALL,0)) * 100 ,1 )) IVR_ANS_RATE,
+		        
+		        SUM(NVL(IN_CALL,0)) IN_CALL,
+		        SUM(NVL(ANS_CALL,0)) ANS_CALL,
+		        SUM(NVL(ABND_CALL,0)) ABND_CALL,
+		        ROUND(AVG(NVL(ANS_RATE,0)),1) ANS_RATE0,
+		        DECODE(SUM(NVL(IN_CALL,0)),0,0, ROUND(SUM(NVL(ANS_CALL,0)) / SUM(NVL(IN_CALL,0)) * 100 ,1)) ANS_RATE,
+		        
+		        SUM(NVL(INTPT_SVC,0)) INTPT_SVC,
+		        SUM(NVL(TOTA_CALL_TM,0)) TOTA_CALL_TM,
+		        ROUND(AVG(NVL(AVRG_CALL_TM,0)),1) AVRG_CALL_TM,
+		        SUM(NVL(OB_SUCC_CALL,0)) OB_SUCC_CALL,
+		        SUM(NVL(CNSL_PRSN,0)) CNSL_PRSN,
+		         ROUND(AVG(NVL(CPH,0)),1) CPH0,            
+	             DECODE(SUM(NVL( CNSL_PRSN,0)),0,0, ROUND((SUM(NVL(ANS_CALL,0))+SUM(NVL(OB_SUCC_CALL,0)))/SUM(NVL( CNSL_PRSN,0))/8,1)) CPH,
+	             ROUND(AVG(NVL(CPD,0)),1) CPD0,
+	             DECODE(SUM(NVL( CNSL_PRSN,0)),0,0, ROUND((SUM(NVL(ANS_CALL,0))+SUM(NVL(OB_SUCC_CALL,0)))/SUM(NVL( CNSL_PRSN,0)),1)) CPD,		        
+		        SUM(NVL(SEC20_SUCC_CALL,0)) SEC20_SUCC_CALL,
+		        ROUND(AVG(NVL(SEC20_SUCC_RATE,0)),1) SEC20_SUCC_RATE0,
+		        DECODE(SUM(NVL(IN_CALL,0)),0,0, ROUND(SUM(NVL(SEC20_SUCC_CALL,0)) / SUM(NVL(IN_CALL,0)) * 100 ,1)) SEC20_SUCC_RATE,
+		        
+		        SUM(NVL(SCNT,0)) SCNT,
+		        ROUND(AVG(NVL( RATE,0)),1) RATE,
+		        SUM(NVL( RCV,0)) RCV,
+		        SUM(NVL(ACT,0)) ACT,
+		        ROUND(AVG(NVL(ACT_RATE,0)),1) ACT_RATE0,
+		        DECODE(SUM(NVL( RCV,0)),0,0, ROUND( SUM(NVL(ACT,0)) / SUM(NVL( RCV,0)) * 100 ,1)) ACT_RATE,
+		        
+		        SUM(NVL(SMS_SND_SCNT,0)) SMS_SND_SCNT,
+		        SUM(NVL(FAX_SND_SCNT,0)) FAX_SND_SCNT,
+		        SUM(NVL(DAY_ANS_CALL,0)) DAY_ANS_CALL,
+		        SUM(NVL( DAY_CNSL_PRSN,0)) DAY_CNSL_PRSN,
+		        ROUND(AVG(DECODE(DAY_CPD,0, '', DAY_CPD)),1) DAY_CPD0,
+		        DECODE(SUM(NVL( DAY_CNSL_PRSN,0)),0,0, ROUND( SUM(NVL(DAY_ANS_CALL,0)) / SUM(NVL( DAY_CNSL_PRSN,0)) ,1 )) DAY_CPD
+		FROM ST020
+		WHERE USE_YN = 'Y'
+		AND TASK_DT BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 ),'YYYYMM')||'01'  AND TO_CHAR(LAST_DAY( ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 )),'YYYYMMDD')
+	),
+	TB AS (
+		SELECT 'TD' AS GB, TO_CHAR(TO_DATE(#{schDt},'YYYYMMDD'),'YYYY-MM-DD (DAY)') AS DAY FROM DUAL
+		UNION ALL
+		SELECT 'TM' AS GB, '' FROM DUAL
+		UNION ALL
+		SELECT 'YD' AS GB, TO_CHAR(NEXT_DAY(ADD_MONTHS(TO_DATE(#{schDt},'YYYYMMDD'),-1 )-1,TO_CHAR(TO_DATE(#{schDt},'YYYYMMDD'),'DAY')),'YYYY-MM-DD (DAY)') FROM DUAL
+		UNION ALL
+		SELECT 'YM' AS GB,'' FROM DUAL
+	),
+	TC AS (
+		SELECT *
+		FROM TA, TB
+		WHERE TA.GBA(+) = TB.GB
+	)
+		
+
+ SELECT GB,
+        DAY,
+        TASK_CONT,
+        ENTR_ST,
+        TO_CHAR(NVL(MNGR, 0 ),'9,999,999')        AS MNGR,
+        TO_CHAR(NVL(AGT, 0),'9,999,999')          AS AGT,
+        TO_CHAR(NVL(DAY_OFF,0),'9,999,999')       AS DAY_OFF,
+        TO_CHAR(NVL(ETC_PRSN, 0),'9,999,999')     AS ETC_PRSN,
+        TO_CHAR(NVL(TOTA_PRSN, 0),'9,999,999')    AS TOTA_PRSN,
+        TO_CHAR(NVL(ANS_CALL,0) + NVL(OB_SUCC_CALL,0) ,'9,999,999') AS INOUT_CALL,
+        TO_CHAR(NVL(IVR_IN_CALL,0),'9,999,999')   AS IVR_IN_CALL,
+        TO_CHAR(NVL(IVR_ANS_CALL,0),'9,999,999')  AS IVR_ANS_CALL,
+        TO_CHAR(NVL(IVR_ABND_CALL,0),'9,999,999') AS IVR_ABND_CALL,
+        ROUND(NVL(IVR_ANS_RATE,0),1)  AS IVR_ANS_RATE,
+        TO_CHAR(NVL(IN_CALL,0),'9,999,999')       AS IN_CALL,
+        TO_CHAR(NVL(ANS_CALL,0),'9,999,999')      AS ANS_CALL,
+        TO_CHAR(NVL(ABND_CALL,0),'9,999,999')     AS ABND_CALL,
+        ROUND(NVL(ANS_RATE,0),1)      AS ANS_RATE,
+        TO_CHAR(NVL(INTPT_SVC,0) ,'9,999,999')    AS INTPT_SVC,
+        GETFORMAT_HMS(NVL(TOTA_CALL_TM,0)) TOTA_CALL_TM,
+        GETFORMAT_HMS(NVL(AVRG_CALL_TM,0)) AVRG_CALL_TM,
+        TO_CHAR(NVL(OB_SUCC_CALL,0) ,'9,999,999')   AS OB_SUCC_CALL,
+        TO_CHAR(NVL(CNSL_PRSN,0),'999,990')       AS CNSL_PRSN,
+        ROUND(NVL(CPH,0),1)             AS CPH,
+        ROUND(NVL(CPD,0) ,1)            AS CPD,
+        TO_CHAR(NVL(SEC20_SUCC_CALL,0),'9,999,999') AS SEC20_SUCC_CALL,
+        ROUND(NVL(SEC20_SUCC_RATE,0),1) AS SEC20_SUCC_RATE,
+        TO_CHAR(NVL(SCNT,0),'9,999,999')            AS SCNT,
+        ROUND(NVL(RATE,0) ,1)           AS RATE,
+        TO_CHAR(NVL(RCV,0),'9,999,999')             AS RCV,
+        TO_CHAR(NVL(ACT,0),'9,999,999')             AS ACT,
+        ROUND(NVL(ACT_RATE,0),1)        AS ACT_RATE,
+        TO_CHAR(NVL(SMS_SND_SCNT,0),'9,999,999') SMS_SND_SCNT,
+        TO_CHAR(NVL(FAX_SND_SCNT,0),'9,999,999') FAX_SND_SCNT,
+        TO_CHAR(NVL(DAY_ANS_CALL,0),'9,999,999')  AS DAY_ANS_CALL,
+        TO_CHAR(NVL(DAY_CNSL_PRSN,0),'999,990') AS DAY_CNSL_PRSN,
+        ROUND(NVL(DAY_CPD,0),1)       AS DAY_CPD
+ FROM   TC
+
+ UNION ALL
+
+ SELECT 'TDYD' GB,
+        TO_CHAR(TO_DATE(#{schDt},'YYYYMMDD'),'YYYY-MM-DD') DAY,
+        '' TASK_CONT,
+        '' ENTR_ST,
+        TO_CHAR(NVL(A.MNGR,0)                       - NVL(B.MNGR,0),'9,999,999'),
+        TO_CHAR(NVL(A.AGT, 0)                       - NVL(B.AGT, 0),'9,999,999'),
+        TO_CHAR(NVL(A.DAY_OFF,0)                    - NVL(B.DAY_OFF,0),'9,999,999'),
+        TO_CHAR(NVL(A.ETC_PRSN, 0)                  - NVL(B.ETC_PRSN, 0),'9,999,999'),
+        TO_CHAR(NVL(A.TOTA_PRSN, 0)                 - NVL(B.TOTA_PRSN, 0),'9,999,999'),
+        TO_CHAR((NVL(A.ANS_CALL,0) + NVL(A.OB_SUCC_CALL,0)) - (NVL(B.ANS_CALL,0) + NVL(B.OB_SUCC_CALL,0)) ,'9,999,999') AS INOUT_CALL,
+        TO_CHAR(NVL(A.IVR_IN_CALL,0)                - NVL(B.IVR_IN_CALL,0),'9,999,999'),
+        TO_CHAR(NVL(A.IVR_ANS_CALL,0)               - NVL(B.IVR_ANS_CALL,0),'9,999,999'),
+        TO_CHAR(NVL(A.IVR_ABND_CALL,0)              - NVL(B.IVR_ABND_CALL,0),'9,999,999'),
+        NVL(A.IVR_ANS_RATE,0)                       - NVL(B.IVR_ANS_RATE,0),
+        TO_CHAR(NVL(A.IN_CALL,0)                    - NVL(B.IN_CALL,0),'9,999,999'),
+        TO_CHAR(NVL(A.ANS_CALL,0)                   - NVL(B.ANS_CALL,0),'9,999,999'),
+        TO_CHAR(NVL(A.ABND_CALL,0)                  - NVL(B.ABND_CALL,0),'9,999,999'),
+        NVL(A.ANS_RATE,0)                           - NVL(B.ANS_RATE,0),
+        TO_CHAR(NVL(A.INTPT_SVC,0)                  - NVL(B.INTPT_SVC,0) ,'9,999,999'),
+        GETFORMAT_HMS(NVL(A.TOTA_CALL_TM,0)         - NVL(B.TOTA_CALL_TM,0)) TOTA_CALL_TM,
+        GETFORMAT_HMS(NVL(A.AVRG_CALL_TM,0)         - NVL(B.AVRG_CALL_TM,0)) AVRG_CALL_TM,
+        TO_CHAR(NVL(A.OB_SUCC_CALL,0)               - NVL(B.OB_SUCC_CALL,0),'9,999,999'),
+        TO_CHAR(NVL(A.CNSL_PRSN,0)                  - NVL(B.CNSL_PRSN,0),'999,990'),
+        NVL(A.CPH,0)                                - NVL(B.CPH,0),
+        NVL(A.CPD,0)                                - NVL(B.CPD,0),
+        TO_CHAR(NVL(A.SEC20_SUCC_CALL,0)            - NVL(B.SEC20_SUCC_CALL,0),'9,999,999'),
+        NVL(A.SEC20_SUCC_RATE,0)                    - NVL(B.SEC20_SUCC_RATE,0),
+        TO_CHAR(NVL(A.SCNT,0)                       - NVL(B.SCNT,0),'9,999,999'),
+        NVL(A.RATE,0)                               - NVL(B.RATE,0),
+        TO_CHAR(NVL(A.RCV,0)                        - NVL(B.RCV,0),'9,999,999'),
+        TO_CHAR(NVL(A.ACT,0)                        - NVL(B.ACT,0),'9,999,999'),
+        NVL(A.ACT_RATE,0)                           - NVL(B.ACT_RATE,0),
+        TO_CHAR(NVL(A.SMS_SND_SCNT,0)               - NVL(B.SMS_SND_SCNT,0),'9,999,999'),
+        TO_CHAR(NVL(A.FAX_SND_SCNT,0)               - NVL(B.FAX_SND_SCNT,0),'9,999,999'),
+        TO_CHAR(NVL(A.DAY_ANS_CALL,0)               - NVL(B.DAY_ANS_CALL,0),'9,999,999'),
+        TO_CHAR(NVL(A.DAY_CNSL_PRSN,0)              - NVL(B.DAY_CNSL_PRSN,0),'999,990'),
+        NVL(A.DAY_CPD,0)                            - NVL(B.DAY_CPD,0)
+ FROM   ( SELECT * FROM    TC WHERE   GB='TD' ) A,
+        ( SELECT * FROM    TC WHERE   GB='YD' ) B
+
+	</select>
+
+
+
+	<update id="updateCounselingCntDay" parameterType="map">
+		UPDATE ST020
+		SET TASK_CONT = #{task_cont}, ENTR_ST = #{entr_st}, MNGR = #{mngr}, AGT = #{agt}, DAY_OFF = #{day_off}, ETC_PRSN = #{etc_prsn}, TOTA_PRSN = #{tota_prsn},
+			FAX_SND_SCNT = #{fax_snd_scnt}, 
+		    MOD_DT = TO_CHAR(SYSDATE,'YYYYMMDD'), MOD_TM = TO_CHAR(SYSDATE,'HH24MISS'), MOD_USR_ID = #{login_usr_id}
+		WHERE USE_YN ='Y' AND TASK_DT = #{task_dt}
+	</update>
+
+	<select id="stsCounselingCntIVR" parameterType="map" resultType="map">
+		<!-- 여기서부터 이어서 하기 -->
+		WITH DATA AS (
+
+		    SELECT *
+		    FROM
+		    (
+		        SELECT
+				<if test="optTerm != null and optTerm.equals('day')">
+				  TO_CHAR(TO_DATE(TASK_DT, 'yyyymmdd'), 'yyyy-mm-dd') AS TASK_DT, 
+				  SUBSTR(TASK_DT, 7,2)||'일' AS GB,
+				</if>
+				<if test="optTerm != null and optTerm.equals('month')">
+				  SUBSTR(TASK_DT, 0,6) AS TASK_DT, SUBSTR(SUBSTR(TASK_DT, 0,6), 5,2)||'월' AS GB,
+				</if>
+				<if test="optTerm != null and optTerm.equals('year')">
+				  SUBSTR(TASK_DT, 0,4) AS TASK_DT, SUBSTR(SUBSTR(TASK_DT, 0,4), 3,2)||'년' AS GB, 
+				</if>
+			       SUM(ANS_CALL + OB_SUCC_CALL) AS EF,
+			       SUM(IVR_IN_CALL) AS A, 
+			       SUM(IVR_ANS_CALL) AS B, 
+			       SUM(IVR_ABND_CALL) AS IVR_ABND, 
+			       ROUND(NVL(SUM(IVR_ANS_CALL)/DECODE(SUM(IVR_IN_CALL)/100, 0, NULL, SUM(IVR_IN_CALL)/100),0),1) AS BA,
+			       SUM(IN_CALL) AS D, 
+			       SUM(ANS_CALL) AS E, 
+			       SUM(ABND_CALL) AS IN_ABND, 
+			       ROUND(NVL(SUM(ANS_CALL)/DECODE(SUM(IN_CALL)/100, 0, NULL, SUM(IN_CALL)/100),0),1) AS ED,
+			       SUM(OB_SUCC_CALL) AS F, 
+			       SUM(ACT) AS CALLBACK, 
+			       SUM(SMS_SND_SCNT) AS SMS
+			       
+			     FROM ST020
+				 WHERE USE_YN='Y'		
+	        
+				<if test="optTerm != null and optTerm.equals('day')">
+				  AND TASK_DT BETWEEN #{schStartDt} AND #{schEndDt}
+				  GROUP BY TASK_DT
+				</if>
+				<if test="optTerm != null and optTerm.equals('month')">
+				  AND SUBSTR(TASK_DT, 0,6) BETWEEN #{schStartDt} AND #{schEndDt}
+				  GROUP BY SUBSTR(TASK_DT, 0,6)
+				</if>
+				<if test="optTerm != null and optTerm.equals('year')">
+				  AND SUBSTR(TASK_DT, 0,4) BETWEEN #{schStartDt} AND #{schEndDt}
+				  GROUP BY SUBSTR(TASK_DT, 0,4)
+				</if>
+		    
+		  )
+		  ORDER BY TASK_DT
+		  
+		)
+		
+		SELECT TASK_DT, GB, EF, A, B, IVR_ABND, BA, D, E, IN_ABND, ED, F, CALLBACK, SMS
+		FROM   DATA
+		
+		UNION ALL
+		
+		SELECT '계', '계' GB, SUM(EF),  SUM(A),  SUM(B),  SUM(IVR_ABND),  ROUND(SUM(B)/SUM(A)*100,1),  SUM(D),  SUM(E),  SUM(IN_ABND),  ROUND(SUM(E)/SUM(D)*100,1),  SUM(F),  SUM( CALLBACK),  SUM(SMS)
+		FROM   DATA
+
+		<if test="sidx != null and sord != null">
+		ORDER BY ${sidx} ${sord}
+		</if>		
+		
+	</select>
+	
+</mapper>

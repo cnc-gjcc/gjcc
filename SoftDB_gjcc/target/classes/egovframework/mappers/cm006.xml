@@ -1,0 +1,375 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="cm006">
+	<select id="callBacklist" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+        SELECT
+               T1.CALLBCK_ID
+             , NVL2( T1.CALLBCK_REQ_DT, GETFORMATDATE(T1.CALLBCK_REQ_DT) || ' ' || GETFORMATTIME(T1.CALLBCK_REQ_TM), ' ') AS CALLBCK_REQ_FORMAT
+             , T1.CALLBCK_CUST_NM
+             , GETFORMATPHONENUM(T1.CALLBCK_ANI) AS CALLBCK_ANI_FORMAT
+             , GETFORMATPHONENUM(T1.CALLBCK_TEL_NO) AS CALLBCK_TEL_NO_FORMAT
+             , T4.CD_NM AS CALLBCK_GRP_NM
+             , NVL2(T1.CALLBCK_DIV_DT , GETFORMATDATE(T1.CALLBCK_DIV_DT) || ' ' || GETFORMATTIME(T1.CALLBCK_DIV_TM), ' ') AS CALLBCK_DIV_FORMAT
+             , NVL2(T1.RCT_TRY_DT, GETFORMATDATE(T1.RCT_TRY_DT) || ' ' || GETFORMATTIME(T1.RCT_TRY_TM), ' ') AS RCT_TRY_FORMAT
+             , TO_CHAR(T1.CALL_TRY_SCNT, 99) AS TRY_CNT
+             , AT_DIV_YN as AUTO_ASSIGN 
+             , NVL((SELECT CD_NM FROM SM002 WHERE TP_CD = '90013' AND CD = T2.ACT_ST_CD), '미완료') AS ACT_ST_NM
+             , T1.CALLBCK_ACT_ST_CD          
+             , (SELECT CD_NM FROM SM002 WHERE TP_CD = '90020' AND CD = T1.CALLBCK_ACT_ST_CD) AS CALLBCK_ACT_ST_NM
+             , (SELECT USR_NM FROM OM001 WHERE USR_ID = T1.CALLBCK_USR_ID) AS CALLBCK_USR_NM
+          FROM CM006 T1 
+               LEFT JOIN CH001 T2 ON T1.CALLBCK_OUT_TCKT_ID = T2.TCKT_ID
+               LEFT JOIN CM003 T3 ON T2.CUST_ID = T3.CUST_ID
+               LEFT JOIN SM002 T4 ON T1.CALLBCK_GRP_CD = T4.CD AND T4.TP_CD = '90021'
+         WHERE 1 = 1
+           AND T1.USE_YN = 'Y'
+				<if test="frDt != null and !frDt.equals('') and toDt != null and !toDt.equals('')">
+					and t1.callbck_req_dt between #{frDt} and #{toDt}
+				</if>
+				<if test="chkWorkTm">
+				<![CDATA[
+					and (t1.callbck_req_tm < (select ext1_cd from sm002 where 1=1 and tp_cd = '90000' and cd  = '100200') or t1.callbck_req_tm > (select ext2_cd from sm002 where 1=1 and tp_cd = '90000' and cd  = '100200'))
+				]]>
+				</if>
+				<if test="srchtype != null and !srchval.equals('')">
+					<if test="srchtype.equals('all')">
+					and (upper(t1.callbck_cust_nm) like '%' || upper(#{srchval}) || '%' 
+					or upper(t3.corp_nm) like '%' || upper(#{srchval}) || '%')
+					or (t1.CALLBCK_ANI like '%' || #{srchval} || '%' OR t1.CALLBCK_TEL_NO like '%' || #{srchval} || '%') 
+					</if>
+					<if test="srchtype.equals('custNm')">
+					and upper(t1.callbck_cust_nm) like '%' || upper(#{srchval}) || '%'
+					</if>
+					<if test="srchtype.equals('corpNm')">
+					and upper(t3.corp_nm) like '%' || upper(#{srchval}) || '%'
+					</if>
+				<if test="srchtype.equals('srchPhone')">
+					and (t1.CALLBCK_ANI like '%' || #{srchval} || '%' OR t1.CALLBCK_TEL_NO like '%' || #{srchval} || '%') 
+				</if>     
+				</if>
+				<if test="selActStCd != null and !selActStCd.equals('all')">
+					<if test="selActStCd neq '030400'">
+					and t1.callbck_act_st_cd != '030000'
+					</if>
+					<if test="selActStCd.equals('030400')">
+					and t1.callbck_act_st_cd = '030000'
+					</if>
+				</if>
+				<if test="selCallbckActStCd != null and !selCallbckActStCd.equals('all')">
+					and t1.callbck_act_st_cd = #{selCallbckActStCd}
+				</if>    
+				<if test="selUsrId != null and !selUsrId.equals('all')">
+					and t1.callbck_usr_id = #{selUsrId}
+				</if>
+				<if test="selChGbCd != null and !selChGbCd.equals('all')">
+					and t2.CH_GB_CD = #{selChGbCd}
+				</if>
+				<if test="selActTypeCd != null and !selActTypeCd.equals('all')">
+					and t2.ACT_TYPE_CD = #{selActTypeCd}
+				</if>
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>
+	</select>
+
+	<select id="callBackUsrList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				select
+						b1.usr_id
+					,	b1.usr_nm
+					,	case when b2.total is null then 0 else b2.total end as callbck_div_cnt
+					,	case when b2.comp_cnt is null then 0 else b2.comp_cnt end as callbck_comp_cnt
+					,	case when b2.notyet_cnt is null then 0 else b2.notyet_cnt end as callbck_notyet_cnt
+				from om001 b1
+				left join
+				(
+					select	
+							callbck_usr_id
+						,	sum(1) as total
+						,	sum(case when callbck_act_st_cd = '030000' then 1 else 0 end) comp_cnt
+						,	sum(case when callbck_act_st_cd != '030000' then 1 else 0 end) notyet_cnt
+					from cm006 t1
+					WHERE 1 = 1
+						and t1.use_yn = 'Y'
+					<if test="frDt != null and !frDt.equals('') and toDt != null and !toDt.equals('')">
+						<if test="srchDtType.equals('dt')">
+							and t1.callbck_req_dt between #{frDt} and #{toDt}
+						</if>
+					</if>
+					<!-- 
+					<if test="selCallbckActStCd != null and !selCallbckActStCd.equals('all')">
+						and t1.callbck_act_st_cd = #{selCallbckActStCd}
+					</if>
+					<if test="selUsrId != null and !selUsrId.equals('all')">
+						and t1.callbck_usr_id = #{selUsrId}
+					</if>
+					  -->
+					 
+					GROUP BY callbck_usr_id
+				) b2
+				on b1.usr_id = b2.callbck_usr_id
+				where 1 = 1
+					and b1.use_yn = 'Y'
+					and (b1.ret_dt is null OR b1.ret_dt = '')
+				<if test="cntr_cd != null and !cntr_cd.equals('')">
+					and b1.cntr_cd = #{cntr_cd}
+				</if>
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>
+	</select>
+	
+	<select id="callBackListCnt" parameterType="map" resultType="map">
+		select	
+				sum(1) as total
+			,	sum(case when (callbck_act_st_cd = '010000') or ((callbck_usr_id is null or callbck_usr_id = '') and callbck_act_st_cd != '030000' and callbck_act_st_cd != '012000') then 1 else 0 end) as rcv_cnt
+			,	sum(case when (callbck_usr_id is not null or callbck_usr_id != '') or (callbck_act_st_cd = '011000' or callbck_act_st_cd = '030000') then 1 else 0 end) as div_cnt
+			,	sum(case when callbck_act_st_cd = '012000' then 1 else 0 end) as rediv_cnt
+			,	sum(case when ((callbck_usr_id is not null or callbck_usr_id != '') or (callbck_act_st_cd = '011000' or callbck_act_st_cd = '030000')) and callbck_act_st_cd = '030000' then 1 else 0 end) as comp_cnt
+			,	sum(case when ((callbck_usr_id is not null or callbck_usr_id != '') or (callbck_act_st_cd = '011000' or callbck_act_st_cd = '030000')) and callbck_act_st_cd != '030000' then 1 else 0 end) as notyet_cnt
+		from cm006 t1
+		WHERE 1 = 1
+			and t1.use_yn = 'Y'
+		<if test="frDt != null and !frDt.equals('') and toDt != null and !toDt.equals('')">
+			<if test="srchDtType.equals('dt')">
+				and t1.callbck_req_dt between #{frDt} and #{toDt}
+			</if>
+		</if>
+		
+		<if test="selCallbckActStCd != null and !selCallbckActStCd.equals('all')">
+			and t1.callbck_act_st_cd = #{selCallbckActStCd}
+		</if>
+		<if test="selUsrId != null and !selUsrId.equals('all')">
+			and t1.callbck_usr_id = #{selUsrId}
+		</if>
+	  	
+	</select>
+	
+	<select id="callBackSpec" parameterType="map" resultType="map">
+    SELECT
+          CALLBCK_ID
+        , (GETFORMATDATE(CALLBCK_REQ_DT) ||' '|| GETFORMATTIME(CALLBCK_REQ_TM)) AS CALLBCK_REQ_FORMAT
+        , NVL2(CALLBCK_REQ_DT, GETFORMATDATE(CALLBCK_REQ_DT) ||' '|| GETFORMATTIME(CALLBCK_REQ_TM), ' ') AS CALLBCK_REQ_FORMAT
+        , NVL2(CALLBCK_DIV_DT, GETFORMATDATE(CALLBCK_DIV_DT) ||' '|| GETFORMATTIME(CALLBCK_DIV_TM), ' ') AS CALLBCK_DIV_FORMAT
+          , NVL2(RCT_TRY_DT, GETFORMATDATE(RCT_TRY_DT) ||' '|| GETFORMATTIME(RCT_TRY_TM), ' ') AS RCT_TRY_FORMAT
+        , CALLBCK_ACT_ST_CD
+        , CALLBCK_CUST_NM
+        , GETFORMATPHONENUM(CALLBCK_TEL_NO) AS CALLBCK_TEL_NO_FORMAT
+        , GETFORMATPHONENUM(CALLBCK_ANI) AS CALLBCK_ANI_FORMAT
+        , ((CASE WHEN AT_DIV_YN = 'Y' THEN '자동분배' ELSE '수동분배' END) ||' / '||  DECODE(CALLBCK_ACT_ST_CD,'012000','Y','N') )AS AUTO_RECL
+        , CALLBCK_OUT_TCKT_ID AS OUT_TCKT_ID
+        , CALLBCK_REG_TCKT_ID AS REG_TCKT_ID
+        , NVL(CALL_TRY_SCNT,0) as CALL_TRY_SCNT
+        , NVL(CALLBCK_ACT_RSN,'') as CALLBCK_ACT_RSN
+    FROM CM006
+		WHERE CALLBCK_ID = #{callbckId}
+	</select>
+	
+	<update id="releaseCallbck" parameterType="map">
+		UPDATE cm006
+		SET
+				callbck_div_dt = ''
+			,	callbck_div_tm = ''
+			,	callbck_act_st_cd = '012000'
+			,	callbck_usr_id = ''
+			,	rct_try_dt = ''
+			,	rct_try_tm = ''
+			,	mod_dt = to_char(sysdate, 'yyyymmdd')
+			,	mod_tm = to_char(sysdate, 'hh24miss')
+			,	mod_usr_id = #{login_usr_id}
+		WHERE callbck_id in 
+		<foreach item="callbckIds" index="index" collection="callbckIds" open="(" separator="," close=")">
+        	#{callbckIds}
+	  	</foreach>
+	</update>
+	
+	<update id="divCallbck" parameterType="map">
+		UPDATE cm006
+		SET
+				callbck_div_dt = to_char(sysdate, 'yyyymmdd')
+			,	callbck_div_tm = to_char(sysdate, 'hh24miss')
+			,	callbck_act_st_cd = '011000'
+			,	callbck_usr_id = #{callbck_usr_id}
+			,	rct_try_dt = ''
+			,	rct_try_tm = ''
+			,	mod_dt = to_char(sysdate, 'yyyymmdd')
+			,	mod_tm = to_char(sysdate, 'hh24miss')
+			<if test="at_div_yn != null and !at_div_yn.equals('')">
+			,  AT_DIV_YN = #{at_div_yn}
+			</if>
+			,	mod_usr_id = #{login_usr_id}
+		WHERE callbck_id = #{callbck_id}
+	</update>
+	
+	<update id="updateTryInfo" parameterType="map">
+		UPDATE cm006
+			SET
+					callbck_act_st_cd = #{callbckActStCd}
+				<if test="type.equals('save')">
+				,	callbck_out_tckt_id = #{outTcktId}
+				</if>
+				<if test="type.equals('call')">
+				,	call_try_scnt = nvl(call_try_scnt,0) + 1
+				,	RCT_TRY_DT = to_char(sysdate, 'yyyymmdd')
+				,	RCT_TRY_TM = to_char(sysdate, 'hh24miss')
+				</if>
+				,	mod_dt = to_char(sysdate, 'yyyymmdd')
+				,	mod_tm = to_char(sysdate, 'hh24miss')
+				,	mod_usr_id = #{login_usr_id}
+			where callbck_id = #{callbckId}
+	</update>
+	
+	<update id="updateActStCd" parameterType="map">
+		UPDATE cm006
+			SET
+					callbck_act_st_cd = #{callbckActStCd}
+				<if test="compflag != null and !compflag.equals('')">
+				,	rct_try_dt = to_char(sysdate, 'yyyymmdd')
+				,	rct_try_tm = to_char(sysdate, 'hh24miss')	
+				</if>
+				,	mod_dt = to_char(sysdate, 'yyyymmdd')
+				,	mod_tm = to_char(sysdate, 'hh24miss')
+				,	mod_usr_id = #{login_usr_id}
+		 WHERE callbck_id = #{callbckId}
+	</update>
+	<select id="callBacklistExcel" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+          SELECT
+              T1.CALLBCK_ID
+             , NVL2( T1.CALLBCK_REQ_DT, GETFORMATDATE(T1.CALLBCK_REQ_DT) || ' ' || GETFORMATTIME(T1.CALLBCK_REQ_TM), ' ') AS CALLBCK_REQ_FORMAT
+             , T1.CALLBCK_CUST_NM
+             , REGEXP_REPLACE(getFormatPhoneNum(T1.CALLBCK_ANI),substr(getFormatPhoneNum(T1.CALLBCK_ANI),4,length(T1.CALLBCK_ANI)-5),'-****-') AS CALLBCK_ANI_FORMAT
+             , REGEXP_REPLACE(getFormatPhoneNum(T1.CALLBCK_ANI),substr(getFormatPhoneNum(T1.CALLBCK_ANI),4,length(T1.CALLBCK_ANI)-5),'-****-') AS CALLBCK_TEL_NO_FORMAT
+             , NVL2(T1.CALLBCK_DIV_DT , GETFORMATDATE(T1.CALLBCK_DIV_DT) || ' ' || GETFORMATTIME(T1.CALLBCK_DIV_TM), ' ') AS CALLBCK_DIV_FORMAT
+             , NVL2(T1.RCT_TRY_DT, GETFORMATDATE(T1.RCT_TRY_DT) || ' ' || GETFORMATTIME(T1.RCT_TRY_TM), ' ') AS RCT_TRY_FORMAT
+             , TO_CHAR(T1.CALL_TRY_SCNT, 99) AS TRY_CNT
+             , NVL((SELECT CD_NM FROM SM002 WHERE TP_CD = '90013' AND CD = T2.ACT_ST_CD), '미완료') AS ACT_ST_NM
+             , T1.CALLBCK_ACT_ST_CD          
+             , decode(AT_DIV_YN,'Y','자동','수동') || (SELECT CD_NM FROM SM002 WHERE TP_CD = '90020' AND CD = T1.CALLBCK_ACT_ST_CD) AS CALLBCK_ACT_ST_NM
+             , (SELECT USR_NM FROM OM001 WHERE USR_ID = T1.CALLBCK_USR_ID) AS CALLBCK_USR_NM
+          FROM CM006 T1 
+               LEFT JOIN CH001 T2 ON T1.CALLBCK_OUT_TCKT_ID = T2.TCKT_ID
+               LEFT JOIN CM003 T3 ON T2.CUST_ID = T3.CUST_ID
+         WHERE 1 = 1
+           AND T1.USE_YN = 'Y'
+				<if test="frDt != null and !frDt.equals('') and toDt != null and !toDt.equals('')">
+				   and t1.callbck_req_dt between #{frDt} and #{toDt}
+				</if>
+				<if test="srchtype != null and !srchval.equals('')">
+					<if test="srchtype.equals('all')">
+						and (upper(t1.callbck_cust_nm) like '%' || upper(#{srchval}) || '%' or upper(t3.corp_nm) like '%' || upper(#{srchval}) || '%')
+					</if>
+					<if test="srchtype.equals('custNm')">
+						and upper(t1.callbck_cust_nm) like '%' || upper(#{srchval}) || '%'
+					</if>
+					<if test="srchtype.equals('corpNm')">
+						and upper(t3.corp_nm) like '%' || upper(#{srchval}) || '%'
+					</if>
+          <if test="srchtype.equals('srchPhone')">
+            and (t1.CALLBCK_ANI like '%' || #{srchval} || '%' OR t1.CALLBCK_TEL_NO like '%' || #{srchval} || '%') 
+          </if>     
+				</if>
+				<if test="selActStCd != null and !selActStCd.equals('all')">
+					<if test="selActStCd neq '030400'">
+						and t1.callbck_act_st_cd != '030000'
+					</if>
+					<if test="selActStCd.equals('030400')">
+						and t1.callbck_act_st_cd = '030000'
+					</if>
+				</if>
+        <if test="selCallbckActStCd != null and !selCallbckActStCd.equals('all')">
+            and t1.callbck_act_st_cd = #{selCallbckActStCd}
+        </if>    
+				<if test="selUsrId != null and !selUsrId.equals('all')">
+					and t1.callbck_usr_id = #{selUsrId}
+				</if>
+				<if test="selChGbCd != null and !selChGbCd.equals('all')">
+					and t2.CH_GB_CD = #{selChGbCd}
+				</if>
+				<if test="selActTypeCd != null and !selActTypeCd.equals('all')">
+					and t2.ACT_TYPE_CD = #{selActTypeCd}
+				</if>
+				
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>
+	</select>
+ 
+  <!-- 처리상태:해결(030100), 사용여부:사용안함(N) -->
+  <update id="deleteCallbck" parameterType="map">
+    UPDATE cm006
+    SET
+        CALLBCK_ACT_ST_CD = #{callbck_act_st_cd}
+      , mod_dt = to_char(sysdate, 'yyyymmdd')
+      , mod_tm = to_char(sysdate, 'hh24miss')
+      , mod_usr_id = #{login_usr_id}
+      , use_yn = 'N'
+    WHERE callbck_id in 
+    <foreach item="callbckIds" index="index" collection="callbckIds" open="(" separator="," close=")">
+          #{callbckIds}
+      </foreach>
+  </update> 
+ 
+    <!-- 처리상태:강제완료(030000)  -->
+  <update id="callbckCntUpdate" parameterType="map">
+    UPDATE cm006
+    SET
+        CALLBCK_ACT_ST_CD = #{callbck_act_st_cd}
+      , CALLBCK_ACT_RSN = #{callbck_act_rsn}
+      , mod_dt = to_char(sysdate, 'yyyymmdd')
+      , mod_tm = to_char(sysdate, 'hh24miss')
+      , mod_usr_id = #{login_usr_id} 
+    WHERE callbck_id = #{callbck_id}
+  </update> 
+  
+</mapper>

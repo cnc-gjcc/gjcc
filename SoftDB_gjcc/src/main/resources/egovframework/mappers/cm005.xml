@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="cm005">
+	
+	<update id="updateResvCnsl" parameterType="map">
+	<![CDATA[
+		update cm005
+		set
+			arm_yn = 'Y'
+		where RESV_REG_TCKT_ID in
+		(
+			select a1.tckt_id
+			from ch001 a1
+			join cm005 a2
+			on a1.tckt_id = a2.RESV_REG_TCKT_ID
+			where a1.use_yn = 'Y'
+				and a1.act_st_cd != '030000'
+				and a1.rcv_usr_id = #{login_usr_id}
+				and a2.arm_yn = 'N'
+				and a2.resv_dt = to_char(sysdate, 'yyyymmdd')
+				and a2.resv_tm < to_char(sysdate + 1/(24), 'hh24miss')
+		)
+	]]>
+	</update>
+	
+	<update id="resvExctYnUpdate" parameterType="map">
+		UPDATE CM005
+		SET 
+			resv_exct_yn = 'Y'		
+		where resv_reg_tckt_id = #{tcktId} 
+	</update>
+	
+	<select id="resvUpdateList" parameterType="map" resultType="map">
+		SELECT 
+				tckt_id
+			,	out_tckt_id
+		FROM cm005
+		start with TCKT_ID = #{tcktId}
+		connect by prior TCKT_ID = OUT_TCKT_ID
+	</select>
+	
+</mapper>

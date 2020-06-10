@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+    <mapper namespace="om026">
+  
+    <!-- 모니터링 대상자 저장 -->
+    <update id = "insertRecTarget" parameterType="map">
+        MERGE INTO OM026
+        USING dual
+        ON 
+        (
+            VLTN_ID = #{mntId} and VLTN_USR_ID = #{usrId}
+        )
+        WHEN MATCHED THEN
+            UPDATE
+            SET
+                MOD_DT = TO_CHAR(SYSDATE, 'YYYYMMDD')
+              , MOD_TM = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+              , MOD_USR_ID = #{login_usr_id}
+        WHEN NOT MATCHED THEN
+            INSERT 
+            (
+               VLTN_ID
+             , VLTN_USR_ID
+             , USE_YN
+             , CRT_DT
+             , CRT_TM
+             , CRT_USR_ID 
+             , MOD_DT
+             , MOD_TM 
+             , MOD_USR_ID
+            ) VALUES (
+               #{mntId}
+             , #{usrId}
+             , 'Y'
+             , TO_CHAR(SYSDATE, 'YYYYMMDD')
+             , TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+             , #{login_usr_id}
+             , TO_CHAR(SYSDATE, 'YYYYMMDD')
+             , TO_CHAR(SYSTIMESTAMP, 'HH24MISS')            
+             , #{login_usr_id}
+            )
+    </update> 
+   
+    <!-- 모니터링 대상 목록-->
+    <select id="selectRecTargetAgt" parameterType="map" resultType="map">
+        <if test="rows != null and page != null">
+        SELECT *
+        FROM
+        (
+            SELECT A1.*
+                ,   CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+                ,   CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+                ,   CEIL(COUNT(1) OVER()) TOTROWCOUNT
+            FROM
+            (
+        </if>
+
+              SELECT T1.VLTN_USR_ID 
+                   , (SELECT USR_NM FROM OM001 WHERE USR_ID = T1.VLTN_USR_ID) AS USR_NM
+                   , (CASE WHEN NVL(T2.ORD1_SCR, 0) <![CDATA[<>]]> 0 AND NVL(T2.ORD2_SCR, 0) <![CDATA[<>]]> 0 AND NVL(T2.TOT_SCR, 0) <![CDATA[<>]]> 0 THEN 'Y' ELSE 'N' END) AS EVL_YN 
+                   , T2.ORD1_SCR
+                   , T2.ORD1_OBJCT_NM
+                   , T2.ORD1_VLTN_OPN
+                   , T2.ORD1_OBJCT
+                   , T2.ORD1_ANS
+                   , T2.ORD1_VLTR_ID
+                   , T2.ORD2_SCR
+                   , T2.ORD2_OBJCT_NM
+                   , T2.ORD2_VLTN_OPN
+                   , T2.ORD2_OBJCT
+                   , T2.ORD2_ANS
+                   , T2.ORD2_VLTR_ID
+                   , T2.TOT_SCR
+                   , NVL2(T2.VLTN_CNT, (T2.TOT_SCR / T2.VLTN_CNT), 0) AS AVG_SCR
+                   , T3.PRC_CNT
+                   , T3.CRCT AS CRCT_CNT
+                   /* , T2.TCKT_ID */
+                FROM OM026 T1       
+                     LEFT JOIN (SELECT VLTN_ID
+                                       , VLTN_USR_ID
+                                       /* , TCKT_ID */
+                                       , ORD1_OBJCT_NM
+                                       , ORD1_VLTN_OPN
+                                       , ORD1_OBJCT
+                                       , ORD1_ANS
+                                       , ORD1_SCR
+                                       , ORD1_VLTR_ID
+                                       , ORD2_OBJCT_NM
+                                       , ORD2_VLTN_OPN
+                                       , ORD2_OBJCT
+                                       , ORD2_ANS
+                                       , ORD2_SCR
+                                       , ORD2_VLTR_ID
+                                       , NVL(ORD1_CNT, 0) + NVL(ORD2_CNT, 0) AS VLTN_CNT
+                                       , NVL(ORD1_SCR, 0) + NVL(ORD2_SCR, 0) AS TOT_SCR
+                                    FROM (                   
+                                          SELECT SUBT1.VLTN_ID AS VLTN_ID
+                                               , SUBT1.VLTN_USR_ID AS VLTN_USR_ID
+                                               /* , SUBT1.TCKT_ID AS TCKT_ID */
+                                               , SUBT1.VLTN_OPN AS VLTN_OPN
+                                               , SUBT1.OBJCT AS OBJCT
+                                               , SUBT1.ANS AS ANS
+                                               , SUBT1.ORD AS ORD
+                                               , SUBT2.SCR AS SCR
+                                               , DECODE(SUBT1.OBJCT, '', '', '이의제기') AS OBJCT_NM
+                                               , SUBT2.VLTR_ID
+                                               , 1 AS CNT
+                                            FROM OD028 SUBT1
+                                                 JOIN (SELECT VLTN_ID 
+                                                            , VLTN_USR_ID 
+                                                            , VLTR_ID
+                                                            /* , TCKT_ID */ 
+                                                            , ORD 
+                                                            , SUM(SCR) AS SCR
+                                                         FROM OD029
+                                                        GROUP BY VLTN_ID 
+                                                            , VLTN_USR_ID 
+                                                            , VLTR_ID
+                                                            /* , TCKT_ID */ 
+                                                            , ORD) SUBT2 ON SUBT1.VLTN_ID = SUBT2.VLTN_ID 
+                                                                            AND SUBT1.VLTN_USR_ID = SUBT2.VLTN_USR_ID 
+                                                                            /* AND SUBT1.TCKT_ID = SUBT2.TCKT_ID */
+                                                                            AND SUBT1.ORD = SUBT2.ORD )
+                                     PIVOT (MAX(OBJCT_NM) AS OBJCT_NM
+                                          , MAX(VLTN_OPN) AS VLTN_OPN
+                                          , MAX(OBJCT) AS OBJCT
+                                          , MAX(ANS) AS ANS
+                                          , SUM(SCR) AS SCR 
+                                          , MAX(VLTR_ID) AS VLTR_ID
+                                          , SUM(CNT) AS CNT
+                                       FOR ORD IN ('1' AS ORD1, '2' AS ORD2))) T2 ON T1.VLTN_ID = T2.VLTN_ID AND T1.VLTN_USR_ID = T2.VLTN_USR_ID
+                     LEFT OUTER JOIN (SELECT VLTN_ID 
+                                           , VLTN_USR_ID
+                                           , NVL(SUM(CRCT) + SUM(INCRCT), 0) AS PRC_CNT
+                                           , SUM(CRCT) AS CRCT 
+                                        FROM OD026
+                                       GROUP BY VLTN_ID 
+                                           , VLTN_USR_ID) T3 ON T1.VLTN_ID = T3.VLTN_ID AND T1.VLTN_USR_ID = T3.VLTN_USR_ID
+                     JOIN OM001 T4 ON T1.VLTN_USR_ID = T4.USR_ID     
+                     
+                <if test = "!chkRetire">
+                             AND (T4.RET_DT is null OR T4.RET_DT = '')
+                </if>
+                <if test="  !notuse">
+                             AND T4.USE_YN = 'Y'
+                </if>
+                <if test="cntr_cd != null and !cntr_cd.equals('all') and !cntr_cd.equals('')">
+                             AND T4.CNTR_CD = #{cntr_cd}
+                </if>
+                <if test="team_cd != null and !team_cd.equals('all') and !team_cd.equals('')">
+                             AND T4.TEAM_CD = #{team_cd}
+                </if>
+                <if test="usr_Id != null and !usr_Id.equals('') and !usr_Id.equals('all')">
+                             AND T4.USR_ID = #{usr_Id}
+                </if>   
+               WHERE T1.VLTN_ID = #{mntId}                
+                               
+           <if test="sidx != null and sord != null">
+               ORDER  BY ${sidx} ${sord}
+           </if>
+        <if test="rows != null and page != null">
+            ) A1
+        )
+        WHERE PAGENUM = #{page}
+        </if>
+    </select>
+       
+</mapper>

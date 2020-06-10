@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="rsm_receivgroup">
+
+  <!-- RSM SMS 발송 이력 조회 -->
+  <select id="smsRcvGroupList" parameterType="map" resultType="map">
+    <if test="rows != null and page != null">
+    SELECT *
+    FROM
+    (
+      SELECT A1.*
+        , CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+        , CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+        , CEIL(COUNT(1) OVER()) TOTROWCOUNT
+      FROM
+      (
+    </if>
+        SELECT T1.GROUPID, GETCODENM(T1.GROUPID, '92010') AS GROUPNAME
+             , T1.TARGETID, T2.DISPLAYNAME AS TARGETNM
+             , T2.TELEPHONENUMBER AS PHONENO
+             , T2.JOBTITLE
+             , T2.DEPT_NM AS DEPTNM
+             , T1.SENDGUBUN
+             , T1.MONI_PING
+             , T1.MONI_RESUR
+             , T1.MONI_PROC
+             , T1.MONI_CALL
+             , T1.MONI_EVENT
+          FROM RSM_RECEIVGROUP T1
+             , OM061 T2
+         WHERE T1.TARGETID = T2.ORG_USR_ID    
+        <if test="groupId != null and !groupId.equals('all')">     
+           AND T1.GROUPID = #{groupId}
+        </if>
+        <if test="targetId != null and !targetId.equals('all')">       
+           AND T1.SENDGUBUN = #{targetId}
+        </if>        
+        
+        <if test="sidx != null and sord != null">
+        ORDER BY ${sidx} ${sord}
+        </if>     
+        
+    <if test="rows != null and page != null">
+      ) A1
+    )
+    WHERE PAGENUM = #{page}
+    </if>
+  </select>
+
+	<insert id="insert" parameterType="map">
+		INSERT INTO RSM_RECEIVGROUP 
+		    (GROUPID
+       , TARGETID
+       , SENDGUBUN
+       , MONI_PING
+       , MONI_RESUR
+       , MONI_PROC
+       , MONI_CALL
+       , MONI_EVENT)
+		VALUES
+  			(
+  			 #{groupId},			 	 
+  			 #{targetId},
+  			 #{sendGubun},
+  			 #{moniPing}, 
+         #{moniResur}, 
+         #{moniProc}, 
+  			 #{moniCall}, 			 
+  			 #{moniEvent}
+  			)
+	</insert>
+
+	<update id="update" parameterType="map">
+		UPDATE RSM_RECEIVGROUP SET
+
+      	<if test="sendGubun != null and !sendGubun.equals('all')">
+      	  SENDGUBUN = #{sendGubun},
+      	</if>
+      
+        	MONI_PING = #{moniPing},
+        	MONI_RESUR = #{moniResur},			
+        	MONI_PROC = #{moniProc},
+        	MONI_CALL = #{moniCall},
+        	MONI_EVENT = #{moniEvent}
+		 WHERE GROUPID = #{groupId}
+       AND TARGETID = #{targetId}
+	</update>
+ 
+  <delete id="delete" parameterType="map">
+    DELETE FROM RSM_RECEIVGROUP
+     WHERE GROUPID = #{groupId}
+       AND TARGETID = #{targetId}
+  </delete>
+  
+</mapper>

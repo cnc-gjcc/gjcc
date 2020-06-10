@@ -1,0 +1,446 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="cm010">
+
+	<sql id="where">
+		 WHERE  1 = 1
+		<if test="cmpg_id != null">
+		   AND  t1.cmpg_id = #{cmpg_id}
+		</if>
+		<if test="srhText != null">
+			<!-- 조회조건에 따라 칼럼 수정해서 사용하세요 -->
+			<if test="srhType == cmpg_id">
+			   AND  t1.cmpg_id LIKE '%' || #{srhText} || '%'
+			</if>
+		</if>
+	</sql>
+	
+	<select id="cmpgBasic" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+		  SELECT CMPG_ID
+		             , CMPG_NM
+		             , CMPG_DSC
+		             , CMPG_TYPE_CD
+		             , TYPE_CD
+		             , PROC_ST_CD
+		             , STRT_DT
+		             , END_DT
+		             , STEND_DT
+		             , VLTN_CNT
+		             , PROC_ST
+		             , TRGT_CUST_CNT
+		             , DIVCNT
+		             , NONDIVCNT
+		             , TOTCNT
+		             , COPCNT
+		             , TOTCNT - COPCNT AS NONCOPCNT
+		             , (CASE TOTCNT WHEN 0 THEN 0 ELSE TRUNC(COPCNT / TOTCNT * 100, 2) END) || '%' AS PROGRESS
+		     FROM 
+		     (		             
+						SELECT
+								cmpg_id
+							,	cmpg_nm
+							,	cmpg_dsc
+							,	getCodeNM(cmpg_type_cd, '90115') as cmpg_type_cd
+							,	cmpg_type_cd as type_cd
+							,	proc_st_cd as proc_st_cd
+							,	getFormatDate(strt_dt) as strt_dt 
+							,	getFormatDate(end_dt)  as end_dt 
+							,	getFormatDate(strt_dt) || ' ~ ' || getFormatDate(end_dt) as stend_dt
+							,	qst_scnt as vltn_cnt
+							,	getCodeNM(proc_st_cd, '90023') as proc_st
+							,	trgt_cust_scnt as trgt_cust_cnt
+							, (select count(1) from cm012 where cmpg_id = cm010.cmpg_id and usr_id is not null) as divcnt 
+        			, (select count(1) from cm012 where cmpg_id = cm010.cmpg_id and usr_id is null) as nondivcnt 
+							
+							<!-- 상담사일 경우 -->
+							<choose> 
+							<when test="usrGrdCd.equals('010100')">								
+							,	(select count(1) from cm012 where cmpg_id = cm010.cmpg_id and usr_id = #{usr_id}) as totcnt																																										/* 총건수 */
+							,	(select count(1) from cm012 where cmpg_id = cm010.cmpg_id and proc_st_cd = '030400' and usr_id = #{usr_id}) as copcnt																				/* 완료건수 */
+							</when>
+							
+							<!-- 관리자일 경우 -->
+							<otherwise>
+								<!-- 상담사 전체 조회 -->
+								<if test="usr_id != null and usr_id.equals('all')">
+								,	(select count(1) from cm012 where cmpg_id = cm010.cmpg_id and usr_id is not null) as totcnt
+								,	(select count(1) from cm012 where cmpg_id = cm010.cmpg_id and proc_st_cd = '030400') as copcnt
+							  </if>
+							  <!-- 지정 상담사 조회 --> 
+							  <if test="usr_id != null and !usr_id.equals('all')">
+								,	(select count(1) from cm012 where cmpg_id = cm010.cmpg_id and usr_id = #{usr_id}) as totcnt
+								,	(select count(1) from cm012 where cmpg_id = cm010.cmpg_id and proc_st_cd = '030400' and usr_id = #{usr_id}) as copcnt
+							  </if>       				
+							</otherwise>
+							</choose>		
+							
+						FROM cm010
+						WHERE 1 = 1
+							and use_yn = 'Y'
+							<if test="cntr_cd != null and !cntr_cd.equals('all') and !cntr_cd.equals('')">
+					    	<![CDATA[
+					    	and #{cntr_cd} in (select cntr_cd from om001 where usr_id in (select usr_id from cm012 where cmpg_id = cm010.cmpg_id))
+					    	]]>
+					    </if>
+					    <if test="team_cd != null and !team_cd.equals('all') and !team_cd.equals('')">
+					    	<![CDATA[
+					    	and #{team_cd} in (select team_cd from om001 where usr_id in (select usr_id from cm012 where cmpg_id = cm010.cmpg_id))
+					    	]]>
+					    </if>
+					    <if test="dept_cd != null and !dept_cd.equals('all') and !dept_cd.equals('')">
+					    	<![CDATA[
+					    	and #{dept_cd} in (select dept_cd from om001 where usr_id in (select usr_id from cm012 where cmpg_id = cm010.cmpg_id))
+					    	]]>
+					    </if>
+					    <if test="opt_CounsType != null and !opt_CounsType.equals('all') and !opt_CounsType.equals('')">
+					    	<![CDATA[
+					    	and (select count(1) from cm014 where cmpg_id = cm010.cmpg_id and usr_id = #{opt_CounsType}) > 0
+					    	]]>
+					    </if>
+					    <if test="opt_srchtype != null and !opt_srchtype.equals('all') and !opt_srchtype.equals('')">
+					    	and proc_st_cd = #{opt_srchtype}
+					    </if>
+					    <if test="cmpg_type != null and !cmpg_type.equals('all') and !cmpg_type.equals('')">
+					    	and cmpg_type_cd = #{cmpg_type}
+					    </if>
+				    		    		    
+							<!-- 상담사일 경우 -->
+							<choose> 
+							<when test="usrGrdCd.equals('010100')">								
+							and EXISTS (select usr_id from cm012 where cm010.cmpg_id = cmpg_id and usr_id = #{usr_id})				
+							</when>
+							
+							<!-- 관리자일 경우 -->
+							<otherwise>
+							  <!-- 지정 상담사 조회 --> 
+							  <if test="usr_id != null and !usr_id.equals('all')">
+								and EXISTS (select usr_id from cm012 where cm010.cmpg_id = cmpg_id and usr_id = #{usr_id})						          
+							  </if>       				
+							</otherwise>
+							</choose>				    
+				    		       
+					   	<if test="fr_dt != null and !fr_dt.equals('') and to_dt != null and !to_dt.equals('')">
+					   		<![CDATA[
+								and ( #{to_dt}>= strt_dt
+								and end_dt >=#{fr_dt} )
+								]]>
+						</if>
+						<if test="cmpg_nm != null and !cmpg_nm.equals('')">
+							and cmpg_nm like '%' || #{cmpg_nm} || '%'
+						</if>
+						<if test = "progressCmpn">
+							AND proc_st_cd in ( '020000' )
+						</if>
+			) A2
+			<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+			</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>
+	</select>	
+
+	<select id="excelCmpgBasic" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+			SELECT  cmpg_id 																													/* 캠페인아이디 */
+						, cmpg_nm																														/* 캠페인명 */
+						, cmpg_dsc																													/* 캠페인소개 */
+						, getCodeNM(cmpg_type_cd, '90115') AS cmpg_type_cd									/* 캠페인유형 */
+						, cmpg_type_cd AS type_cd																						/* 캠페인유형코드 */
+						,	proc_st_cd AS proc_st_cd																							/* 진행상태 */
+						, getFormatDate(strt_dt) AS strt_dt 
+						, getFormatDate(end_dt) AS end_dt 
+						, getFormatDate(strt_dt) ||'~'|| getFormatDate(end_dt) AS stend_dt	/* 기간 */
+						, qst_scnt as vltn_cnt																													/* 평가문항갯수 */
+						, getCodeNM(proc_st_cd, '90023') AS proc_st														/* 진행상태 */
+						, trgt_cust_scnt as trgt_cust_cnt																											/* 대상고객수 */
+						, NVL((select count(1) from cm012 where cmpg_id = cm010.cmpg_id), 0) AS totcnt
+						, NVL((select count(1) from cm012 where cmpg_id = cm010.cmpg_id and proc_st_cd = '030400'), 0) AS copcnt														/* 완료건수 */
+						, NVL((trgt_cust_scnt - (select count(1) from cm012 where cmpg_id = cm010.cmpg_id and proc_st_cd = '030400')), 0) AS noncopcnt				/* 미완료건수 */
+						, CASE
+							WHEN (select count(1) from cm012 where cmpg_id = cm010.cmpg_id and proc_st_cd = '030400') = 0
+							THEN 0
+							ELSE ROUND((select count(1) from cm012 where cmpg_id = cm010.cmpg_id and proc_st_cd = '030400') / trgt_cust_scnt * 100) 						/* 응답률 */
+							END AS progress
+						, NVL((SELECT count(1) FROM cm012 WHERE cmpg_id = cm010.cmpg_id AND proc_st_cd = '030400'), 0) AS comcnt														/* 응답자수 */
+ 			  FROM  cm010
+			WHERE  use_yn = 'Y'
+ 		     <!-- AND cmpg_id in (SELECT DISTINCT cmpg_id FROM cm014 WHERE usr_id = #{ login_usr_id }) -->
+		    <if test="cmpg_nm != null and !cmpg_nm.equals('all') and !cmpg_nm.equals('')">
+		    	and cmpg_nm LIKE '%' || #{cmpg_nm} || '%'
+		    </if>
+		    <if test="opt_srchtype != null and !opt_srchtype.equals('all') and !opt_srchtype.equals('')">
+		    	and  proc_st_cd = #{opt_srchtype}
+		    </if>
+		    <if test="cmpg_type != null and !cmpg_type.equals('all') and !cmpg_type.equals('')">
+		    	and  cmpg_type_cd = #{cmpg_type}
+		    </if>
+		   	<if test="fr_dt != null and !fr_dt.equals('') and to_dt != null and !to_dt.equals('')">
+				and ( #{to_dt}>= strt_dt
+				and  end_dt >=#{fr_dt} )
+			</if>
+			<if test = "cmpg_id != null and !cmpg_id.equals('')">
+				AND cmpg_id = #{ cmpg_id }
+			</if>
+			<if test = "cmpg_cust_id != null and !cmpg_cust_id.equals('')">
+				AND cmpg_id not in( SELECT cmpg_id FROM cm012 WHERE use_yn = 'Y' AND cust_id = #{ cmpg_cust_id } )
+			</if>
+			<if test = "progressCmpn">
+				AND proc_st_cd in ( '020000' )
+			</if>
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>
+	</select>
+
+	<select id="selectListCount" parameterType="map" resultType="int">
+		SELECT COUNT(1) AS rows_tot
+		  FROM cm010  t1
+		<include refid="where" />
+	</select>
+
+	<select id="select" parameterType="map" resultType="map">
+		SELECT ROWNUM AS row_no
+         , t1.cmpg_id
+         , t1.cmpg_nm
+         , t1.cmpg_dsc
+         , t1.cmpg_type_cd
+         , t1.cntr_cd
+         , t1.team_cd
+         , t1.grtn
+         , t1.clsn
+         , t1.qst_scnt as vltn_cnt
+         , t1.trgt_cust_scnt as trgt_cust_cnt 
+         , t1.proc_st_cd
+         , t1.strt_dt
+         , t1.end_dt
+         , t1.use_yn
+         , t1.crt_dt
+         , t1.crt_tm
+         , t1.crt_usr_id
+         , t1.mod_dt
+         , t1.mod_tm
+         , t1.mod_usr_id
+		  FROM cm010  t1
+		 WHERE  1  =  1
+		   AND  t1.cmpg_id = #{cmpg_id}
+	</select>
+
+	<insert id="insert" parameterType="map">
+		INSERT  INTO cm010 (cmpg_id
+			 ,  cmpg_nm
+			 ,  cmpg_dsc
+			 ,  cmpg_type_cd
+			 ,  cntr_cd
+			 ,  team_cd
+			 ,  grtn
+			 ,  clsn
+			 ,  qst_scnt
+			 ,  trgt_cust_scnt
+			 ,  proc_st_cd
+			 ,  strt_dt
+			 ,  end_dt
+			 ,  use_yn
+			 ,  crt_dt
+			 ,  crt_tm
+			 ,  crt_usr_id
+			 ,  mod_dt
+			 ,  mod_tm
+			 ,  mod_usr_id
+			) VALUES (scm010.nextval
+			 ,  #{cmpg_nm}
+			 ,  #{cmpg_dsc}
+			 ,  #{cmpg_type_cd}
+			 ,  #{cntr_cd}
+			 ,  #{team_cd}
+			 ,  #{grtn}
+			 ,  #{clsn}
+			 ,  0
+			 ,  0
+			 ,  #{proc_st}
+			 ,  #{strt_dt}
+			 ,  #{end_dt}
+			 ,  #{use_yn}
+			 ,   TO_CHAR(SYSDATE, 'YYYYMMDD')
+			 ,   TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+			 ,  #{login_usr_id}
+			 ,   TO_CHAR(SYSDATE, 'YYYYMMDD')
+			 ,   TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+			 ,  #{login_usr_id}
+		)
+	</insert>
+
+	<update id="update" parameterType="map">
+		UPDATE  cm010
+		   SET  cmpg_dsc = #{cmpg_dsc}
+			 ,  cntr_cd = #{cntr_cd}
+			 ,  team_cd = #{team_cd}
+			 ,  grtn = #{grtn}
+			 ,  clsn = #{clsn}
+			 ,  cmpg_nm = #{cmpg_nm}
+			 ,  cmpg_type_cd = #{cmpg_type_cd}
+			 ,  trgt_cust_scnt = #{trgt_cust_cnt}
+			 ,  proc_st_cd = #{proc_st}
+			 ,  strt_dt = #{strt_dt}
+			 ,  end_dt = #{end_dt}
+			 ,  use_yn = #{use_yn}
+			 ,  mod_dt = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			 ,  mod_tm = TO_CHAR(SYSTIMESTAMP, 'HH24MISS')
+			 ,  mod_usr_id = #{login_usr_id}
+		 WHERE  1 = 1
+		   AND  cmpg_id = #{cmpg_id}
+	</update>
+	
+	<update id="deleteYn" parameterType="map">
+	
+		UPDATE cm010
+		   SET use_yn = 'N'
+		 WHERE 1=1
+		   AND cmpg_id = #{cmpg_id}
+	
+	</update>
+
+	<delete id="delete" parameterType="map">
+		DELETE FROM cm010
+		 WHERE 1 = 1
+		   AND cmpg_id = #{cmpg_id}
+	</delete>
+	
+	<select id="cmpgResultSelect" resultType="map">
+	
+		<if test="rows != null and page != null">
+			SELECT *
+			FROM
+			(
+				SELECT A1.*
+					,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+					,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+					,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+				FROM
+				(
+			</if>
+				SELECT  t1.cmpg_id
+				     ,  t1.cmpg_nm
+				     ,  getCodeNM(t1.proc_st_cd,'90023') proc_st
+				     ,  t1.trgt_cust_scnt as trgt_cust_cnt
+				     ,  t1.qst_scnt as vltn_cnt 
+				     ,  getFormatDate(t1.strt_dt) ||' ~ '|| getFormatDate(t1.end_dt) stend_dt
+				     ,  (SELECT count(1) FROM cm012 WHERE cmpg_id = t1.cmpg_id AND proc_st_cd != '010000') comcnt
+				     ,  getCodeNM(t1.cmpg_type_cd, '90115') cmpg_type
+				  FROM  cm010 t1
+				 WHERE  use_yn='Y'
+				    <if test="cmpg_nm != null and !cmpg_nm.equals('all') and !cmpg_nm.equals('')">
+				    	and cmpg_nm LIKE '%' || #{cmpg_nm} || '%'
+				    </if>
+				    <if test="opt_srchtype != null and !opt_srchtype.equals('all') and !opt_srchtype.equals('')">
+				    	and  proc_st_cd = #{opt_srchtype}
+				    </if>
+				    <if test="cmpg_type != null and !cmpg_type.equals('all') and !cmpg_type.equals('')">
+				    	and  cmpg_type_cd = #{cmpg_type}
+				    </if>
+				   	<if test="fr_dt != null and !fr_dt.equals('') and to_dt != null and !to_dt.equals('')">
+						and ( #{to_dt}>= strt_dt
+						and  end_dt >=#{fr_dt} )
+					</if>
+					<if test="sidx != null and sord != null">
+					ORDER BY ${sidx} ${sord}
+					</if>
+			<if test="rows != null and page != null">
+				) A1
+			)
+			WHERE PAGENUM = #{page}
+		</if>
+
+		  
+	</select>
+	
+	<select id="cmpgAgtSelectList" resultType="map">
+	
+		<if test="rows != null and page != null">
+			SELECT *
+			FROM
+			(
+				SELECT A1.*
+					,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+					,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+					,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+				FROM
+				(
+			</if>
+         SELECT USR_ID
+              , NVL2(USR_NM, USR_NM,'(미배정)') AS USR_NM
+              , TOTCNT
+              , DIVCNT
+              , NONDIVCNT
+              , COPCNT
+              , NONCOPCNT
+              , PROGRESS
+           FROM (			
+									SELECT T2.USR_ID
+									    , (SELECT USR_NM FROM OM001 T3 WHERE T2.USR_ID = T3.USR_ID) AS USR_NM
+									    , COUNT(T2.CUST_ID) AS TOTCNT
+									    , COUNT(T2.USR_ID) AS DIVCNT 
+                    	, SUM(CASE WHEN T2.USR_ID IS NULL THEN 1 ELSE 0 END) AS NONDIVCNT
+									    , SUM(CASE T2.PROC_ST_CD WHEN '030400' THEN 1 ELSE 0 END) AS COPCNT
+									    , SUM(CASE T2.PROC_ST_CD WHEN '010000' THEN 1 ELSE 0 END) AS NONCOPCNT
+									    , (CASE COUNT(T2.CUST_ID) WHEN 0 THEN '0%' ELSE TRUNC((SUM(CASE T2.PROC_ST_CD WHEN '030400' THEN 1 ELSE 0 END) / COUNT(T2.CUST_ID) * 100), 2) || '%' END) AS PROGRESS
+									  FROM CM010 T1
+									       LEFT OUTER JOIN CM012 T2 ON T1.CMPG_ID = T2.CMPG_ID 
+									 WHERE T1.USE_YN = 'Y'
+									 	<if test="cmpg_id != null and !cmpg_id.equals('')">
+									   AND T1.CMPG_ID = #{cmpg_id}
+								    </if>
+								    <if test="usrGrdCd != null and usrGrdCd.equals('010100')">				   
+									   AND T2.USR_ID = #{usr_id}
+								    </if>				   
+								    <if test="usr_id != null and !usr_id.equals('all') and !usrGrdCd.equals('010100')">				   
+									   AND T2.USR_ID = #{usr_id}
+								    </if>						    
+									 GROUP BY T1.CMPG_ID, T2.USR_ID
+								
+								<if test="sidx != null and sord != null">
+									ORDER BY ${sidx} ${sord}
+								</if>
+                  ) A2					
+			<if test="rows != null and page != null">
+				) A1
+			)
+			WHERE PAGENUM = #{page}
+		</if>
+
+		  
+	</select>	
+
+</mapper>

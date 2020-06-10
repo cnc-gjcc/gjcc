@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="sm010">
+	
+	<select id="programlist" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				SELECT LEVEL lv
+					, RPAD('	-', LEVEL*2-2) || MNU_NM MNU_NM
+					,	MNU_ID					
+					,	MNU_URL
+					,	USE_YN
+					,	getFormatDate(mod_dt) AS mod_dt_format
+					,	MOD_DT					
+					,	MOD_USR_ID
+				FROM sm010
+				WHERE 1 = 1
+				<if test="srchtype != null and !srchval.equals('')">
+					<if test="srchtype.equals('mnu_nm')">
+						and upper(MNU_NM) like '%' || upper(#{srchval}) || '%'
+					</if>
+					<if test="srchtype.equals('mnu_url')">
+						and upper(mnu_url) like '%' || upper(#{srchval}) || '%'
+					</if>
+				</if>
+				<if test="!notuse">
+					and use_yn = 'Y'
+				</if>
+				<if test="sidx != null and sord != null">
+				start with PARNT_MNU_ID is null
+				connect by prior mnu_id = PARNT_MNU_ID
+				ORDER SIBLINGS BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+		WHERE PAGENUM = #{page}
+		</if>
+	</select>
+	
+	<select id="programspec" parameterType="map" resultType="map">
+		SELECT 0
+			,	t1.mnu_id
+			,	t1.mnu_url
+			,	t1.MNU_NM
+			,	t1.parnt_mnu_id
+			,	t1.parnt_mnu_url
+			,	t1.tab_ord
+			,	t1.use_yn
+			,	t1.crt_dt
+			,	getFormatDate(t1.crt_dt) AS crt_dt_format
+			,	t1.wdt_sz
+			,	t1.hght_sz
+			,	t1.crt_tm
+			,	t1.crt_usr_id
+			,	(select USR_NM from OM001 where USR_ID = t1.crt_usr_id) AS crt_usr_nm
+			,	t1.mod_dt
+			,	t1.mod_tm
+			,	getFormatDate(t1.mod_dt) AS mod_dt_format
+			,	getFormatTime(t1.mod_tm) AS mod_tm_format
+			,	t1.mod_usr_id
+			,	(select USR_NM from OM001 where USR_ID = t1.mod_usr_id) AS mod_usr_nm
+		FROM sm010 t1
+		WHERE mnu_id = #{mnuId}
+	</select>
+	
+	<insert id="insertProgram" parameterType="map">
+		INSERT INTO sm010
+		(
+				MNU_ID
+			,	MNU_URL
+			,	MNU_NM
+			,	PARNT_MNU_ID
+			,	PARNT_MNU_URL
+			,	WDT_SZ
+			,	HGHT_SZ
+			,	TAB_ORD
+			,	USE_YN
+			,	CRT_DT
+			,	CRT_TM
+			,	CRT_USR_ID
+			,	MOD_DT
+			,	MOD_TM
+			,	MOD_USR_ID
+		)
+		VALUES
+		(
+				#{mnuId}
+			,	#{mnuUrl}
+			,	#{mnuNm}
+			,	#{parntMnuId}
+			,	#{parntMnuUrl}
+			,	#{wdtSz}
+			,	#{hghtSz}
+			,	#{tabOrd}					
+			<if test="use_yn != null">
+			,	#{use_yn}
+			</if>
+			<if test="use_yn == null">
+			,	'Y'
+			</if>
+			,	to_char(sysdate, 'yyyymmdd')
+			,	to_char(sysdate, 'hh24miss')
+			,	#{login_usr_id}
+			,	to_char(sysdate, 'yyyymmdd')
+			,	to_char(sysdate, 'hh24miss')
+			,	#{login_usr_id}
+		)
+	</insert>
+	
+	<update id="updateProgram" parameterType="map">
+		UPDATE sm010
+			SET		mnu_url = #{mnuUrl}
+				,	MNU_NM = #{mnuNm}
+				,	parnt_mnu_id = #{parntMnuId}
+				,	parnt_mnu_url = #{parntMnuUrl}
+				,	wdt_sz = #{wdtSz}
+				,	hght_sz = #{hghtSz}
+				,	tab_ord = #{tabOrd}
+				,	mod_dt = to_char(sysdate, 'yyyymmdd')
+				,	mod_tm = to_char(sysdate, 'hh24miss')
+				,	mod_usr_id = #{login_usr_id}
+			<if test="use_yn != null">
+				,	use_yn = #{use_yn}
+			</if>
+			<if test="use_yn == null">
+				,	use_yn = 'Y'
+			</if>
+		 WHERE mnu_id = #{mnuId}
+	</update>
+	
+	<select id="progAuthList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>
+				SELECT LEVEL lv
+					, RPAD('	-', LEVEL*2-2) || MNU_NM MNU_NM
+					, MNU_ID					
+					, (SELECT crt_yn FROM om003 WHERE om003.mnu_id = sm010.mnu_id AND auth_cd = #{auth_cd}) AS crt_yn
+					, (SELECT rd_yn FROM om003 WHERE om003.mnu_id = sm010.mnu_id AND auth_cd = #{auth_cd}) AS rd_yn
+					, (SELECT upd_yn FROM om003 WHERE om003.mnu_id = sm010.mnu_id AND auth_cd = #{auth_cd}) AS upd_yn
+					, (SELECT dlt_yn FROM om003 WHERE om003.mnu_id = sm010.mnu_id AND auth_cd = #{auth_cd}) AS dlt_yn
+					, (SELECT fldn_yn FROM om003 WHERE om003.mnu_id = sm010.mnu_id AND auth_cd = #{auth_cd}) AS fldn_yn
+				FROM sm010
+				WHERE 1 = 1
+					AND use_yn = 'Y' 
+				<if test="sidx != null and sord != null">
+					start with PARNT_MNU_ID is null
+					connect by prior mnu_id = PARNT_MNU_ID
+					ORDER SIBLINGS BY ${sidx} ${sord}
+				</if>
+		<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>
+	
+	<resultMap id="MenuMap" type="map">
+		<result property="lv" column="LV"/>
+		<result property="text" column="TEXT"/>
+		<result property="id" column="ID"/>
+		<result property="value" column="VALUE"/>
+		<result property="parent" column="PARENT"/>
+	</resultMap>
+	
+	<select id="getUserMenu" parameterType="map" resultMap="MenuMap">
+	SELECT	LEVEL lv
+				,	A.mnu_nm as text
+				,	A.mnu_id as id
+				,	A.mnu_url as value
+				,	case when A.parnt_mnu_id is null then '#' else A.PARNT_MNU_ID end as parent
+		FROM SM010 A ,
+        (select mnu_id
+				from or002 a1
+				join om003 a2
+				on a1.auth_cd = a2.auth_cd
+				where a1.usr_id = #{login_usr_id} and a1.use_yn = 'Y' and a2.rd_yn = 'Y'
+				group by mnu_id) B
+		WHERE 1 = 1
+			and A.use_yn = 'Y'
+			and A.mnu_id = B.mnu_id
+			start with A.PARNT_MNU_ID is null
+			connect by prior A.mnu_id = A.PARNT_MNU_ID
+			order siblings by A.TAB_ORD
+	</select>
+</mapper>

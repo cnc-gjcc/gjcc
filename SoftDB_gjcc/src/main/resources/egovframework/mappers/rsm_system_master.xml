@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+	<mapper namespace="rsm_system_master">
+
+  <!-- RSM SMS 발송 이력 조회 -->
+	<select id="systemList" parameterType="map" resultType="map">
+		<if test="rows != null and page != null">
+		SELECT *
+		FROM
+		(
+			SELECT A1.*
+				,	CEIL((ROW_NUMBER() OVER(ORDER BY ROWNUM)) / #{rows}) PAGENUM
+				,	CEIL(COUNT(1) OVER() / #{rows}) TOTPAGECOUNT
+				,	CEIL(COUNT(1) OVER()) TOTROWCOUNT
+			FROM
+			(
+		</if>         
+        SELECT SYSTEMID, SYSTNAME, HOSTNAME
+             , IP_ADDR_1, IP_ADDR_2, INTRO_YEAR
+             , MEMORY, COMMUNITY, CPU_TYPE
+             , ICMP_GB, MONI_GB, CALLSTAT_GB, HIDDEN_GB
+             , CENTERCD, GETCODENM(CENTERCD, '92005') AS CENTERNM     
+             , SYSROLE, GETCODENM(SYSROLE, '92007') AS SYSROLENM
+             , SYSCONF, GETCODENM(SYSCONF, '92006') AS SYSCONFNM
+             , MASTERGB, GETCODENM(MASTERGB, '92004') AS MASTERGBNM
+             , SYSMODEL, GETCODENM(SYSMODEL, '') AS SYSMODELNM                  
+             , OS_TYPE, GETCODENM(OS_TYPE, '92018') AS OS_TYPENM
+             , SNMP_VER, GETCODENM(SNMP_VER, '92021') AS SNMP_VERNM     
+             , OS_VER, GETCODENM(OS_VER, '92017') AS OS_VERNM     
+          FROM RSM_SYSTEM_MASTER          
+         WHERE 1 = 1   
+        <if test="sysRole != null and !sysRole.equals('all')">     
+           AND SYSROLE = #{sysRole}
+        </if>
+        <if test="systName != null and !systName.equals('all')">       
+           AND SYSTNAME LIKE '%' || #{systName} || '%'   
+        </if>				 
+				
+				<if test="sidx != null and sord != null">
+				ORDER BY ${sidx} ${sord}
+				</if>			
+				
+		<if test="rows != null and page != null">
+			) A1
+		)
+ 		WHERE PAGENUM = #{page}
+ 		</if>
+	</select>
+ 
+  <select id="getSystemId" parameterType="map" resultType="map">
+      SELECT TO_CHAR(SYSDATE, 'YYYY') || #{sysRole} || LPAD(NVL(MAX(SUBSTR(SYSTEMID,8,3)),0)+1,3,0) AS SYSTEMID
+        FROM RSM_SYSTEM_MASTER
+  </select> 
+
+	<insert id="insert" parameterType="map">
+		INSERT INTO rsm_system_master 
+		    (SYSTEMID 
+       , SYSTNAME  
+       <if test="hostname != null">
+       , HOSTNAME  
+       </if>
+       <if test="centerCd != null and !centerCd.equals('all')">
+       , CENTERCD  
+       </if>
+       <if test="sysRole != null and !sysRole.equals('all')">
+       , SYSROLE 
+       </if>
+       <if test="sysConf != null and !sysConf.equals('all')">
+       , SYSCONF 
+       </if>
+       <if test="masterGb != null and !masterGb.equals('all')">
+       , MASTERGB  
+       </if>
+       <if test="ipAddr1 != null">
+       , IP_ADDR_1 
+       </if>
+       <if test="ipAddr2 != null">
+       , IP_ADDR_2 
+       </if>
+       <if test="sysModel != null">
+       , SYSMODEL  
+       </if>
+       <if test="cpuType != null">
+       , CPU_TYPE  
+       </if>
+       <if test="memory != null">
+       , MEMORY  
+       </if>
+       <if test="osType != null and !osType.equals('all')">
+       , OS_TYPE 
+       </if>
+       <if test="osVer != null and !osVer.equals('all')">
+       , OS_VER  
+       </if>
+       <if test="snmpVer != null and !snmpVer.equals('all')">
+       , SNMP_VER  
+       </if>
+       <if test="community != null">
+       , COMMUNITY 
+       </if>
+       <if test="introYear != null and !introYear.equals('all')">
+       , INTRO_YEAR
+       </if>
+       , ICMP_GB 
+       , MONI_GB 
+       , CALLSTAT_GB
+       , HIDDEN_GB 
+        )
+		VALUES
+			(
+         <!-- TO_CHAR(SYSDATE, 'YYYY') || #{sysRole} || LPAD(NVL(MAX(SUBSTR(SYSTEMID,8,3)),0)+1,3,0) -->    
+         #{systemId}  
+       , #{systemNm} 
+       <if test="hostname != null">
+       , #{hostname} 
+       </if>
+       <if test="centerCd != null and !centerCd.equals('all')">
+       , #{centerCd}           
+       </if>
+       <if test="sysRole != null and !sysRole.equals('all')">
+       , #{sysRole}     
+       </if>
+       <if test="sysConf != null and !sysConf.equals('all')">
+       , #{sysConf}     
+       </if>
+       <if test="masterGb != null and !masterGb.equals('all')">
+       , #{masterGb}  
+       </if>
+       <if test="ipAddr1 != null">
+       , #{ipAddr1}     
+       </if>
+       <if test="ipAddr2 != null">
+       , #{ipAddr2}
+       </if>
+       <if test="sysModel != null">
+       , #{sysModel}  
+       </if>
+       <if test="cpuType != null">
+       , #{cpuType}
+       </if>
+       <if test="memory != null">
+       , #{memory}
+       </if>
+       <if test="osType != null and !osType.equals('all')">
+       , #{osType}
+       </if>
+       <if test="osVer != null and !osVer.equals('all')">
+       , #{osVer}     
+       </if>
+       <if test="snmpVer != null and !snmpVer.equals('all')">
+       , #{snmpVer}                
+       </if>
+       <if test="community != null">
+       , #{community} 
+       </if>
+       <if test="introYear != null and !introYear.equals('all')">
+       , #{introYear}
+       </if>
+              
+       , #{icmpGb}    
+       , #{moniGb}    
+       , #{callGb}    
+       , #{hiddenGb}  
+			)
+	</insert>
+
+	<update id="update" parameterType="map">
+    UPDATE rsm_system_master SET 
+           SYSTNAME = #{systemNm}  
+         <if test="hostname != null">
+         , HOSTNAME = #{hostname}  
+         </if>
+         <if test="centerCd != null and !centerCd.equals('all')">
+         , CENTERCD = #{centerCd} 
+         </if>
+         <if test="sysRole != null and !sysRole.equals('all')">
+         , SYSROLE = #{sysRole}
+         </if>
+         <if test="sysConf != null and !sysConf.equals('all')">
+         , SYSCONF = #{sysConf} 
+         </if>
+         <if test="masterGb != null and !masterGb.equals('all')">
+         , MASTERGB = #{masterGb}  
+         </if>
+         <if test="ipAddr1 != null">
+         , IP_ADDR_1 = #{ipAddr1} 
+         </if>
+         <if test="ipAddr2 != null">
+         , IP_ADDR_2 = #{ipAddr2}
+         </if>
+         <if test="sysModel != null">
+         , SYSMODEL = #{sysModel} 
+         </if>
+         <if test="cpuType != null">
+         , CPU_TYPE = #{cpuType} 
+         </if>
+         <if test="memory != null">
+         , MEMORY = #{memory} 
+         </if>
+         <if test="osType != null and !osType.equals('all')">
+         , OS_TYPE = #{osType}
+         </if>
+         <if test="osVer != null and !osVer.equals('all')">
+         , OS_VER = #{osVer}  
+         </if>
+         <if test="snmpVer != null and !snmpVer.equals('all')">
+         , SNMP_VER = #{snmpVer}   
+         </if>
+         <if test="community != null">
+         , COMMUNITY = #{community} 
+         </if>
+         <if test="introYear != null and !introYear.equals('all')">
+         , INTRO_YEAR = #{introYear}
+         </if>
+         , ICMP_GB = #{icmpGb}
+         , MONI_GB = #{moniGb} 
+         , CALLSTAT_GB = #{callGb}
+         , HIDDEN_GB = #{hiddenGb} 
+     WHERE SYSTEMID = #{systemId}
+	</update>
+ 
+  <delete id="delete" parameterType="map">
+    DELETE FROM rsm_system_master  
+     WHERE SYSTEMID = #{systemId}
+  </delete>
+  
+</mapper>
