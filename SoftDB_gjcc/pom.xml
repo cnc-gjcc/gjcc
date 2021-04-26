@@ -14,7 +14,7 @@
 
 		<httpclient.version>4.3.3</httpclient.version>
 		<poi.version>3.9</poi.version>
-		<commons-io.version>2.4</commons-io.version>
+		<commons-io.version>2.7</commons-io.version>
 		<commons-dbcp.version>1.4</commons-dbcp.version>
 		<commons-lang.version>2.6</commons-lang.version>
 		<commons-fileupload.version>1.2</commons-fileupload.version>
