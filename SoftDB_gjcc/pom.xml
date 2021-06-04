@@ -12,7 +12,7 @@
 		<mybatis.version>3.3.0</mybatis.version>
 		<mybatis-spring.version>1.2.3</mybatis-spring.version>
 
-		<httpclient.version>4.3.3</httpclient.version>
+		<httpclient.version>4.5.13</httpclient.version>
 		<poi.version>3.9</poi.version>
 		<commons-io.version>2.4</commons-io.version>
 		<commons-dbcp.version>1.4</commons-dbcp.version>
