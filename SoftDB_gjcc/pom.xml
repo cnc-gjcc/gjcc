@@ -6,7 +6,7 @@
 	<url>http://maven.apache.org</url>
 
 	<properties>
-		<springframework.version>4.0.9.RELEASE</springframework.version>
+		<springframework.version>5.3.18</springframework.version>
 		<egovframework.rte.version>3.5.0</egovframework.rte.version>
 
 		<mybatis.version>3.3.0</mybatis.version>
